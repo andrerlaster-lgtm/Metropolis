@@ -8,6 +8,7 @@ import { Camera } from './camera.js';
 import { InputController } from './input.js';
 import { AutoSaver, readSlot, saveCity, activeSlot, setActiveSlot, deleteSlot, isLocked, firstEmptySlot, isVisiting, saveVisit, loadVisit, endVisit, rescueLegacyBackup } from './persistence.js';
 import { SlotsSheet } from './slotsUI.js';
+import { TabGuard } from './tabGuard.js';
 import { DecisionCard } from './decisionUI.js';
 import { addChronicle } from './chronicle.js';
 import { yearOf } from './eras.js';
@@ -65,7 +66,9 @@ const TOOL_SOUNDS = {
 const STROKE_LABELS = { road: 'road', water: 'water', bulldoze: 'bulldozing', tree: 'trees', park: 'parks', field: 'sports fields' };
 const FEEDBACK_RADIUS = 7;
 
-function start(hotData = {}) {
+// `readOnly`: another tab is already playing, so this one shows the town but never saves or changes
+// what's stored until the player chooses to play here instead.
+function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   loadSettings();
   const canvas = document.getElementById('city');
   let city = null;
@@ -74,7 +77,7 @@ function start(hotData = {}) {
   } catch {
     city = null;
   }
-  const rescued = rescueLegacyBackup(); // a town backed up by an older version during a visit
+  const rescued = readOnly ? null : rescueLegacyBackup(); // a town backed up by an older version during a visit
   let visiting = !city && isVisiting();
   if (visiting) {
     city = loadVisit();
@@ -90,9 +93,9 @@ function start(hotData = {}) {
     const r = readSlot(n);
     if (r.status === 'ok') city = r.city;
     else if (r.status === 'broken') {
-      const free = firstEmptySlot();
+      const free = readOnly ? null : firstEmptySlot();
       if (free) setActiveSlot(free);
-      startNote = unreadableNote(n, r.newer) + (free ? ` This new town is in slot ${free}.` : ' Open Save slots to choose where this new town is saved.');
+      if (!readOnly) startNote = unreadableNote(n, r.newer) + (free ? ` This new town is in slot ${free}.` : ' Open Save slots to choose where this new town is saved.');
     }
   }
   const fresh = !city;
@@ -103,6 +106,7 @@ function start(hotData = {}) {
   const sim = new Simulation(city);
   const renderer = new Renderer(canvas, city, camera, sim.agents);
   const saver = new AutoSaver(city);
+  saver.enabled = !readOnly;
   const history = new History(city);
   const audio = new Audio();
   const minimap = new Minimap(document.getElementById('minimap'), city, camera);
@@ -633,14 +637,15 @@ function start(hotData = {}) {
     stopFollow();
   }
 
-  const sharedCode = codeFromHash(window.location.hash);
+  // A read-only tab leaves a shared link in the address bar, so it opens once this tab plays.
+  const sharedCode = readOnly ? null : codeFromHash(window.location.hash);
   if (sharedCode) {
     window.history.replaceState(null, '', window.location.pathname + window.location.search); // a reload won't re-import
     queueMicrotask(() => visitShared(sharedCode));
   }
   window.addEventListener('hashchange', () => {
     const code = codeFromHash(window.location.hash);
-    if (!code) return;
+    if (!code || (guard && !guard.active)) return;
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
     visitShared(code);
   });
@@ -1074,10 +1079,53 @@ function start(hotData = {}) {
   }
   requestAnimationFrame(frame);
 
+  // ---- One tab at a time -------------------------------------------------------------
+  // A tab that isn't playing is paused, never saves, and offers to play here instead. Taking over
+  // asks the playing tab to save and step aside, then reloads so this tab starts from that save.
+  function showTabGuard(kind) {
+    let el = document.getElementById('tab-guard');
+    if (!el) {
+      el = document.createElement('section');
+      el.id = 'tab-guard';
+      el.className = 'tab-guard';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-modal', 'true');
+      el.setAttribute('aria-labelledby', 'tab-guard-title');
+      document.getElementById('app').appendChild(el);
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-play-here]');
+        if (!b || !guard) return;
+        b.disabled = true;
+        b.textContent = 'Switching…';
+        guard.takeOver().then(() => window.location.reload());
+      });
+    }
+    const [title, text] =
+      kind === 'moved'
+        ? ["You're playing in another tab now", 'This tab stepped aside after saving, so the two tabs never save over each other.']
+        : ['Pocket Metropolis is open in another tab', 'To keep your towns safe, only one tab plays at a time. Your town is saving in the other tab.'];
+    el.innerHTML = `<div class="tab-guard-card glass"><h2 id="tab-guard-title">${title}</h2><p>${text}</p><button type="button" class="primary-btn" data-play-here>Play here instead</button></div>`;
+    el.hidden = false;
+    ui.setSpeed(0);
+    stopFollow();
+    el.querySelector('button').focus();
+  }
+  if (guard) {
+    guard.beforeYield = () => saver.flush();
+    guard.onLost = () => {
+      saver.enabled = false;
+      showTabGuard('moved');
+    };
+  }
+  if (readOnly) showTabGuard('busy');
+
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, history, audio, ui, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, history, audio, ui, saver, guard, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
+// Only one tab plays at a time; find out whether this one may before anything is loaded or saved.
+const guard = new TabGuard();
+const begin = (data) => (guard.active ? Promise.resolve(true) : guard.claim()).then((ok) => start(data, { readOnly: !ok, guard }));
 const hot = window.claude?.hot;
-if (hot?.ready) hot.ready(start);
-else start(hot?.data ?? {});
+if (hot?.ready) hot.ready(begin);
+else begin(hot?.data ?? {});
