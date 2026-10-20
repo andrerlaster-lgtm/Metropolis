@@ -7,7 +7,7 @@ A relaxing isometric tiny-city builder. You plan the city; residents decide for 
 - **Grow from a seed:** a new town can start as a little crossroads with a few cottages in 1850 and grow by itself (see *Growing through the eras* below). The first visit starts this way
 - **Main person and generations:** you start by creating your main person. Follow them on the map, and when they die the story carries on with their child (or a niece or nephew), generation after generation
 - **Town decisions** every couple of in-game days, with good and bad effects on how the town grows
-- **Three save slots** (☰ → Save slots…): keep three towns, start a new town with a new main person in an empty slot, copy or delete
+- **Three save slots** (☰ → Save slots…): keep three towns, start a new town with a new main person in an empty slot, copy or delete. A save that can't be read (damaged, or written by a newer version of the game) is never saved over: the game starts in an empty slot, says what happened and keeps a recovery copy. Only deleting the slot, starting a new town there or saving a copy over it replaces it
 
 - **New town** (top-right button, or ☰ → New town…): choose **Sandbox** (everything unlocked) or **Milestones** (unlock buildings as you grow), a **small (16×16), medium (32×32) or large (48×48)** map, and **a seed** that grows, **empty land** or a ready-made **starter town**; whether it **grows by itself**; and **someone new** or the same family as your main person. Achievements carry over
 - Homes (house, cottage, apartments, tower), workplaces (shop, café, bakery, office, mall, factory), services (school, clinic, library, fire station, university), recreation (playground, sports field), nature (tree, park, water) and roads. Factories pay well but their smoke makes nearby homes less desirable
@@ -29,7 +29,7 @@ A relaxing isometric tiny-city builder. You plan the city; residents decide for 
 - Gentle synthesised sound effects and ambience (birds by day, crickets at night, rain), with a mute switch
 - Drag to build lines of road or paint trees, water and buildings; undo and redo every edit
 - Autosave with versioned saves; older 12×12 towns open centred on the larger map
-- **Share your town as a link** (☰ → Share town link). The map is packed into the link itself, so no server is needed. Opening a link gives the visitor a copy to play with; their own town is kept safe and comes back with ☰ → Back to my town
+- **Share your town as a link** (☰ → Share town link). The map is packed into the link itself, so no server is needed. Opening a link gives the visitor a copy to play with. The visit is saved on its own, outside the save slots, so your towns are never touched; ☰ → Back to my town (or Save slots) takes you home, and saving a copy into an empty slot keeps the shared town
 - **Minimap** in the corner: tap or drag to jump around the city (on by default on bigger screens, switchable in ☰)
 - **Trends** in the City panel: population, happiness, employment and the busiest road over the last six in-game days, with a readout on hover or tap and a table view
 - **Comfort settings** in ☰: colour-blind friendly colours (Okabe–Ito severity colours and blue-to-yellow map ramps) and larger text. They're remembered on this device

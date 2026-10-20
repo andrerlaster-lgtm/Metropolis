@@ -2,7 +2,7 @@
 // an empty slot, save a copy of the current town into another slot, or delete one you're done with.
 // Deleting asks twice. The slot you're playing is saved automatically.
 
-import { SLOT_COUNT, activeSlot, slotInfo } from './persistence.js';
+import { SLOT_COUNT, activeSlot, slotInfo, isVisiting } from './persistence.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
@@ -18,8 +18,8 @@ function ago(ms) {
 }
 
 export class SlotsSheet {
-  constructor({ onPlay, onNew, onCopy, onDelete, onOpen, beforeOpen }) {
-    this.h = { onPlay, onNew, onCopy, onDelete, onOpen, beforeOpen };
+  constructor({ onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen }) {
+    this.h = { onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen };
     this.el = document.getElementById('slots-sheet');
     this.confirm = null; // slot waiting for a second tap to delete
     this.el.addEventListener('click', (e) => {
@@ -32,11 +32,21 @@ export class SlotsSheet {
         this.toggle(false);
         return this.h.onPlay(n);
       }
+      if (act === 'home') {
+        this.toggle(false);
+        return this.h.onHome();
+      }
       if (act === 'new') {
         this.toggle(false);
         return this.h.onNew(n);
       }
       if (act === 'copy') {
+        // Writing over an unreadable save (maybe a town from a newer version) asks twice, like Delete.
+        if (b.dataset.broken != null && this.confirm !== `copy${n}`) {
+          this.confirm = `copy${n}`;
+          return this.render();
+        }
+        this.confirm = null;
         this.h.onCopy(n);
         return this.render();
       }
@@ -72,13 +82,17 @@ export class SlotsSheet {
 
   render() {
     const active = activeSlot();
+    const visiting = isVisiting(); // your own town waits in the active slot while you visit
     const cards = [];
     for (let n = 1; n <= SLOT_COUNT; n++) {
       const info = slotInfo(n);
-      const playing = n === active;
+      const playing = n === active && !visiting;
       let body;
       if (!info) body = '<p class="slot-empty">Empty</p>';
-      else if (info.broken) body = '<p class="slot-empty">This save could not be read.</p>';
+      else if (info.broken)
+        body = info.newer
+          ? '<p class="slot-empty">Saved by a newer version of the game. Reload the page to update. The town is kept safe.</p>'
+          : '<p class="slot-empty">This save could not be read. It is kept safe until you delete it or start a new town here.</p>';
       else
         body =
           `<p class="slot-title"><b>${esc(info.era || 'Town')}</b> · ${info.year}</p>` +
@@ -87,15 +101,19 @@ export class SlotsSheet {
           `<p class="slot-when">Saved ${ago(info.savedAt)}</p>`;
       const actions = playing
         ? '<span class="slot-badge">Playing now</span>'
+        : n === active
+        ? `<span class="slot-badge">Your town</span>${info && !info.broken ? '<button type="button" class="primary-btn small" data-act="home">Back to my town</button>' : ''}`
         : (info && !info.broken ? `<button type="button" class="primary-btn small" data-act="play" data-slot="${n}">Play</button>` : '') +
           `<button type="button" class="ghost-btn small" data-act="new" data-slot="${n}">${info ? 'New town here' : 'Start a new town'}</button>` +
-          `<button type="button" class="ghost-btn small" data-act="copy" data-slot="${n}">${info ? 'Overwrite with this town' : 'Save a copy here'}</button>` +
+          `<button type="button" class="ghost-btn small" data-act="copy" data-slot="${n}"${info?.broken ? ' data-broken' : ''}>${!info ? 'Save a copy here' : this.confirm === `copy${n}` ? 'Tap again to overwrite' : 'Overwrite with this town'}</button>` +
           (info ? `<button type="button" class="ghost-btn small danger" data-act="delete" data-slot="${n}">${this.confirm === n ? 'Tap again to delete' : 'Delete'}</button>` : '');
       cards.push(`<li class="slot${playing ? ' playing' : ''}"><span class="slot-num">${n}</span><div class="slot-body">${body}<div class="slot-actions">${actions}</div></div></li>`);
     }
     this.el.innerHTML =
       `<header><h2>Save slots</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>` +
-      '<p class="sheet-hint">Keep up to three towns. The one you are playing saves itself as you go.</p>' +
+      (visiting
+        ? `<p class="sheet-hint">You're visiting a shared town. It isn't in a save slot: save a copy into an empty slot to keep it. Your own town is safe in slot ${active}.</p>`
+        : '<p class="sheet-hint">Keep up to three towns. The one you are playing saves itself as you go.</p>') +
       `<ul class="slots">${cards.join('')}</ul>`;
   }
 }

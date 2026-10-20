@@ -26,9 +26,10 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 export class NewTownSheet {
-  constructor({ onStart, onOpen, family }) {
+  constructor({ onStart, onOpen, family, where }) {
     this.onStart = onStart; // ({ mode, size, start, grow, person, slot }) → build the new town
     this.onOpen = onOpen;
+    this.where = where; // () → where a town with no slot chosen will go, if not the current slot
     this.family = family; // () → the main person's name, if there is one
     this.el = document.getElementById('newtown-sheet');
     this.choice = { mode: 'milestones', size: 'medium', start: 'seed', grow: 'on', person: 'new' };
@@ -91,6 +92,6 @@ export class NewTownSheet {
           ])
         : '') +
       '<button type="button" class="primary-btn" data-go>Start</button>' +
-      `<p class="sheet-hint center">${this.slot ? `Starts in save slot ${this.slot}.` : 'This replaces the town in your current save slot. Use Save slots to keep it.'}</p>`;
+      `<p class="sheet-hint center">${this.slot ? `Starts in save slot ${this.slot}.` : esc(this.where?.() || 'This replaces the town in your current save slot. Use Save slots to keep it.')}</p>`;
   }
 }
