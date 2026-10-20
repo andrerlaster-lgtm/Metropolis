@@ -93,3 +93,42 @@ test('a backup left by an older version goes into an empty slot, never over a to
   assert.equal(store.get(`${KEY}:backup`), undefined);
   assert.equal(P.rescueLegacyBackup(), null);
 });
+
+test('a town exported as a file imports back the same, into the slot the player picks', () => {
+  store.clear();
+  const c = town(32, 4);
+  c.getTile(3, 3).structure = { id: 999, type: 'house', residents: 3 };
+  P.saveCity(c, 1);
+  const file = P.exportSlot(1);
+  assert.match(file.name, /^pocket-metropolis-[a-z0-9-]+\.json$/);
+  assert.equal(file.text, store.get(KEY), 'the file is the save as stored');
+  assert.equal(P.exportSlot(3), null, 'nothing to export from an empty slot');
+
+  const parsed = P.parseImport(file.text);
+  assert.ok(parsed.city);
+  assert.ok(P.importInto(3, parsed));
+  const back = P.loadCity(3);
+  assert.equal(back.width, 32);
+  assert.equal(back.getTile(3, 3).structure.residents, 3);
+  assert.deepEqual(back.toJSON().tiles, c.toJSON().tiles);
+});
+
+test('files that are not towns, are damaged or come from a newer version are turned away', () => {
+  assert.deepEqual(P.parseImport('not json'), { error: 'invalid' });
+  assert.deepEqual(P.parseImport('{"hello":1}'), { error: 'invalid' });
+  assert.deepEqual(P.parseImport(JSON.stringify({ version: 2, city: { width: 500, height: 500, tiles: [] } })), { error: 'invalid' }, 'map size out of range');
+  assert.deepEqual(P.parseImport(JSON.stringify({ version: SAVE_VERSION + 1, city: town().toJSON() })), { error: 'newer' });
+  assert.deepEqual(P.parseImport('x'.repeat(P.MAX_IMPORT_BYTES + 1)), { error: 'size' });
+  assert.equal(P.importInto(1, { error: 'invalid' }), false);
+});
+
+test('an unreadable save exports as-is, so a newer version of the game can rescue it', () => {
+  store.clear();
+  store.set(`${KEY}:2`, '{"version":99,"city":{}}');
+  const file = P.exportSlot(2);
+  assert.equal(file.text, '{"version":99,"city":{}}');
+  assert.match(file.name, /slot-2-unreadable/);
+  // Importing over it is the player's choice and replaces it.
+  assert.ok(P.importInto(2, P.parseImport(JSON.stringify({ version: 2, city: town().toJSON() }))));
+  assert.equal(P.readSlot(2).status, 'ok');
+});
