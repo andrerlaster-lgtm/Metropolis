@@ -14094,6 +14094,13 @@ return { InputController };
 // ---- persistence.js ----
 const __mod_persistence = (() => {
 // Persistence: versioned saves in localStorage. Add a migration whenever SAVE_VERSION goes up.
+//
+// Two rules keep towns from being lost:
+//  - A slot whose save can't be read (damaged, or written by a newer version of the game) is never
+//    written over by autosave. Its raw text is also copied to a recovery key. Only something the
+//    player chooses for that slot (delete it, start a new town there, save a copy over it) replaces it.
+//  - A shared town you're visiting lives in its own key, never in a save slot, so visiting one (and
+//    switching slots while you do) can't touch your own towns.
 
 const { SAVE_VERSION } = __mod_config;
 const { CityState } = __mod_state;
@@ -14141,23 +14148,82 @@ function metaOf(city) {
   };
 }
 
+// Slots found unreadable this visit. Autosave leaves them alone.
+const locked = new Set();
+
+function getRaw(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+// Keep the text of an unreadable save under a recovery key (once), so it can be rescued later.
+function keepForRecovery(n, raw) {
+  try {
+    const key = `${slotKey(n)}:recovery`;
+    if (localStorage.getItem(key) !== raw) localStorage.setItem(key, raw);
+  } catch {
+    // No room for a copy; the slot itself is still left untouched.
+  }
+}
+
+function unreadable(n, raw, newer) {
+  locked.add(n);
+  keepForRecovery(n, raw);
+  return { status: 'broken', newer };
+}
+
+// What's saved in a slot: { status: 'empty' }, { status: 'ok', city, save } or
+// { status: 'broken', newer } (newer: written by a later version of the game).
+function readSlot(n) {
+  const raw = getRaw(slotKey(n));
+  if (!raw) return { status: 'empty' };
+  let save;
+  try {
+    save = JSON.parse(raw);
+  } catch {
+    return unreadable(n, raw, false);
+  }
+  if ((save?.version | 0) > SAVE_VERSION) return unreadable(n, raw, true);
+  try {
+    return { status: 'ok', city: CityState.fromJSON(migrate(save).city), save };
+  } catch {
+    return unreadable(n, raw, false);
+  }
+}
+
+// Is this slot's save unreadable (and so protected from autosave)?
+function isLocked(n) {
+  return locked.has(n);
+}
+
 // What's in a slot, without loading it: null when empty.
 function slotInfo(n) {
+  const raw = getRaw(slotKey(n));
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(slotKey(n));
-    if (!raw) return null;
     const save = JSON.parse(raw);
+    if ((save?.version | 0) > SAVE_VERSION) return { ...unreadable(n, raw, true), broken: true };
     if (save.meta) return { ...save.meta, savedAt: save.savedAt };
     const city = CityState.fromJSON(migrate(save).city);
     return { ...metaOf(city), savedAt: save.savedAt };
   } catch {
-    return { broken: true };
+    return { ...unreadable(n, raw, false), broken: true };
   }
 }
 
+function firstEmptySlot() {
+  for (let n = 1; n <= SLOT_COUNT; n++) if (!getRaw(slotKey(n))) return n;
+  return null;
+}
+
+// Deleting is the player's choice, so it also lifts the lock on an unreadable slot.
 function deleteSlot(n) {
   try {
     localStorage.removeItem(slotKey(n));
+    locked.delete(n);
     return true;
   } catch {
     return false;
@@ -14194,10 +14260,13 @@ function migrate(save) {
   return save;
 }
 
-function saveCity(city, slot = activeSlot()) {
+// Save a town into a slot. An unreadable slot is only written when the player chose to (`force`).
+function saveCity(city, slot = activeSlot(), { force = false } = {}) {
+  if (locked.has(slot) && !force) return false;
   try {
     const save = { version: SAVE_VERSION, savedAt: Date.now(), meta: metaOf(city), city: city.toJSON() };
     localStorage.setItem(slotKey(slot), JSON.stringify(save));
+    locked.delete(slot);
     return true;
   } catch {
     return false;
@@ -14205,41 +14274,66 @@ function saveCity(city, slot = activeSlot()) {
 }
 
 function loadCity(slot = activeSlot()) {
-  try {
-    const raw = localStorage.getItem(slotKey(slot));
-    if (!raw) return null;
-    return CityState.fromJSON(migrate(JSON.parse(raw)).city);
-  } catch {
-    return null;
-  }
+  const r = readSlot(slot);
+  return r.status === 'ok' ? r.city : null;
 }
 
-// A copy of your own town, kept while you visit a shared one.
-const BACKUP_KEY = `${KEY}:backup`;
+// ---- Visiting a shared town -------------------------------------------------------------
+// The visit has its own key; your own town stays in its slot (activeSlot) the whole time.
+const VISIT_KEY = `${KEY}:visit`;
 
-function saveBackup(city) {
+function isVisiting() {
+  return !!getRaw(VISIT_KEY);
+}
+
+function saveVisit(city) {
   try {
-    localStorage.setItem(BACKUP_KEY, JSON.stringify({ version: SAVE_VERSION, savedAt: Date.now(), city: city.toJSON() }));
+    localStorage.setItem(VISIT_KEY, JSON.stringify({ version: SAVE_VERSION, savedAt: Date.now(), city: city.toJSON() }));
     return true;
   } catch {
     return false;
   }
 }
 
-function loadBackup() {
+function loadVisit() {
   try {
-    const raw = localStorage.getItem(BACKUP_KEY);
+    const raw = localStorage.getItem(VISIT_KEY);
     return raw ? CityState.fromJSON(migrate(JSON.parse(raw)).city) : null;
   } catch {
     return null;
   }
 }
 
-function clearBackup() {
+function endVisit() {
   try {
-    localStorage.removeItem(BACKUP_KEY);
+    localStorage.removeItem(VISIT_KEY);
   } catch {
     // Nothing to clear.
+  }
+}
+
+// Save wherever the town being played belongs: the visit key while visiting, else its slot.
+function saveCurrent(city) {
+  return isVisiting() ? saveVisit(city) : saveCity(city);
+}
+
+// Before visits had their own key, your own town was copied to a backup key and the shared town was
+// saved over your slot. A backup left from then goes into an empty slot rather than over anything.
+const LEGACY_BACKUP_KEY = `${KEY}:backup`;
+
+function rescueLegacyBackup() {
+  const raw = getRaw(LEGACY_BACKUP_KEY);
+  if (!raw) return null;
+  const n = firstEmptySlot();
+  if (!n) return { slot: null };
+  try {
+    const save = JSON.parse(raw);
+    const city = CityState.fromJSON(migrate(save).city);
+    if (!saveCity(city, n)) return { slot: null };
+    localStorage.removeItem(LEGACY_BACKUP_KEY);
+    return { slot: n };
+  } catch {
+    return { slot: null };
   }
 }
 
@@ -14273,13 +14367,13 @@ class AutoSaver {
   }
 
   flush() {
-    saveCity(this.city);
+    saveCurrent(this.city);
     this.since = 0;
     this.pending = -1;
   }
 }
 
-return { SLOT_COUNT, activeSlot, setActiveSlot, metaOf, slotInfo, deleteSlot, MIGRATIONS, saveCity, loadCity, saveBackup, loadBackup, clearBackup, AutoSaver };
+return { SLOT_COUNT, activeSlot, setActiveSlot, metaOf, readSlot, isLocked, slotInfo, firstEmptySlot, deleteSlot, MIGRATIONS, saveCity, loadCity, isVisiting, saveVisit, loadVisit, endVisit, saveCurrent, rescueLegacyBackup, AutoSaver };
 })();
 
 // ---- slotsUI.js ----
@@ -14288,7 +14382,7 @@ const __mod_slotsUI = (() => {
 // an empty slot, save a copy of the current town into another slot, or delete one you're done with.
 // Deleting asks twice. The slot you're playing is saved automatically.
 
-const { SLOT_COUNT, activeSlot, slotInfo } = __mod_persistence;
+const { SLOT_COUNT, activeSlot, slotInfo, isVisiting } = __mod_persistence;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
@@ -14303,8 +14397,8 @@ function ago(ms) {
 }
 
 class SlotsSheet {
-  constructor({ onPlay, onNew, onCopy, onDelete, onOpen, beforeOpen }) {
-    this.h = { onPlay, onNew, onCopy, onDelete, onOpen, beforeOpen };
+  constructor({ onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen }) {
+    this.h = { onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen };
     this.el = document.getElementById('slots-sheet');
     this.confirm = null; // slot waiting for a second tap to delete
     this.el.addEventListener('click', (e) => {
@@ -14317,11 +14411,21 @@ class SlotsSheet {
         this.toggle(false);
         return this.h.onPlay(n);
       }
+      if (act === 'home') {
+        this.toggle(false);
+        return this.h.onHome();
+      }
       if (act === 'new') {
         this.toggle(false);
         return this.h.onNew(n);
       }
       if (act === 'copy') {
+        // Writing over an unreadable save (maybe a town from a newer version) asks twice, like Delete.
+        if (b.dataset.broken != null && this.confirm !== `copy${n}`) {
+          this.confirm = `copy${n}`;
+          return this.render();
+        }
+        this.confirm = null;
         this.h.onCopy(n);
         return this.render();
       }
@@ -14357,13 +14461,17 @@ class SlotsSheet {
 
   render() {
     const active = activeSlot();
+    const visiting = isVisiting(); // your own town waits in the active slot while you visit
     const cards = [];
     for (let n = 1; n <= SLOT_COUNT; n++) {
       const info = slotInfo(n);
-      const playing = n === active;
+      const playing = n === active && !visiting;
       let body;
       if (!info) body = '<p class="slot-empty">Empty</p>';
-      else if (info.broken) body = '<p class="slot-empty">This save could not be read.</p>';
+      else if (info.broken)
+        body = info.newer
+          ? '<p class="slot-empty">Saved by a newer version of the game. Reload the page to update. The town is kept safe.</p>'
+          : '<p class="slot-empty">This save could not be read. It is kept safe until you delete it or start a new town here.</p>';
       else
         body =
           `<p class="slot-title"><b>${esc(info.era || 'Town')}</b> · ${info.year}</p>` +
@@ -14372,15 +14480,19 @@ class SlotsSheet {
           `<p class="slot-when">Saved ${ago(info.savedAt)}</p>`;
       const actions = playing
         ? '<span class="slot-badge">Playing now</span>'
+        : n === active
+        ? `<span class="slot-badge">Your town</span>${info && !info.broken ? '<button type="button" class="primary-btn small" data-act="home">Back to my town</button>' : ''}`
         : (info && !info.broken ? `<button type="button" class="primary-btn small" data-act="play" data-slot="${n}">Play</button>` : '') +
           `<button type="button" class="ghost-btn small" data-act="new" data-slot="${n}">${info ? 'New town here' : 'Start a new town'}</button>` +
-          `<button type="button" class="ghost-btn small" data-act="copy" data-slot="${n}">${info ? 'Overwrite with this town' : 'Save a copy here'}</button>` +
+          `<button type="button" class="ghost-btn small" data-act="copy" data-slot="${n}"${info?.broken ? ' data-broken' : ''}>${!info ? 'Save a copy here' : this.confirm === `copy${n}` ? 'Tap again to overwrite' : 'Overwrite with this town'}</button>` +
           (info ? `<button type="button" class="ghost-btn small danger" data-act="delete" data-slot="${n}">${this.confirm === n ? 'Tap again to delete' : 'Delete'}</button>` : '');
       cards.push(`<li class="slot${playing ? ' playing' : ''}"><span class="slot-num">${n}</span><div class="slot-body">${body}<div class="slot-actions">${actions}</div></div></li>`);
     }
     this.el.innerHTML =
       `<header><h2>Save slots</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>` +
-      '<p class="sheet-hint">Keep up to three towns. The one you are playing saves itself as you go.</p>' +
+      (visiting
+        ? `<p class="sheet-hint">You're visiting a shared town. It isn't in a save slot: save a copy into an empty slot to keep it. Your own town is safe in slot ${active}.</p>`
+        : '<p class="sheet-hint">Keep up to three towns. The one you are playing saves itself as you go.</p>') +
       `<ul class="slots">${cards.join('')}</ul>`;
   }
 }
@@ -14987,9 +15099,10 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 class NewTownSheet {
-  constructor({ onStart, onOpen, family }) {
+  constructor({ onStart, onOpen, family, where }) {
     this.onStart = onStart; // ({ mode, size, start, grow, person, slot }) → build the new town
     this.onOpen = onOpen;
+    this.where = where; // () → where a town with no slot chosen will go, if not the current slot
     this.family = family; // () → the main person's name, if there is one
     this.el = document.getElementById('newtown-sheet');
     this.choice = { mode: 'milestones', size: 'medium', start: 'seed', grow: 'on', person: 'new' };
@@ -15052,7 +15165,7 @@ class NewTownSheet {
           ])
         : '') +
       '<button type="button" class="primary-btn" data-go>Start</button>' +
-      `<p class="sheet-hint center">${this.slot ? `Starts in save slot ${this.slot}.` : 'This replaces the town in your current save slot. Use Save slots to keep it.'}</p>`;
+      `<p class="sheet-hint center">${this.slot ? `Starts in save slot ${this.slot}.` : esc(this.where?.() || 'This replaces the town in your current save slot. Use Save slots to keep it.')}</p>`;
   }
 }
 
@@ -16975,7 +17088,7 @@ const { Simulation } = __mod_simulation;
 const { Renderer } = __mod_renderer;
 const { Camera } = __mod_camera;
 const { InputController } = __mod_input;
-const { AutoSaver, loadCity, saveCity, saveBackup, loadBackup, clearBackup, activeSlot, setActiveSlot, deleteSlot } = __mod_persistence;
+const { AutoSaver, readSlot, saveCity, activeSlot, setActiveSlot, deleteSlot, isLocked, firstEmptySlot, isVisiting, saveVisit, loadVisit, endVisit, rescueLegacyBackup } = __mod_persistence;
 const { SlotsSheet } = __mod_slotsUI;
 const { DecisionCard } = __mod_decisionUI;
 const { addChronicle } = __mod_chronicle;
@@ -17001,6 +17114,13 @@ const { History, lPath, tileLine } = __mod_history;
 const { Audio } = __mod_audio;
 const { daylightAt } = __mod_time;
 const MAX_STROKE = 160;
+
+// What to tell the player about a save that couldn't be read. It is never written over by autosave.
+function unreadableNote(n, newer) {
+  return newer
+    ? `Your town in save slot ${n} was saved by a newer version of Pocket Metropolis. Reload the page to update; the town is kept safe.`
+    : `Your town in save slot ${n} couldn't be read, so it was set aside and kept safe.`;
+}
 const TOOL_SOUNDS = {
   house: 'pop',
   cottage: 'pop',
@@ -17035,7 +17155,27 @@ function start(hotData = {}) {
   } catch {
     city = null;
   }
-  city = city || loadCity();
+  const rescued = rescueLegacyBackup(); // a town backed up by an older version during a visit
+  let visiting = !city && isVisiting();
+  if (visiting) {
+    city = loadVisit();
+    if (!city) {
+      endVisit();
+      visiting = false;
+    }
+  }
+  // A save that can't be read is left as it is (see persistence.js); the game starts in an empty slot.
+  let startNote = null;
+  if (!city) {
+    const n = activeSlot();
+    const r = readSlot(n);
+    if (r.status === 'ok') city = r.city;
+    else if (r.status === 'broken') {
+      const free = firstEmptySlot();
+      if (free) setActiveSlot(free);
+      startNote = unreadableNote(n, r.newer) + (free ? ` This new town is in slot ${free}.` : ' Open Save slots to choose where this new town is saved.');
+    }
+  }
   const fresh = !city;
   if (!city) city = new CityState(DEFAULT_MAP_SIZE, DEFAULT_MAP_SIZE);
 
@@ -17049,7 +17189,6 @@ function start(hotData = {}) {
   const minimap = new Minimap(document.getElementById('minimap'), city, camera);
   // Automatic minimap: on for roomy screens, off on phones, unless the player chose.
   const minimapOn = () => settings.minimap ?? (window.innerWidth >= 760 && window.innerHeight >= 560);
-  let hasBackup = !!loadBackup();
 
   let tool = 'house';
   let hover = null; // { x, y } tile under the mouse
@@ -17109,7 +17248,7 @@ function start(hotData = {}) {
         ui.toast(on ? 'Your town will grow by itself. Keep building too, if you like' : 'Growth is off: only you build now', 3200);
       },
     },
-    hasBackup: () => hasBackup,
+    hasBackup: () => visiting,
     display: {
       get: (k) => (k === 'minimap' ? minimapOn() : settings[k]),
       set: (k, v) => setSetting(k, v),
@@ -17395,6 +17534,11 @@ function start(hotData = {}) {
       ui.closeTray();
     },
     onStart: (opts) => newTown(opts),
+    where: () => {
+      if (!visiting && !isLocked(activeSlot())) return null;
+      const free = firstEmptySlot();
+      return free ? `Starts in empty save slot ${free}. Your other towns stay as they are.` : 'Your save slots are full: Start will ask you to pick one.';
+    },
     family: () => {
       const c = sim.life.char;
       return c ? `${c.first}` : null;
@@ -17417,23 +17561,29 @@ function start(hotData = {}) {
     beforeOpen: () => saver.flush(),
     onPlay: (n) => {
       saver.flush();
-      const other = loadCity(n);
-      if (!other) return ui.toast('That save slot could not be opened', 3000);
+      const r = readSlot(n);
+      if (r.status !== 'ok') return ui.toast(r.status === 'broken' ? unreadableNote(n, r.newer) : 'That save slot is empty', 6000);
+      const left = visiting;
+      if (visiting) leaveVisit();
       setActiveSlot(n);
-      swapCity(other);
+      swapCity(r.city);
       ui.refreshLocks();
       lifeUI.render();
       stopFollow();
-      ui.toast(`Save slot ${n}: welcome back`, 2400);
+      ui.toast(`Save slot ${n}: welcome back${left ? '. You left the shared town' : ''}`, 2400);
     },
+    onHome: () => backHome(),
     onNew: (n) => newTownSheet.toggle(true, { slot: n }),
+    // Saving a copy over a slot is the player's choice, so it may replace an unreadable save.
     onCopy: (n) => {
-      if (saveCity(city, n)) ui.toast(`This town was saved to slot ${n}. You're still playing slot ${activeSlot()}`, 3600);
+      if (saveCity(city, n, { force: true })) ui.toast(`This town was saved to slot ${n}. You're still playing ${visiting ? 'the shared town' : `slot ${activeSlot()}`}`, 3600);
       else ui.toast('There was no room to save. Delete a slot and try again', 3600);
     },
     onDelete: (n) => {
       deleteSlot(n);
       ui.toast(`Save slot ${n} is empty now`, 2400);
+      const back = rescueLegacyBackup();
+      if (back?.slot) ui.toast(`Your town from before a shared visit is back, in slot ${back.slot}`, 4200);
     },
   });
 
@@ -17442,7 +17592,18 @@ function start(hotData = {}) {
   // A town can start in another save slot (the current one is saved first) with a new main person.
   function newTown({ mode, size, start, grow = start === 'seed', person = 'new', slot = null }) {
     saver.flush();
-    if (slot && slot !== activeSlot()) setActiveSlot(slot);
+    // With no slot chosen the new town replaces the one you're playing. A shared town you're visiting
+    // isn't in a slot, and an unreadable slot is kept safe, so those start in an empty slot instead.
+    const chosen = slot;
+    if (!slot) slot = visiting || isLocked(activeSlot()) ? firstEmptySlot() : activeSlot();
+    if (!slot) {
+      ui.toast('Your save slots are full. Pick a slot for the new town, or delete one first', 4200);
+      slotsSheet.toggle(true);
+      return;
+    }
+    const previousSlot = activeSlot();
+    if (visiting) leaveVisit();
+    if (slot !== previousSlot) setActiveSlot(slot);
     const fresh = new CityState(size, size);
     if (start === 'town') generateTown(fresh);
     else if (start === 'seed') generateSeed(fresh);
@@ -17461,10 +17622,10 @@ function start(hotData = {}) {
     if (sim.life.char?.alive) sim.life.syncWithCity();
     stopFollow();
     lifeUI.render();
-    saveCity(city);
+    saveCity(city, slot, { force: !!chosen }); // a slot picked in Save slots may hold an unreadable save
     audio.play('fanfare');
     const where = start === 'town' ? 'A fresh town' : start === 'seed' ? `A little crossroads, ${yearOf(city)}` : 'Open land';
-    ui.toast(`${where}${slot ? ` in save slot ${slot}` : ''}${grow ? '. It will grow by itself' : ''}`, 4200);
+    ui.toast(`${where}${chosen || slot !== previousSlot ? ` in save slot ${slot}` : ''}${grow ? '. It will grow by itself' : ''}`, 4200);
     if (!keep) askForMainPerson();
   }
 
@@ -17512,27 +17673,45 @@ function start(hotData = {}) {
       ui.toast('That town link is broken or incomplete', 3600);
       return;
     }
-    if (!hasBackup) hasBackup = saveBackup(city); // keep your own town (and Life Story) safe
+    // Your own town stays in its save slot; the visit is saved under its own key. If there's no room
+    // for that, don't visit at all, so nothing can end up saved over your town.
+    saver.flush();
+    if (!saveVisit(other)) {
+      ui.toast("There's no room to open a shared town. Delete a save slot and try the link again", 5000);
+      return;
+    }
+    visiting = true;
     swapCity(other);
     sim.economy.reset('town');
     sim.milestones.settleForCapacity();
     ui.refreshLocks();
-    saveCity(city);
-    ui.toast(hasBackup ? 'Visiting a shared town. Your own town is saved: ☰ → Back to my town' : 'Visiting a shared town', 6000);
+    saveVisit(city);
+    ui.toast(`Visiting a shared town. Your own town is safe in save slot ${activeSlot()}: ☰ → Back to my town`, 6000);
   }
 
+  function leaveVisit() {
+    endVisit();
+    visiting = false;
+  }
+
+  // Your own town was never touched during the visit, so going back just loads it from its slot.
   function backHome() {
-    const own = loadBackup();
-    if (!own) {
-      hasBackup = false;
+    if (!visiting) return;
+    const n = activeSlot();
+    const r = readSlot(n);
+    if (r.status === 'broken') return ui.toast(unreadableNote(n, r.newer), 6000);
+    leaveVisit();
+    if (r.status === 'ok') {
+      swapCity(r.city);
+      ui.toast('Welcome back to your town', 2400);
+    } else {
+      // The slot was emptied while visiting: start afresh there rather than keep the shared town.
+      newTown({ mode: 'milestones', size: 32, start: 'seed', slot: n });
       return;
     }
-    swapCity(own);
     ui.refreshLocks();
-    saveCity(city);
-    clearBackup();
-    hasBackup = false;
-    ui.toast('Welcome back to your town', 2400);
+    lifeUI.render();
+    stopFollow();
   }
 
   const sharedCode = codeFromHash(window.location.hash);
@@ -17919,8 +18098,11 @@ function start(hotData = {}) {
   } else {
     sim.refresh();
     city.emit('loaded');
-    ui.toast('Welcome back to your town', 2400);
+    ui.toast(visiting ? `You're visiting a shared town. Your own town is in save slot ${activeSlot()}: ☰ → Back to my town` : 'Welcome back to your town', visiting ? 5000 : 2400);
   }
+  // Say what happened to a save that couldn't be opened, after the welcome toast has had its turn.
+  const notes = [startNote, rescued?.slot ? `Your town from before a shared visit was kept, in save slot ${rescued.slot}.` : rescued ? 'A town saved before a shared visit is kept safe. Free up a save slot to get it back.' : null].filter(Boolean);
+  if (notes.length) setTimeout(() => ui.toast(notes.join(' '), 9000), 6500);
 
   const hot = window.claude?.hot;
   hot?.snapshot?.(() => ({ city: city.toJSON() }));

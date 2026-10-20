@@ -1,4 +1,11 @@
 // Persistence: versioned saves in localStorage. Add a migration whenever SAVE_VERSION goes up.
+//
+// Two rules keep towns from being lost:
+//  - A slot whose save can't be read (damaged, or written by a newer version of the game) is never
+//    written over by autosave. Its raw text is also copied to a recovery key. Only something the
+//    player chooses for that slot (delete it, start a new town there, save a copy over it) replaces it.
+//  - A shared town you're visiting lives in its own key, never in a save slot, so visiting one (and
+//    switching slots while you do) can't touch your own towns.
 
 import { SAVE_VERSION } from './config.js';
 import { CityState } from './state.js';
@@ -47,23 +54,82 @@ export function metaOf(city) {
   };
 }
 
+// Slots found unreadable this visit. Autosave leaves them alone.
+const locked = new Set();
+
+function getRaw(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+// Keep the text of an unreadable save under a recovery key (once), so it can be rescued later.
+function keepForRecovery(n, raw) {
+  try {
+    const key = `${slotKey(n)}:recovery`;
+    if (localStorage.getItem(key) !== raw) localStorage.setItem(key, raw);
+  } catch {
+    // No room for a copy; the slot itself is still left untouched.
+  }
+}
+
+function unreadable(n, raw, newer) {
+  locked.add(n);
+  keepForRecovery(n, raw);
+  return { status: 'broken', newer };
+}
+
+// What's saved in a slot: { status: 'empty' }, { status: 'ok', city, save } or
+// { status: 'broken', newer } (newer: written by a later version of the game).
+export function readSlot(n) {
+  const raw = getRaw(slotKey(n));
+  if (!raw) return { status: 'empty' };
+  let save;
+  try {
+    save = JSON.parse(raw);
+  } catch {
+    return unreadable(n, raw, false);
+  }
+  if ((save?.version | 0) > SAVE_VERSION) return unreadable(n, raw, true);
+  try {
+    return { status: 'ok', city: CityState.fromJSON(migrate(save).city), save };
+  } catch {
+    return unreadable(n, raw, false);
+  }
+}
+
+// Is this slot's save unreadable (and so protected from autosave)?
+export function isLocked(n) {
+  return locked.has(n);
+}
+
 // What's in a slot, without loading it: null when empty.
 export function slotInfo(n) {
+  const raw = getRaw(slotKey(n));
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(slotKey(n));
-    if (!raw) return null;
     const save = JSON.parse(raw);
+    if ((save?.version | 0) > SAVE_VERSION) return { ...unreadable(n, raw, true), broken: true };
     if (save.meta) return { ...save.meta, savedAt: save.savedAt };
     const city = CityState.fromJSON(migrate(save).city);
     return { ...metaOf(city), savedAt: save.savedAt };
   } catch {
-    return { broken: true };
+    return { ...unreadable(n, raw, false), broken: true };
   }
 }
 
+export function firstEmptySlot() {
+  for (let n = 1; n <= SLOT_COUNT; n++) if (!getRaw(slotKey(n))) return n;
+  return null;
+}
+
+// Deleting is the player's choice, so it also lifts the lock on an unreadable slot.
 export function deleteSlot(n) {
   try {
     localStorage.removeItem(slotKey(n));
+    locked.delete(n);
     return true;
   } catch {
     return false;
@@ -100,10 +166,13 @@ function migrate(save) {
   return save;
 }
 
-export function saveCity(city, slot = activeSlot()) {
+// Save a town into a slot. An unreadable slot is only written when the player chose to (`force`).
+export function saveCity(city, slot = activeSlot(), { force = false } = {}) {
+  if (locked.has(slot) && !force) return false;
   try {
     const save = { version: SAVE_VERSION, savedAt: Date.now(), meta: metaOf(city), city: city.toJSON() };
     localStorage.setItem(slotKey(slot), JSON.stringify(save));
+    locked.delete(slot);
     return true;
   } catch {
     return false;
@@ -111,41 +180,66 @@ export function saveCity(city, slot = activeSlot()) {
 }
 
 export function loadCity(slot = activeSlot()) {
-  try {
-    const raw = localStorage.getItem(slotKey(slot));
-    if (!raw) return null;
-    return CityState.fromJSON(migrate(JSON.parse(raw)).city);
-  } catch {
-    return null;
-  }
+  const r = readSlot(slot);
+  return r.status === 'ok' ? r.city : null;
 }
 
-// A copy of your own town, kept while you visit a shared one.
-const BACKUP_KEY = `${KEY}:backup`;
+// ---- Visiting a shared town -------------------------------------------------------------
+// The visit has its own key; your own town stays in its slot (activeSlot) the whole time.
+const VISIT_KEY = `${KEY}:visit`;
 
-export function saveBackup(city) {
+export function isVisiting() {
+  return !!getRaw(VISIT_KEY);
+}
+
+export function saveVisit(city) {
   try {
-    localStorage.setItem(BACKUP_KEY, JSON.stringify({ version: SAVE_VERSION, savedAt: Date.now(), city: city.toJSON() }));
+    localStorage.setItem(VISIT_KEY, JSON.stringify({ version: SAVE_VERSION, savedAt: Date.now(), city: city.toJSON() }));
     return true;
   } catch {
     return false;
   }
 }
 
-export function loadBackup() {
+export function loadVisit() {
   try {
-    const raw = localStorage.getItem(BACKUP_KEY);
+    const raw = localStorage.getItem(VISIT_KEY);
     return raw ? CityState.fromJSON(migrate(JSON.parse(raw)).city) : null;
   } catch {
     return null;
   }
 }
 
-export function clearBackup() {
+export function endVisit() {
   try {
-    localStorage.removeItem(BACKUP_KEY);
+    localStorage.removeItem(VISIT_KEY);
   } catch {
     // Nothing to clear.
+  }
+}
+
+// Save wherever the town being played belongs: the visit key while visiting, else its slot.
+export function saveCurrent(city) {
+  return isVisiting() ? saveVisit(city) : saveCity(city);
+}
+
+// Before visits had their own key, your own town was copied to a backup key and the shared town was
+// saved over your slot. A backup left from then goes into an empty slot rather than over anything.
+const LEGACY_BACKUP_KEY = `${KEY}:backup`;
+
+export function rescueLegacyBackup() {
+  const raw = getRaw(LEGACY_BACKUP_KEY);
+  if (!raw) return null;
+  const n = firstEmptySlot();
+  if (!n) return { slot: null };
+  try {
+    const save = JSON.parse(raw);
+    const city = CityState.fromJSON(migrate(save).city);
+    if (!saveCity(city, n)) return { slot: null };
+    localStorage.removeItem(LEGACY_BACKUP_KEY);
+    return { slot: n };
+  } catch {
+    return { slot: null };
   }
 }
 
@@ -179,7 +273,7 @@ export class AutoSaver {
   }
 
   flush() {
-    saveCity(this.city);
+    saveCurrent(this.city);
     this.since = 0;
     this.pending = -1;
   }
