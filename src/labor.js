@@ -67,10 +67,14 @@ export function workersIn(home) {
 // Options for "what if" tests: `extraRoads` (a Set of tile indices treated as road) and `dryRun`
 // (write nothing to the tiles; just return the result).
 export function computeLaborMarket(city, { extraRoads = null, dryRun = false } = {}) {
-  const isRoad = extraRoads ? (x, y) => city.isRoad(x, y) || (city.inBounds(x, y) && extraRoads.has(y * city.width + x)) : (x, y) => city.isRoad(x, y);
   const filled = new Map(); // workplace tile → workers, written to the tile at the end
   const W = city.width;
-  const size = W * city.height;
+  const H = city.height;
+  const size = W * H;
+  // Usable roads (as city.isRoad decides), looked up once instead of per step of every route search.
+  const road = new Uint8Array(size);
+  for (let i = 0; i < size; i++) road[i] = city.isRoad(i % W, (i / W) | 0) || (extraRoads?.has(i) ?? false) ? 1 : 0;
+  const isRoad = (x, y) => x >= 0 && y >= 0 && x < W && y < H && road[y * W + x] === 1;
   const homes = city.homes();
   const workplaces = city.workplaces();
 
