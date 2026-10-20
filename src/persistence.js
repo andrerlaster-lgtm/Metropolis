@@ -251,6 +251,7 @@ export class AutoSaver {
     this.intervalS = intervalS;
     this.pending = -1;
     this.since = 0;
+    this.enabled = true; // false in a tab that isn't the one playing (see tabGuard.js)
     city.on((ev) => {
       if (['placed', 'removed', 'watered', 'reset', 'lifeChanged', 'lifeEvent'].includes(ev.type)) {
         this.pending = this.delayMs;
@@ -273,6 +274,7 @@ export class AutoSaver {
   }
 
   flush() {
+    if (!this.enabled) return;
     saveCurrent(this.city);
     this.since = 0;
     this.pending = -1;
