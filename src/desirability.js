@@ -1,5 +1,10 @@
 // Desirability: how much people want to live on a tile. Each factor is an independent, pluggable function.
 // To add a system later (services, jobs, pollution…), implement its `compute` and flip `enabled`.
+//
+// Factors marked `layout` depend only on the map layout around the tile (terrain, building types and
+// usable roads, within `reach` tiles). Their values are cached per tile and only recomputed near tiles
+// whose layout changed, which is checked on every recompute, so a change is never missed whatever made
+// it. The results are exactly what computing every factor afresh would give.
 
 import { STRUCTURES, SERVICES } from './config.js';
 import { clamp } from './utils.js';
@@ -26,6 +31,8 @@ export const FACTORS = [
     id: 'greenery',
     label: 'Parks & trees',
     enabled: true,
+    layout: true,
+    reach: 3,
     compute: (city, tile) =>
       Math.min(0.35, sumAround(city, tile, 3, (n) => (n.structure ? STRUCTURES[n.structure.type].greenery * 0.06 : 0))),
   },
@@ -33,12 +40,16 @@ export const FACTORS = [
     id: 'waterfront',
     label: 'Water views',
     enabled: true,
+    layout: true,
+    reach: 2,
     compute: (city, tile) => Math.min(0.08, sumAround(city, tile, 2, (n) => (n.terrain === 'water' ? 0.04 : 0))),
   },
   {
     id: 'access',
     label: 'Road access',
     enabled: true,
+    layout: true,
+    reach: 2,
     compute: (city, tile) => {
       let best = 9;
       for (let dy = -2; dy <= 2; dy++) {
@@ -94,6 +105,8 @@ export const FACTORS = [
     id: 'pollution',
     label: 'Factory smoke',
     enabled: true,
+    layout: true,
+    reach: 4,
     // Homes near a factory are less pleasant; the effect fades over about five tiles.
     compute: (city, tile) => {
       let worst = 0;
@@ -140,18 +153,68 @@ export const FACTORS = [
   },
 ];
 
+// ---- Layout cache ---------------------------------------------------------------------------
+
+const ACTIVE = FACTORS.filter((f) => f.enabled);
+const LAYOUT = ACTIVE.filter((f) => f.layout);
+const REACH = Math.max(...LAYOUT.map((f) => f.reach));
+const TYPE_CODE = Object.fromEntries(Object.keys(STRUCTURES).map((type, i) => [type, i + 1]));
+
+// Everything a layout factor can see of a tile, packed into one number: water, building type, and
+// whether a road is washed out or snowed in (those aren't usable roads).
+function layoutCode(t) {
+  const s = t.structure;
+  if (!s) return t.terrain === 'water' ? 1 : 0;
+  return (t.terrain === 'water' ? 1 : 0) | (TYPE_CODE[s.type] << 1) | (s.broken ? 1 << 10 : 0) | (s.snowed ? 1 << 11 : 0);
+}
+
+const caches = new WeakMap(); // city → { w, h, codes, valid, values }
+
+// The layout cache, brought up to date: any tile whose layout changed since the last call makes the
+// cached factors of every tile within reach of it stale.
+function layoutCache(city) {
+  const W = city.width;
+  const H = city.height;
+  const n = W * H;
+  let c = caches.get(city);
+  if (!c || c.w !== W || c.h !== H) {
+    c = { w: W, h: H, codes: new Int32Array(n).fill(-1), valid: new Uint8Array(n), values: LAYOUT.map(() => new Float64Array(n)) };
+    caches.set(city, c);
+  }
+  const { codes, valid } = c;
+  for (let i = 0; i < n; i++) {
+    const code = layoutCode(city.tiles[i]);
+    if (code === codes[i]) continue;
+    codes[i] = code;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let yy = Math.max(0, y - REACH); yy <= Math.min(H - 1, y + REACH); yy++) {
+      for (let xx = Math.max(0, x - REACH); xx <= Math.min(W - 1, x + REACH); xx++) valid[yy * W + xx] = 0;
+    }
+  }
+  return c;
+}
+
 export function recomputeDesirability(city) {
-  for (const tile of city.tiles) {
+  const cache = layoutCache(city);
+  const { valid, values } = cache;
+  const tiles = city.tiles;
+  for (let i = 0; i < tiles.length; i++) {
+    const tile = tiles[i];
+    if (!valid[i]) {
+      for (let k = 0; k < LAYOUT.length; k++) values[k][i] = LAYOUT[k].compute(city, tile);
+      valid[i] = 1;
+    }
+    // Same factors, same order, same sum as computing each one afresh. The object is reused.
     let d = BASE;
-    const factors = {};
-    for (const f of FACTORS) {
-      if (!f.enabled) continue;
-      const v = f.compute(city, tile);
+    const factors = tile.factors || (tile.factors = {});
+    let k = 0;
+    for (const f of ACTIVE) {
+      const v = f.layout ? values[k++][i] : f.compute(city, tile);
       factors[f.id] = v;
       d += v;
     }
     tile.desirability = clamp(d, 0, 1);
-    tile.factors = factors;
   }
   city.dirty = false;
 }
