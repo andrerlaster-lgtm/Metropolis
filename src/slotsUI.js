@@ -3,7 +3,7 @@
 // Deleting asks twice. The slot you're playing is saved automatically. Any town can be exported as a
 // file, and a file imported back into a slot you choose (replacing a town asks twice).
 
-import { SLOT_COUNT, MAX_IMPORT_BYTES, activeSlot, slotInfo, isVisiting, exportSlot, parseImport, importInto, keepSavesSafe } from './persistence.js';
+import { SLOT_COUNT, MAX_IMPORT_BYTES, activeSlot, slotInfo, isVisiting, exportSlot, exportCity, parseImport, importInto, keepSavesSafe } from './persistence.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
@@ -39,8 +39,8 @@ function ago(ms) {
 }
 
 export class SlotsSheet {
-  constructor({ onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen, onImported, toast }) {
-    this.h = { onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen, onImported, toast };
+  constructor({ onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen, onImported, toast, saveProblem, currentTown }) {
+    this.h = { onPlay, onHome, onNew, onCopy, onDelete, onOpen, beforeOpen, onImported, toast, saveProblem, currentTown };
     this.el = document.getElementById('slots-sheet');
     this.confirm = null; // slot waiting for a second tap to delete
     this.importing = null; // a checked town file waiting for the player to pick its slot
@@ -67,8 +67,9 @@ export class SlotsSheet {
         return this.render();
       }
       if (act === 'export') {
-        this.h.beforeOpen?.(); // save the town you're playing first, so the file is up to date
-        const file = exportSlot(n);
+        // The town you're playing exports from memory, so the file is up to date even if saving fails.
+        const playing = n === activeSlot() && !isVisiting() && this.h.currentTown?.();
+        const file = playing ? exportCity(playing) : exportSlot(n);
         if (file) {
           download(file);
           this.h.toast?.(`Exported slot ${n} as ${file.name}`, 3600);
@@ -182,7 +183,7 @@ export class SlotsSheet {
           `<p class="slot-title"><b>${esc(info.era || 'Town')}</b> · ${info.year}</p>` +
           `<p>${residents(info.pop)} · ${info.width}×${info.width}${info.mode === 'sandbox' ? ' · Sandbox' : ''}</p>` +
           (info.person ? `<p>${info.alive === false ? 'Was following' : 'Following'} <b>${esc(info.person)}</b>${info.generation > 1 ? ` · generation ${info.generation}` : ''}</p>` : '<p>No main person yet</p>') +
-          `<p class="slot-when">Saved ${ago(info.savedAt)}</p>`;
+          `<p class="slot-when">${playing && this.h.saveProblem?.() ? `Last saved ${ago(info.savedAt)} · not saving now` : `Saved ${ago(info.savedAt)}`}</p>`;
       const exportBtn = info ? `<button type="button" class="ghost-btn small" data-act="export" data-slot="${n}">Export</button>` : '';
       const actions = this.importing
         ? `<button type="button" class="primary-btn small" data-act="put" data-slot="${n}">${!info ? 'Put it here' : this.confirm === `put${n}` ? 'Tap again to replace' : 'Replace this town'}</button>`
@@ -208,8 +209,10 @@ export class SlotsSheet {
       this.safe === true
         ? 'Your browser has agreed to keep these saves. Export a town to keep a copy elsewhere, or to move it to another device.'
         : 'Saves live in this browser and go if its site data is cleared. Export a town to keep a copy, or to move it to another device.';
+    const problem = this.h.saveProblem?.();
     this.el.innerHTML =
       `<header><h2>Save slots</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>` +
+      (problem ? `<p class="save-warning" role="alert">${esc(problem)}</p>` : '') +
       hint +
       `<ul class="slots">${cards.join('')}</ul>` +
       (imp

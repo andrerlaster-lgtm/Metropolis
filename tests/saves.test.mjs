@@ -132,3 +132,60 @@ test('an unreadable save exports as-is, so a newer version of the game can rescu
   assert.ok(P.importInto(2, P.parseImport(JSON.stringify({ version: 2, city: town().toJSON() }))));
   assert.equal(P.readSlot(2).status, 'ok');
 });
+
+test('autosave says when saving fails, repeats it every couple of minutes, and says when it works again', () => {
+  store.clear();
+  P.setActiveSlot(1);
+  globalThis.document ??= { addEventListener() {}, visibilityState: 'visible' };
+  globalThis.window ??= { addEventListener() {} };
+  let clock = 0;
+  const saver = new P.AutoSaver(town(), { now: () => clock });
+  const said = [];
+  saver.onFail = (why) => said.push(why);
+  saver.onRecover = () => said.push('ok again');
+
+  assert.equal(saver.flush(), true);
+  const setItem = globalThis.localStorage.setItem;
+  globalThis.localStorage.setItem = () => {
+    throw new Error('QuotaExceededError');
+  };
+  assert.equal(saver.flush(), false);
+  clock += 15_000;
+  saver.flush();
+  assert.deepEqual(said, ['storage'], 'said once, not every 15 seconds');
+  clock += P.WARN_EVERY_MS;
+  saver.flush();
+  assert.deepEqual(said, ['storage', 'storage'], 'said again while it lasts');
+  globalThis.localStorage.setItem = setItem;
+  assert.equal(saver.flush(), true);
+  assert.deepEqual(said, ['storage', 'storage', 'ok again']);
+  assert.equal(saver.problem, null);
+});
+
+test('a town with no slot it may write says so, rather than claiming storage is full', () => {
+  store.clear();
+  store.set(KEY, 'damaged');
+  P.setActiveSlot(1);
+  P.readSlot(1); // found unreadable, so slot 1 is locked
+  const saver = new P.AutoSaver(town());
+  const said = [];
+  saver.onFail = (why) => said.push(why);
+  saver.flush();
+  assert.deepEqual(said, ['locked']);
+  saver.enabled = false; // a tab that isn't playing never saves, and so never warns
+  assert.equal(saver.flush(), true);
+  assert.deepEqual(said, ['locked']);
+});
+
+test('the town being played exports from memory, so the file is current even when saving fails', () => {
+  store.clear();
+  P.deleteSlot(1); // the test before left slot 1 locked
+  const c = town(16, 2);
+  P.saveCity(c, 1);
+  c.getTile(5, 5).structure = { id: 4242, type: 'park', residents: 0 }; // built after the last save
+  const file = P.exportCity(c);
+  assert.match(file.name, /^pocket-metropolis-[a-z0-9-]+\.json$/);
+  const back = P.parseImport(file.text).city;
+  assert.equal(back.getTile(5, 5).structure.type, 'park');
+  assert.notEqual(P.loadCity(1).getTile(5, 5).structure?.type, 'park', 'the slot itself is older');
+});
