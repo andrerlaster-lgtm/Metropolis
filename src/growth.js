@@ -23,14 +23,18 @@ import { addChronicle } from './chronicle.js';
 
 export const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
-const CAPS = { shop: 35, cafe: 60, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, park: 70, playground: 110, field: 320 };
+const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320 };
 const BLOCK = 5; // a side street can branch every this many tiles
-const PUBLIC = new Set(['road', 'school', 'clinic', 'park', 'playground', 'field', 'tree']);
+const PUBLIC = new Set(['road', 'school', 'clinic', 'library', 'firestation', 'university', 'park', 'playground', 'field', 'tree']);
 const FIRSTS = {
   shop: 'The first shop opened its doors',
   cafe: 'The first café poured its first cup',
+  bakery: 'The first bakery pulled its first loaves from the oven',
   school: 'The town opened its first school',
   clinic: 'A clinic opened, the first doctor in town',
+  library: 'The town opened its first library',
+  firestation: 'The first fire station rolled out its engine',
+  university: 'A university opened its doors to its first students',
   factory: 'The first factory chimney went up',
   apartments: 'The first block of flats was built',
   office: 'The first office building opened',
@@ -132,6 +136,12 @@ export class Growth {
     const noClinic = lived.filter((h) => (h.coverage?.health || 0) < 0.1).length;
     d.school = noSchool >= 5 && this.allowed('school') ? 1.2 : 0;
     d.clinic = noClinic >= 6 && this.allowed('clinic') ? 0.9 : 0;
+    // Fire stations only matter when extreme weather is on; libraries and universities come with size.
+    const noFire = lived.filter((h) => (h.coverage?.fire || 0) < 0.1).length;
+    const disastersOn = (city.systems.disasters?.level ?? 'gentle') !== 'off';
+    d.fire = disastersOn && noFire >= 8 && this.allowed('firestation') ? 0.7 : 0;
+    d.library = lived.length >= 12 && this.allowed('library') ? 0.4 : 0;
+    d.university = (s.population || 0) >= 500 && this.allowed('university') ? 0.5 : 0;
     let roads = 0;
     let buildings = 0;
     for (const t of city.tiles) {
@@ -172,13 +182,19 @@ export class Growth {
       case 'work':
         return this.buildWork();
       case 'food':
-        return this.buildNear(this.unmetHomes('eat'), ['cafe', 'shop']);
+        return this.buildNear(this.unmetHomes('eat'), this.rng() < 0.5 ? ['bakery', 'cafe', 'shop'] : ['cafe', 'bakery', 'shop']);
       case 'play':
         return this.buildNear(this.unmetHomes('play', 'social'), ['park', 'playground', 'cafe', 'field']);
       case 'school':
         return this.buildNear(this.uncovered('school'), ['school']);
       case 'clinic':
         return this.buildNear(this.uncovered('health'), ['clinic']);
+      case 'fire':
+        return this.buildNear(this.uncovered('fire'), ['firestation']);
+      case 'library':
+        return this.buildNear(this.city.homes().filter((h) => h.structure.residents > 0), ['library']);
+      case 'university':
+        return this.buildNear(this.city.homes().filter((h) => h.structure.residents > 0), ['university']);
       case 'road':
         return this.buildRoad();
       case 'tree':
@@ -291,6 +307,7 @@ export class Growth {
     const options = [
       ['shop', 3],
       ['cafe', 1.2],
+      ['bakery', 1],
       ['factory', this.count(['factory']) < 1 + pop / 250 ? 1.5 : 0.3],
       ['office', 2],
       ['mall', pop > 250 && this.count(['mall']) < pop / 400 ? 1 : 0],

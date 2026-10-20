@@ -22,6 +22,9 @@ const ICONS = {
   office: svg('<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 8h14M5 12.5h14M5 17h14"/>'),
   school: svg('<path d="M3 10 12 5l9 5-9 5z"/><path d="M7 12.2V17c2.8 2 7.2 2 10 0v-4.8"/><path d="M21 10v5"/>'),
   clinic: svg('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/>'),
+  library: svg('<path d="M4 5.5c2.5-1 5.5-1 8 1 2.5-2 5.5-2 8-1V19c-2.5-1-5.5-1-8 1-2.5-2-5.5-2-8-1z"/><path d="M12 6.5V20"/>'),
+  firestation: svg('<path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 2 1.2 3 2.5 3.5C12 9 11 6 12 3Z"/>'),
+  university: svg('<path d="M3 9.5 12 4l9 5.5z"/><path d="M5 9.5V18M9.5 9.5V18M14.5 9.5V18M19 9.5V18"/><path d="M3 20.5h18"/>'),
   tree: svg('<circle cx="12" cy="9.5" r="6"/><path d="M12 15.5V21M9 21h6"/>'),
   park: svg('<path d="M4 13.5h16M5.5 13.5v5M18.5 13.5v5"/><path d="M4.5 9.5h15"/><path d="M7 9.5V6.5M17 9.5V6.5"/>'),
   road: svg('<path d="M8.5 3 5 21M15.5 3 19 21"/><path d="M12 4v2.5M12 10.5V13M12 17v3"/>'),
@@ -34,6 +37,7 @@ const ICONS = {
   layers: svg('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/>'),
   cottage: svg('<path d="M5 12 12 6l7 6"/><path d="M7 11v8h10v-8"/><path d="M11 19v-4h2v4"/><path d="M15.5 8V5.5h2V10"/>'),
   apartments: svg('<rect x="5" y="4" width="14" height="17" rx="1.5"/><path d="M8.5 8h2M13.5 8h2M8.5 12h2M13.5 12h2M8.5 16h2M13.5 16h2"/>'),
+  bakery: svg('<path d="M4 15c0-4.5 3.6-8 8-8s8 3.5 8 8v2.5H4z"/><path d="M9 8.5 10 13M15 8.5 14 13M12 7v6"/>'),
   cafe: svg('<path d="M5 10h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5c0 1.5 1.5 1.5 1.5 3M12 3.5c0 1.5 1.5 1.5 1.5 3"/>'),
   mall: svg('<path d="M3 10h18v10H3z"/><path d="M5 10 7 5h10l2 5"/><path d="M10 20v-5h4v5"/><path d="M6 13h2M16 13h2"/>'),
   factory: svg('<path d="M3 20V11l5 3v-3l5 3v-3l5 3V4h3v16z"/><path d="M7 17h2M12 17h2"/>'),
@@ -456,7 +460,10 @@ export class Interface {
     const factors = showFactors
       ? FACTORS.filter((f) => f.enabled).map((f) => ({ label: f.label, v: t.factors[f.id] || 0 }))
       : [];
-    const coverage = SERVICES.map((sv) => `${sv.label.replace(/s$/, '')} ${pct(t.coverage?.[sv.id] || 0)}`).join(' · ');
+    const fire = t.coverage?.fire || 0;
+    const coverage = SERVICES.map((sv) => `${sv.label.replace(/s$/, '')} ${pct(t.coverage?.[sv.id] || 0)}`)
+      .concat(fire > 0 ? [`Fire station ${pct(fire)}`] : [])
+      .join(' · ');
     const key = JSON.stringify([title, facts, factors.map((f) => f.v.toFixed(3)), t.desirability.toFixed(3), coverage]);
     if (key === this._inspectKey) return;
     this._inspectKey = key;

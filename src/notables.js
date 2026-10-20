@@ -24,9 +24,9 @@ export const NOTABLE_TYPES = [
     title: 'Great Scientist',
     color: '#9cc4ea',
     icon: '⚗',
-    attract: 'Schools and offices inspire scientists',
+    attract: 'Schools, libraries, universities and offices inspire scientists',
     bonus: 'Schools reach 2 tiles further',
-    rate: (city) => 6 * count(city, 'school') + 1.5 * count(city, 'office'),
+    rate: (city) => 6 * count(city, 'school') + 3 * count(city, 'library') + 12 * count(city, 'university') + 1.5 * count(city, 'office'),
   },
   {
     id: 'doctor',
@@ -42,9 +42,9 @@ export const NOTABLE_TYPES = [
     title: 'Great Merchant',
     color: '#ffd98f',
     icon: '$',
-    attract: 'Shops, cafés, malls and offices inspire merchants',
+    attract: 'Shops, cafés, bakeries, malls and offices inspire merchants',
     bonus: 'Businesses pay 15% more tax',
-    rate: (city) => 1.5 * count(city, ['shop', 'cafe']) + 4 * count(city, 'mall') + 1 * count(city, 'office'),
+    rate: (city) => 1.5 * count(city, ['shop', 'cafe', 'bakery']) + 4 * count(city, 'mall') + 1 * count(city, 'office'),
   },
   {
     id: 'engineer',

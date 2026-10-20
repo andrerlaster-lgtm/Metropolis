@@ -2966,6 +2966,11 @@ const STRUCTURES = {
   road: { label: 'Road', capacity: 0, jobs: 0, greenery: 0, walkable: true, road: true, height: 0 },
   // What a building becomes when a disaster destroys it. Not a tool: crews or the bulldozer clear it.
   rubble: { label: 'Rubble', capacity: 0, jobs: 0, greenery: 0, height: 7 },
+  // New kinds go at the end: share links store each type by its position in this list.
+  bakery: { label: 'Bakery', capacity: 0, jobs: 4, greenery: 0, height: 20 },
+  library: { label: 'Library', capacity: 0, jobs: 3, greenery: 0, height: 26, service: 'school', radius: 5 },
+  firestation: { label: 'Fire station', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'fire', radius: 7 },
+  university: { label: 'University', capacity: 0, jobs: 30, greenery: 0, height: 40, service: 'school', radius: 9 },
 };
 
 // Share of residents who go out to work.
@@ -2976,16 +2981,17 @@ const SERVICES = [
   { id: 'school', label: 'Schools' },
   { id: 'health', label: 'Clinics' },
 ];
-// Every kind of coverage a building can provide (services above, plus recreation).
-const COVERAGE_IDS = ['school', 'health', 'fun'];
+// Every kind of coverage a building can provide (services above, plus recreation and fire cover,
+// which protects buildings from disaster damage rather than making homes more desirable).
+const COVERAGE_IDS = ['school', 'health', 'fun', 'fire'];
 
 // Milestones: the town's title grows with its population, and each step unlocks new buildings.
 // Unlocks are permanent. Tools not listed here are always available.
 const MILESTONES = [
   { id: 'hamlet', label: 'Hamlet', pop: 0, unlocks: [] },
-  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory'] },
+  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory', 'library', 'firestation'] },
   { id: 'town', label: 'Town', pop: 200, unlocks: ['tower', 'office', 'clinic', 'mall'] },
-  { id: 'city', label: 'City', pop: 450, unlocks: ['field'] },
+  { id: 'city', label: 'City', pop: 450, unlocks: ['field', 'university'] },
   { id: 'metropolis', label: 'Metropolis', pop: 900, unlocks: [] },
 ];
 
@@ -3004,6 +3010,10 @@ const COSTS = {
   factory: 1500,
   school: 2000,
   clinic: 2500,
+  bakery: 180,
+  library: 900,
+  firestation: 1800,
+  university: 6000,
   playground: 400,
   field: 1500,
   tree: 10,
@@ -3012,11 +3022,11 @@ const COSTS = {
   bulldoze: 0,
 };
 // Upkeep per in-game day.
-const UPKEEP = { road: 0.5, school: 30, clinic: 35, park: 2, playground: 5, field: 12 };
+const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestation: 25, university: 60, park: 2, playground: 5, field: 12 };
 // Taxes per in-game day: every resident pays a little, every worker a little more, and each business
 // pays per filled job.
 const TAX = { resident: 0.8, worker: 1.2 };
-const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, office: 2, mall: 1.5, factory: 2.2 };
+const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2 };
 const START_MONEY = { land: 10000, town: 25000 };
 
 // Resident thoughts: red needs fixing, yellow is worth a look, green is going well.
@@ -3041,6 +3051,7 @@ const TOOL_GROUPS = [
     tools: [
       { id: 'shop', label: 'Shop', key: '3' },
       { id: 'cafe', label: 'Café', key: 'e' },
+      { id: 'bakery', label: 'Bakery', key: 'n' },
       { id: 'office', label: 'Office', key: '4' },
       { id: 'mall', label: 'Mall', key: 'l' },
       { id: 'factory', label: 'Factory', key: 'y' },
@@ -3052,6 +3063,9 @@ const TOOL_GROUPS = [
     tools: [
       { id: 'school', label: 'School', key: '5' },
       { id: 'clinic', label: 'Clinic', key: '6' },
+      { id: 'library', label: 'Library', key: 'j' },
+      { id: 'firestation', label: 'Fire station', key: 'h' },
+      { id: 'university', label: 'University', key: 'u' },
     ],
   },
   {
@@ -3711,7 +3725,7 @@ const ERAS = [
     years: 0,
     nominal: 1850,
     blurb: 'Dirt lanes, timber cottages and horse carts.',
-    builds: ['cottage', 'house', 'shop', 'cafe', 'school', 'clinic', 'park', 'playground'],
+    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground'],
   },
   {
     id: 'railway',
@@ -3720,7 +3734,7 @@ const ERAS = [
     years: 15,
     nominal: 1865,
     blurb: 'Cobbled streets, brick houses and gas lamps. The first motor cars rattle by.',
-    builds: ['apartments', 'factory'],
+    builds: ['apartments', 'factory', 'library', 'firestation'],
   },
   {
     id: 'motor',
@@ -3738,7 +3752,7 @@ const ERAS = [
     years: 60,
     nominal: 1910,
     blurb: 'Towers rise downtown and the streets hum with traffic.',
-    builds: ['tower'],
+    builds: ['tower', 'university'],
   },
   {
     id: 'future',
@@ -3892,7 +3906,7 @@ const __mod_disasters = (() => {
 // damage). Damage is stored on the structure: `damage` 0..1 (a third or more halves what the building
 // can hold), roads `broken` (washed out) or `snowed` (snowed in), and a building at full damage turns
 // into rubble. Crews then repair things one at a time, paid from the town budget, or the player pays
-// to repair everything at once, or builds over the damage.
+// to repair everything at once, or builds over the damage. Fire stations nearby soften the blow.
 //
 // How often it happens is a per-town setting: off, gentle (default) or wild.
 // Saved in city.systems.disasters = { level, next, active, pending, prepared, resilience, levee, log }.
@@ -3935,6 +3949,13 @@ function soundness(s) {
 }
 
 const now = (city) => city.day + city.clock;
+
+// A nearby fire station puts out fires and lightning blazes before they spread (up to 70% less damage)
+// and helps with everything else (up to 30% less).
+function fireCover(tile, cause) {
+  const c = tile.coverage?.fire || 0;
+  return 1 - c * (cause === 'fire' || cause === 'lightning' ? 0.7 : 0.3);
+}
 const isBuilding = (s) => !!s && s.type !== 'road' && s.type !== 'rubble' && !STRUCTURES[s.type].walkable;
 
 class Disasters {
@@ -4224,7 +4245,7 @@ class Disasters {
       return;
     }
     if (def.walkable) return; // parks, playgrounds and fields shrug it off
-    const scale = (st.prepared && a?.kind && KINDS[a.kind].severity === 'extreme' ? 0.5 : 1) * (st.resilience ?? 1);
+    const scale = (st.prepared && a?.kind && KINDS[a.kind].severity === 'extreme' ? 0.5 : 1) * (st.resilience ?? 1) * fireCover(tile, cause);
     const before = s.damage || 0;
     s.damage = clamp(before + amount * scale, 0, 1);
     if (s.damage >= 1) {
@@ -4359,7 +4380,7 @@ class Disasters {
   }
 }
 
-return { LEVELS, KINDS, soundness, Disasters };
+return { LEVELS, KINDS, soundness, fireCover, Disasters };
 })();
 
 // ---- labor.js ----
@@ -5246,6 +5267,10 @@ const CAREERS = {
   cafe: { titles: ['Barista', 'Café manager'], pay: [16000, 26000], smarts: 0 },
   mall: { titles: ['Sales assistant', 'Floor manager', 'Mall director'], pay: [19000, 30000, 55000], smarts: 10 },
   factory: { titles: ['Machine operator', 'Foreman', 'Plant manager'], pay: [24000, 34000, 60000], smarts: 20 },
+  bakery: { titles: ["Baker's helper", 'Baker', 'Master baker'], pay: [15000, 22000, 31000], smarts: 0 },
+  library: { titles: ['Library assistant', 'Librarian', 'Head librarian'], pay: [17000, 27000, 38000], smarts: 35 },
+  firestation: { titles: ['Volunteer firefighter', 'Firefighter', 'Fire chief'], pay: [20000, 32000, 50000], smarts: 10 },
+  university: { titles: ['Lab technician', 'Lecturer', 'Professor', 'Dean'], pay: [24000, 40000, 62000, 90000], smarts: 70 },
 };
 
 const STAGES = [
@@ -7661,12 +7686,16 @@ const CATEGORY_LABELS = {
   homes: 'Home taxes',
   shop: 'Shops',
   cafe: 'Cafés',
+  bakery: 'Bakeries',
   office: 'Offices',
   mall: 'Malls',
   factory: 'Factories',
   road: 'Roads',
   school: 'Schools',
   clinic: 'Clinics',
+  library: 'Libraries',
+  firestation: 'Fire stations',
+  university: 'Universities',
   park: 'Parks',
   playground: 'Playgrounds',
   field: 'Sports fields',
@@ -7823,9 +7852,9 @@ const NOTABLE_TYPES = [
     title: 'Great Scientist',
     color: '#9cc4ea',
     icon: '⚗',
-    attract: 'Schools and offices inspire scientists',
+    attract: 'Schools, libraries, universities and offices inspire scientists',
     bonus: 'Schools reach 2 tiles further',
-    rate: (city) => 6 * count(city, 'school') + 1.5 * count(city, 'office'),
+    rate: (city) => 6 * count(city, 'school') + 3 * count(city, 'library') + 12 * count(city, 'university') + 1.5 * count(city, 'office'),
   },
   {
     id: 'doctor',
@@ -7841,9 +7870,9 @@ const NOTABLE_TYPES = [
     title: 'Great Merchant',
     color: '#ffd98f',
     icon: '$',
-    attract: 'Shops, cafés, malls and offices inspire merchants',
+    attract: 'Shops, cafés, bakeries, malls and offices inspire merchants',
     bonus: 'Businesses pay 15% more tax',
-    rate: (city) => 1.5 * count(city, ['shop', 'cafe']) + 4 * count(city, 'mall') + 1 * count(city, 'office'),
+    rate: (city) => 1.5 * count(city, ['shop', 'cafe', 'bakery']) + 4 * count(city, 'mall') + 1 * count(city, 'office'),
   },
   {
     id: 'engineer',
@@ -8050,8 +8079,8 @@ const TRAIT_WORDS = {
 
 // Where each kind of outing happens. Weights favour the most fitting place.
 const VENUES = {
-  eat: { cafe: 3, mall: 2, shop: 1 },
-  social: { cafe: 3, park: 2, playground: 1.5, field: 1.5, mall: 1 },
+  eat: { cafe: 3, bakery: 2.5, mall: 2, shop: 1 },
+  social: { cafe: 3, park: 2, library: 1.5, playground: 1.5, field: 1.5, mall: 1 },
   play: { park: 2.5, playground: 2, field: 2.5, cafe: 0.8 },
   shop: { mall: 3, shop: 2 },
 };
@@ -8599,14 +8628,18 @@ const { clamp, pickWeighted } = __mod_utils;
 const { addChronicle } = __mod_chronicle;
 const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
-const CAPS = { shop: 35, cafe: 60, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, park: 70, playground: 110, field: 320 };
+const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320 };
 const BLOCK = 5; // a side street can branch every this many tiles
-const PUBLIC = new Set(['road', 'school', 'clinic', 'park', 'playground', 'field', 'tree']);
+const PUBLIC = new Set(['road', 'school', 'clinic', 'library', 'firestation', 'university', 'park', 'playground', 'field', 'tree']);
 const FIRSTS = {
   shop: 'The first shop opened its doors',
   cafe: 'The first café poured its first cup',
+  bakery: 'The first bakery pulled its first loaves from the oven',
   school: 'The town opened its first school',
   clinic: 'A clinic opened, the first doctor in town',
+  library: 'The town opened its first library',
+  firestation: 'The first fire station rolled out its engine',
+  university: 'A university opened its doors to its first students',
   factory: 'The first factory chimney went up',
   apartments: 'The first block of flats was built',
   office: 'The first office building opened',
@@ -8708,6 +8741,12 @@ class Growth {
     const noClinic = lived.filter((h) => (h.coverage?.health || 0) < 0.1).length;
     d.school = noSchool >= 5 && this.allowed('school') ? 1.2 : 0;
     d.clinic = noClinic >= 6 && this.allowed('clinic') ? 0.9 : 0;
+    // Fire stations only matter when extreme weather is on; libraries and universities come with size.
+    const noFire = lived.filter((h) => (h.coverage?.fire || 0) < 0.1).length;
+    const disastersOn = (city.systems.disasters?.level ?? 'gentle') !== 'off';
+    d.fire = disastersOn && noFire >= 8 && this.allowed('firestation') ? 0.7 : 0;
+    d.library = lived.length >= 12 && this.allowed('library') ? 0.4 : 0;
+    d.university = (s.population || 0) >= 500 && this.allowed('university') ? 0.5 : 0;
     let roads = 0;
     let buildings = 0;
     for (const t of city.tiles) {
@@ -8748,13 +8787,19 @@ class Growth {
       case 'work':
         return this.buildWork();
       case 'food':
-        return this.buildNear(this.unmetHomes('eat'), ['cafe', 'shop']);
+        return this.buildNear(this.unmetHomes('eat'), this.rng() < 0.5 ? ['bakery', 'cafe', 'shop'] : ['cafe', 'bakery', 'shop']);
       case 'play':
         return this.buildNear(this.unmetHomes('play', 'social'), ['park', 'playground', 'cafe', 'field']);
       case 'school':
         return this.buildNear(this.uncovered('school'), ['school']);
       case 'clinic':
         return this.buildNear(this.uncovered('health'), ['clinic']);
+      case 'fire':
+        return this.buildNear(this.uncovered('fire'), ['firestation']);
+      case 'library':
+        return this.buildNear(this.city.homes().filter((h) => h.structure.residents > 0), ['library']);
+      case 'university':
+        return this.buildNear(this.city.homes().filter((h) => h.structure.residents > 0), ['university']);
       case 'road':
         return this.buildRoad();
       case 'tree':
@@ -8867,6 +8912,7 @@ class Growth {
     const options = [
       ['shop', 3],
       ['cafe', 1.2],
+      ['bakery', 1],
       ['factory', this.count(['factory']) < 1 + pop / 250 ? 1.5 : 0.3],
       ['office', 2],
       ['mall', pop > 250 && this.count(['mall']) < pop / 400 ? 1 : 0],
@@ -9807,6 +9853,11 @@ function computeThoughts(city, milestones) {
     if (far.length) add('health', 'caution', 2.5, "There's no clinic if someone gets sick.", 'Build a clinic', worstOf(far), far);
   }
 
+  if (unlocked('firestation') && lived.length >= 10 && (city.systems.disasters?.level ?? 'gentle') !== 'off') {
+    const far = lived.filter((h) => (h.coverage.fire || 0) < 0.1);
+    if (far.length) add('fire', 'caution', 1.5, 'If a fire breaks out, no fire engine could get here in time.', 'Build a fire station', worstOf(far), far);
+  }
+
   const bare = lived.filter((h) => (h.factors.greenery || 0) < 0.02);
   if (bare.length) add('green', 'caution', 2, "It's all concrete here. A few trees would be lovely.", 'Plant trees or a park', worstOf(bare), bare);
 
@@ -9833,7 +9884,7 @@ function computeThoughts(city, milestones) {
       return out;
     };
     const wants = [
-      ['eat', 'Nowhere to grab a bite around here.', unlocked('cafe') ? 'Build a café, shop or mall nearby' : 'Build a shop nearby'],
+      ['eat', 'Nowhere to grab a bite around here.', unlocked('cafe') ? 'Build a café, bakery, shop or mall nearby' : 'Build a shop nearby'],
       ['play', 'There’s nothing to do on the weekend!', 'Build a park, playground or sports field nearby'],
       ['social', 'We never see our friends. Somewhere to meet up?', 'A café or a park gives neighbours a place to meet'],
     ];
@@ -11786,6 +11837,10 @@ class Renderer {
     if (s.type === 'office') return { inset: 0.14, h: 8 + growthOf(t).floors * 12 };
     if (s.type === 'school') return { inset: 0.12, h: 26 };
     if (s.type === 'clinic') return { inset: 0.15, h: 24 };
+    if (s.type === 'bakery') return { inset: 0.2, h: 18 };
+    if (s.type === 'library') return { inset: 0.14, h: 18 };
+    if (s.type === 'firestation') return { inset: 0.12, h: 20 };
+    if (s.type === 'university') return { inset: 0.06, h: 26 };
     if (s.type === 'cottage') return { inset: 0.27, h: 18 };
     if (s.type === 'apartments') return { inset: 0.15, h: 8 + growthOf(t).floors * 10 };
     if (s.type === 'cafe') return { inset: 0.24, h: 14 };
@@ -12066,6 +12121,14 @@ class Renderer {
         return this.drawSchool(ctx, x, y, s, L, ghost);
       case 'clinic':
         return this.drawClinic(ctx, x, y, s, L, ghost);
+      case 'bakery':
+        return this.drawBakery(ctx, x, y, s, L, ghost);
+      case 'library':
+        return this.drawLibrary(ctx, x, y, s, L, ghost);
+      case 'firestation':
+        return this.drawFireStation(ctx, x, y, s, L, ghost);
+      case 'university':
+        return this.drawUniversity(ctx, x, y, s, L, ghost);
       case 'tree':
         return this.drawTree(ctx, x + 0.5, y + 0.5, s.shape || 0, L, hash2(x, y, 12) * 6.28, 1, x, y);
       case 'rubble':
@@ -12873,6 +12936,215 @@ class Renderer {
       const p = gridToWorld(cx, cy, h);
       this.glows.push({ x: p.x, y: p.y, r: 14, a: 0.3 * L.lamps, rgb: '255,150,150', flat: true });
     }
+  }
+
+  // A pitched roof with its ridge running along x, gable end on the right face.
+  gableRoof(ctx, L, x0, y0, x1, y1, h, rise, roof, wall) {
+    const ym = (y0 + y1) / 2;
+    const e = 0.03;
+    ctx.fillStyle = lit(wall, 0.78, L);
+    poly(ctx, [[x1, y0, h], [x1, y1, h], [x1, ym, h + rise]]);
+    ctx.fill();
+    ctx.fillStyle = lit(roof, 0.86, L);
+    poly(ctx, [[x0 - e, y0 - e, h], [x1 + e, y0 - e, h], [x1 + e, ym, h + rise], [x0 - e, ym, h + rise]]);
+    ctx.fill();
+    ctx.fillStyle = lit(roof, 1.02, L);
+    poly(ctx, [[x0 - e, y1 + e, h], [x1 + e, y1 + e, h], [x1 + e, ym, h + rise], [x0 - e, ym, h + rise]]);
+    ctx.fill();
+  }
+
+  // A bakery: a cream cottage with a big shop window, a bread sign and a warm oven chimney that
+  // smokes from before dawn.
+  drawBakery(ctx, x, y, s, L, ghost) {
+    const wall = '#fbe7c6';
+    const roof = '#d49a6a';
+    const x0 = x + 0.2;
+    const x1 = x + 0.8;
+    const y0 = y + 0.22;
+    const y1 = y + 0.74;
+    const h = 12;
+    const fill = this.workFill(x, y, s, ghost);
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall, false);
+    const open = !ghost && fill > 0 && L.clock > 0.2 && L.clock < 0.8 && L.windowLit > 0.05;
+    this.drawWindow(ctx, L, this.faceQuad('L', x0, y0, x1, y1, 0.08, 0.56, 2.5, 8.5), 0.92, open);
+    ctx.fillStyle = lit('#b9845c', 0.8, L);
+    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.66, 0.86, 0, 8.5));
+    ctx.fill();
+    this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, 0.3, 0.7, 4, 9), 0.8, open && hash2(x, y, 17) < 0.6);
+    // Chimney behind the ridge, then the roof.
+    const cx0 = x0 + 0.1;
+    const cy0 = y0 + 0.06;
+    this.drawBox(ctx, L, cx0, cy0, cx0 + 0.09, cy0 + 0.09, h, 12, '#e3b08f');
+    this.gableRoof(ctx, L, x0, y0, x1, y1, h, 8, roof, wall);
+    // Bread sign over the window: a golden loaf with three scores.
+    const p = gridToWorld(x0 + (x1 - x0) * 0.32, y1 + 0.04, 10.5);
+    ctx.fillStyle = lit('#e8b56a', 1, L);
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, 4.6, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = lit('#b9845c', 1, L);
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (const d of [-2, 0, 2]) {
+      ctx.moveTo(p.x + d - 0.7, p.y + 1);
+      ctx.lineTo(p.x + d + 0.7, p.y - 1);
+    }
+    ctx.stroke();
+    // Ovens are lit from the small hours until the afternoon.
+    const baking = !ghost && fill > 0 && L.clock > 0.15 && L.clock < 0.6;
+    if (baking && !this.reduceMotion) {
+      const top = gridToWorld(cx0 + 0.045, cy0 + 0.045, h + 13);
+      for (let i = 0; i < 3; i++) {
+        const t = (this.time * 0.3 + i / 3 + hash2(x, y, 5)) % 1;
+        ctx.fillStyle = litA('#f7f2ea', 1, L, (0.55 * (1 - t)).toFixed(3));
+        ctx.beginPath();
+        ctx.arc(top.x + t * 7 + Math.sin(t * 6) * 1.5, top.y - t * 16, 1.8 + t * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // A library: a pale stone hall with a columned porch and a pediment, tall windows down the side.
+  drawLibrary(ctx, x, y, s, L, ghost) {
+    const wall = '#f3ecf6';
+    const accent = PALETTE.lavender;
+    const x0 = x + 0.14;
+    const x1 = x + 0.86;
+    const y0 = y + 0.18;
+    const y1 = y + 0.72;
+    const h = 15;
+    const fill = this.workFill(x, y, s, ghost);
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall);
+    this.drawBox(ctx, L, x0 - 0.02, y0 - 0.02, x1 + 0.02, y1 + 0.02, h, 2.5, accent);
+    const open = !ghost && fill > 0 && this.shopOpen(L) && L.windowLit > 0.05;
+    for (let k = 0; k < 4; k++) {
+      const u0 = 0.08 + k * 0.23;
+      this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, u0, u0 + 0.13, 3, 12), 0.8, open && this.isWindowLit(x, y, k, 0.8, L));
+    }
+    ctx.fillStyle = lit('#a98fbf', 0.85, L);
+    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.42, 0.58, 0, 9));
+    ctx.fill();
+    // Porch: a step, four columns, a beam and a triangular pediment.
+    const px0 = x0 + 0.1;
+    const px1 = x1 - 0.1;
+    const py = y1 + 0.1;
+    this.drawBox(ctx, L, px0 - 0.03, y1, px1 + 0.03, py + 0.03, 0, 1.5, PALETTE.stone);
+    for (let k = 0; k < 4; k++) {
+      const cx = px0 + ((px1 - px0) * (k + 0.5)) / 4;
+      this.drawBox(ctx, L, cx - 0.025, py - 0.05, cx + 0.025, py, 1.5, 10.5, '#fffaf6');
+    }
+    this.drawBox(ctx, L, px0 - 0.02, y1, px1 + 0.02, py + 0.01, 12, 2.5, wall);
+    ctx.fillStyle = lit(accent, 0.95, L);
+    poly(ctx, [[px0 - 0.02, py + 0.01, 14.5], [px1 + 0.02, py + 0.01, 14.5], [(px0 + px1) / 2, py + 0.01, 20]]);
+    ctx.fill();
+  }
+
+  // A fire station: a coral brick hall with two big engine doors and a tall hose tower. Its beacon
+  // glows red at night.
+  drawFireStation(ctx, x, y, s, L, ghost) {
+    const wall = '#f4978e';
+    const trim = '#fff3ef';
+    const x0 = x + 0.12;
+    const x1 = x + 0.88;
+    const y0 = y + 0.18;
+    const y1 = y + 0.84;
+    const h = 17;
+    const fill = this.workFill(x, y, s, ghost);
+    // Hose tower at the back, drawn first so the hall sits in front of it.
+    const tx0 = x1 - 0.22;
+    const ty0 = y0 + 0.02;
+    this.drawBox(ctx, L, tx0, ty0, tx0 + 0.16, ty0 + 0.16, 0, 34, wall);
+    this.drawBox(ctx, L, tx0 - 0.02, ty0 - 0.02, tx0 + 0.18, ty0 + 0.18, 34, 2.5, trim);
+    this.drawWindow(ctx, L, this.faceQuad('R', tx0, ty0, tx0 + 0.16, ty0 + 0.16, 0.3, 0.7, 24, 30), 0.8, this.isWindowLit(x, y, 7, fill, L));
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall);
+    this.drawBox(ctx, L, x0 - 0.01, y0 - 0.01, x1 + 0.01, y1 + 0.01, h, 2, trim);
+    // Two engine doors with panel lines.
+    for (const [u0, u1] of [[0.08, 0.44], [0.54, 0.9]]) {
+      ctx.fillStyle = lit(trim, 0.92, L);
+      poly(ctx, this.faceQuad('L', x0, y0, x1, y1, u0, u1, 0, 11));
+      ctx.fill();
+      ctx.strokeStyle = lit('#e0c8c2', 1, L);
+      ctx.lineWidth = 0.6;
+      for (const v of [3.5, 6.5, 9.5]) {
+        const a = gridToWorld(x0 + (x1 - x0) * u0, y1, v);
+        const b = gridToWorld(x0 + (x1 - x0) * u1, y1, v);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+    // Crew quarters upstairs keep a light on all night.
+    const night = Math.max(0.4, fill);
+    for (let k = 0; k < 3; k++) {
+      const u0 = 0.1 + k * 0.3;
+      this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, u0, u0 + 0.2, 6, 12), 0.8, this.isWindowLit(x, y, k, night, L));
+    }
+    // Beacon on the roof.
+    const b = gridToWorld(x0 + 0.14, y1 - 0.14, h + 4);
+    ctx.fillStyle = lit('#ff6b5e', 1, L);
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    if (L.lamps > 0.1) this.glows.push({ x: b.x, y: b.y, r: 10, a: 0.35 * L.lamps, rgb: '255,110,100' });
+  }
+
+  // A university: a long two-storey hall in warm sandstone, a clock tower in the middle and a
+  // flag on top.
+  drawUniversity(ctx, x, y, s, L, ghost) {
+    const wall = '#f3dcc8';
+    const roof = '#b79ad0';
+    const x0 = x + 0.06;
+    const x1 = x + 0.94;
+    const y0 = y + 0.12;
+    const y1 = y + 0.88;
+    const h = 22;
+    const fill = this.workFill(x, y, s, ghost);
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall);
+    this.drawBox(ctx, L, x0 - 0.02, y0 - 0.02, x1 + 0.02, y1 + 0.02, h, 2.5, roof);
+    // Two floors of windows; students study late, so a few stay lit into the night.
+    const late = Math.max(0.25, fill * 0.7);
+    for (let row = 0; row < 2; row++) {
+      const v0 = 3.5 + row * 9;
+      for (let k = 0; k < 5; k++) {
+        const u0 = 0.06 + k * 0.19;
+        if (row === 0 && k === 2) continue;
+        this.drawWindow(ctx, L, this.faceQuad('L', x0, y0, x1, y1, u0, u0 + 0.11, v0, v0 + 5.5), 0.92, this.isWindowLit(x, y, row * 5 + k, late, L));
+        this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, u0, u0 + 0.11, v0, v0 + 5.5), 0.8, this.isWindowLit(x, y, 10 + row * 5 + k, late, L));
+      }
+    }
+    // Arched entrance.
+    ctx.fillStyle = lit('#a98fbf', 0.85, L);
+    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.43, 0.57, 0, 10));
+    ctx.fill();
+    // Clock tower with a pyramid cap.
+    const bx0 = x + 0.4;
+    const bx1 = x + 0.6;
+    const by0 = y + 0.4;
+    const by1 = y + 0.6;
+    const top = h + 2.5;
+    this.drawBox(ctx, L, bx0, by0, bx1, by1, top, 16, wall);
+    const c = gridToWorld((bx0 + bx1) / 2, by1, top + 10);
+    ctx.fillStyle = lit('#fffaf2', 1, L);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = lit('#7d6a8f', 1, L);
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(c.x, c.y - 2);
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(c.x + 1.4, c.y);
+    ctx.stroke();
+    const apex = [(bx0 + bx1) / 2, (by0 + by1) / 2, top + 26];
+    const e = 0.02;
+    ctx.fillStyle = lit(roof, 1.02, L);
+    poly(ctx, [[bx0 - e, by1 + e, top + 16], [bx1 + e, by1 + e, top + 16], apex]);
+    ctx.fill();
+    ctx.fillStyle = lit(roof, 0.8, L);
+    poly(ctx, [[bx1 + e, by1 + e, top + 16], [bx1 + e, by0 - e, top + 16], apex]);
+    ctx.fill();
   }
 
   drawTree(ctx, gx, gy, shape, L, phase, scale, tx = gx, ty = gy) {
@@ -14309,6 +14581,10 @@ const COLORS = {
   office: '#9fbfe6',
   school: '#ffab94',
   clinic: '#8fd8bd',
+  bakery: '#f2c48d',
+  library: '#c4a8de',
+  firestation: '#ff8f84',
+  university: '#e8b8a0',
   tree: '#7cbf84',
   park: '#8fd29a',
   playground: '#ffd99a',
@@ -14800,6 +15076,9 @@ const ICONS = {
   office: svg('<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 8h14M5 12.5h14M5 17h14"/>'),
   school: svg('<path d="M3 10 12 5l9 5-9 5z"/><path d="M7 12.2V17c2.8 2 7.2 2 10 0v-4.8"/><path d="M21 10v5"/>'),
   clinic: svg('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/>'),
+  library: svg('<path d="M4 5.5c2.5-1 5.5-1 8 1 2.5-2 5.5-2 8-1V19c-2.5-1-5.5-1-8 1-2.5-2-5.5-2-8-1z"/><path d="M12 6.5V20"/>'),
+  firestation: svg('<path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 2 1.2 3 2.5 3.5C12 9 11 6 12 3Z"/>'),
+  university: svg('<path d="M3 9.5 12 4l9 5.5z"/><path d="M5 9.5V18M9.5 9.5V18M14.5 9.5V18M19 9.5V18"/><path d="M3 20.5h18"/>'),
   tree: svg('<circle cx="12" cy="9.5" r="6"/><path d="M12 15.5V21M9 21h6"/>'),
   park: svg('<path d="M4 13.5h16M5.5 13.5v5M18.5 13.5v5"/><path d="M4.5 9.5h15"/><path d="M7 9.5V6.5M17 9.5V6.5"/>'),
   road: svg('<path d="M8.5 3 5 21M15.5 3 19 21"/><path d="M12 4v2.5M12 10.5V13M12 17v3"/>'),
@@ -14812,6 +15091,7 @@ const ICONS = {
   layers: svg('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/>'),
   cottage: svg('<path d="M5 12 12 6l7 6"/><path d="M7 11v8h10v-8"/><path d="M11 19v-4h2v4"/><path d="M15.5 8V5.5h2V10"/>'),
   apartments: svg('<rect x="5" y="4" width="14" height="17" rx="1.5"/><path d="M8.5 8h2M13.5 8h2M8.5 12h2M13.5 12h2M8.5 16h2M13.5 16h2"/>'),
+  bakery: svg('<path d="M4 15c0-4.5 3.6-8 8-8s8 3.5 8 8v2.5H4z"/><path d="M9 8.5 10 13M15 8.5 14 13M12 7v6"/>'),
   cafe: svg('<path d="M5 10h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5c0 1.5 1.5 1.5 1.5 3M12 3.5c0 1.5 1.5 1.5 1.5 3"/>'),
   mall: svg('<path d="M3 10h18v10H3z"/><path d="M5 10 7 5h10l2 5"/><path d="M10 20v-5h4v5"/><path d="M6 13h2M16 13h2"/>'),
   factory: svg('<path d="M3 20V11l5 3v-3l5 3v-3l5 3V4h3v16z"/><path d="M7 17h2M12 17h2"/>'),
@@ -15234,7 +15514,10 @@ class Interface {
     const factors = showFactors
       ? FACTORS.filter((f) => f.enabled).map((f) => ({ label: f.label, v: t.factors[f.id] || 0 }))
       : [];
-    const coverage = SERVICES.map((sv) => `${sv.label.replace(/s$/, '')} ${pct(t.coverage?.[sv.id] || 0)}`).join(' · ');
+    const fire = t.coverage?.fire || 0;
+    const coverage = SERVICES.map((sv) => `${sv.label.replace(/s$/, '')} ${pct(t.coverage?.[sv.id] || 0)}`)
+      .concat(fire > 0 ? [`Fire station ${pct(fire)}`] : [])
+      .join(' · ');
     const key = JSON.stringify([title, facts, factors.map((f) => f.v.toFixed(3)), t.desirability.toFixed(3), coverage]);
     if (key === this._inspectKey) return;
     this._inspectKey = key;
@@ -16722,6 +17005,10 @@ const TOOL_SOUNDS = {
   office: 'popBig',
   school: 'popBig',
   clinic: 'popBig',
+  bakery: 'pop',
+  library: 'popBig',
+  firestation: 'popBig',
+  university: 'popBig',
   playground: 'pop',
   field: 'plant',
   tree: 'plant',

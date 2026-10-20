@@ -11,7 +11,7 @@
 // damage). Damage is stored on the structure: `damage` 0..1 (a third or more halves what the building
 // can hold), roads `broken` (washed out) or `snowed` (snowed in), and a building at full damage turns
 // into rubble. Crews then repair things one at a time, paid from the town budget, or the player pays
-// to repair everything at once, or builds over the damage.
+// to repair everything at once, or builds over the damage. Fire stations nearby soften the blow.
 //
 // How often it happens is a per-town setting: off, gentle (default) or wild.
 // Saved in city.systems.disasters = { level, next, active, pending, prepared, resilience, levee, log }.
@@ -55,6 +55,13 @@ export function soundness(s) {
 }
 
 const now = (city) => city.day + city.clock;
+
+// A nearby fire station puts out fires and lightning blazes before they spread (up to 70% less damage)
+// and helps with everything else (up to 30% less).
+export function fireCover(tile, cause) {
+  const c = tile.coverage?.fire || 0;
+  return 1 - c * (cause === 'fire' || cause === 'lightning' ? 0.7 : 0.3);
+}
 const isBuilding = (s) => !!s && s.type !== 'road' && s.type !== 'rubble' && !STRUCTURES[s.type].walkable;
 
 export class Disasters {
@@ -344,7 +351,7 @@ export class Disasters {
       return;
     }
     if (def.walkable) return; // parks, playgrounds and fields shrug it off
-    const scale = (st.prepared && a?.kind && KINDS[a.kind].severity === 'extreme' ? 0.5 : 1) * (st.resilience ?? 1);
+    const scale = (st.prepared && a?.kind && KINDS[a.kind].severity === 'extreme' ? 0.5 : 1) * (st.resilience ?? 1) * fireCover(tile, cause);
     const before = s.damage || 0;
     s.damage = clamp(before + amount * scale, 0, 1);
     if (s.damage >= 1) {

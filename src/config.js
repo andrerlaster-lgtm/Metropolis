@@ -66,6 +66,11 @@ export const STRUCTURES = {
   road: { label: 'Road', capacity: 0, jobs: 0, greenery: 0, walkable: true, road: true, height: 0 },
   // What a building becomes when a disaster destroys it. Not a tool: crews or the bulldozer clear it.
   rubble: { label: 'Rubble', capacity: 0, jobs: 0, greenery: 0, height: 7 },
+  // New kinds go at the end: share links store each type by its position in this list.
+  bakery: { label: 'Bakery', capacity: 0, jobs: 4, greenery: 0, height: 20 },
+  library: { label: 'Library', capacity: 0, jobs: 3, greenery: 0, height: 26, service: 'school', radius: 5 },
+  firestation: { label: 'Fire station', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'fire', radius: 7 },
+  university: { label: 'University', capacity: 0, jobs: 30, greenery: 0, height: 40, service: 'school', radius: 9 },
 };
 
 // Share of residents who go out to work.
@@ -76,16 +81,17 @@ export const SERVICES = [
   { id: 'school', label: 'Schools' },
   { id: 'health', label: 'Clinics' },
 ];
-// Every kind of coverage a building can provide (services above, plus recreation).
-export const COVERAGE_IDS = ['school', 'health', 'fun'];
+// Every kind of coverage a building can provide (services above, plus recreation and fire cover,
+// which protects buildings from disaster damage rather than making homes more desirable).
+export const COVERAGE_IDS = ['school', 'health', 'fun', 'fire'];
 
 // Milestones: the town's title grows with its population, and each step unlocks new buildings.
 // Unlocks are permanent. Tools not listed here are always available.
 export const MILESTONES = [
   { id: 'hamlet', label: 'Hamlet', pop: 0, unlocks: [] },
-  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory'] },
+  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory', 'library', 'firestation'] },
   { id: 'town', label: 'Town', pop: 200, unlocks: ['tower', 'office', 'clinic', 'mall'] },
-  { id: 'city', label: 'City', pop: 450, unlocks: ['field'] },
+  { id: 'city', label: 'City', pop: 450, unlocks: ['field', 'university'] },
   { id: 'metropolis', label: 'Metropolis', pop: 900, unlocks: [] },
 ];
 
@@ -104,6 +110,10 @@ export const COSTS = {
   factory: 1500,
   school: 2000,
   clinic: 2500,
+  bakery: 180,
+  library: 900,
+  firestation: 1800,
+  university: 6000,
   playground: 400,
   field: 1500,
   tree: 10,
@@ -112,11 +122,11 @@ export const COSTS = {
   bulldoze: 0,
 };
 // Upkeep per in-game day.
-export const UPKEEP = { road: 0.5, school: 30, clinic: 35, park: 2, playground: 5, field: 12 };
+export const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestation: 25, university: 60, park: 2, playground: 5, field: 12 };
 // Taxes per in-game day: every resident pays a little, every worker a little more, and each business
 // pays per filled job.
 export const TAX = { resident: 0.8, worker: 1.2 };
-export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, office: 2, mall: 1.5, factory: 2.2 };
+export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2 };
 export const START_MONEY = { land: 10000, town: 25000 };
 
 // Resident thoughts: red needs fixing, yellow is worth a look, green is going well.
@@ -141,6 +151,7 @@ export const TOOL_GROUPS = [
     tools: [
       { id: 'shop', label: 'Shop', key: '3' },
       { id: 'cafe', label: 'Café', key: 'e' },
+      { id: 'bakery', label: 'Bakery', key: 'n' },
       { id: 'office', label: 'Office', key: '4' },
       { id: 'mall', label: 'Mall', key: 'l' },
       { id: 'factory', label: 'Factory', key: 'y' },
@@ -152,6 +163,9 @@ export const TOOL_GROUPS = [
     tools: [
       { id: 'school', label: 'School', key: '5' },
       { id: 'clinic', label: 'Clinic', key: '6' },
+      { id: 'library', label: 'Library', key: 'j' },
+      { id: 'firestation', label: 'Fire station', key: 'h' },
+      { id: 'university', label: 'University', key: 'u' },
     ],
   },
   {

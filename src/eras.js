@@ -17,7 +17,7 @@ export const ERAS = [
     years: 0,
     nominal: 1850,
     blurb: 'Dirt lanes, timber cottages and horse carts.',
-    builds: ['cottage', 'house', 'shop', 'cafe', 'school', 'clinic', 'park', 'playground'],
+    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground'],
   },
   {
     id: 'railway',
@@ -26,7 +26,7 @@ export const ERAS = [
     years: 15,
     nominal: 1865,
     blurb: 'Cobbled streets, brick houses and gas lamps. The first motor cars rattle by.',
-    builds: ['apartments', 'factory'],
+    builds: ['apartments', 'factory', 'library', 'firestation'],
   },
   {
     id: 'motor',
@@ -44,7 +44,7 @@ export const ERAS = [
     years: 60,
     nominal: 1910,
     blurb: 'Towers rise downtown and the streets hum with traffic.',
-    builds: ['tower'],
+    builds: ['tower', 'university'],
   },
   {
     id: 'future',
