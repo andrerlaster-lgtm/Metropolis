@@ -121,6 +121,11 @@ export function computeThoughts(city, milestones) {
     if (far.length) add('health', 'caution', 2.5, "There's no clinic if someone gets sick.", 'Build a clinic', worstOf(far), far);
   }
 
+  if (unlocked('firestation') && lived.length >= 10 && (city.systems.disasters?.level ?? 'gentle') !== 'off') {
+    const far = lived.filter((h) => (h.coverage.fire || 0) < 0.1);
+    if (far.length) add('fire', 'caution', 1.5, 'If a fire breaks out, no fire engine could get here in time.', 'Build a fire station', worstOf(far), far);
+  }
+
   const bare = lived.filter((h) => (h.factors.greenery || 0) < 0.02);
   if (bare.length) add('green', 'caution', 2, "It's all concrete here. A few trees would be lovely.", 'Plant trees or a park', worstOf(bare), bare);
 
@@ -147,7 +152,7 @@ export function computeThoughts(city, milestones) {
       return out;
     };
     const wants = [
-      ['eat', 'Nowhere to grab a bite around here.', unlocked('cafe') ? 'Build a café, shop or mall nearby' : 'Build a shop nearby'],
+      ['eat', 'Nowhere to grab a bite around here.', unlocked('cafe') ? 'Build a café, bakery, shop or mall nearby' : 'Build a shop nearby'],
       ['play', 'There’s nothing to do on the weekend!', 'Build a park, playground or sports field nearby'],
       ['social', 'We never see our friends. Somewhere to meet up?', 'A café or a park gives neighbours a place to meet'],
     ];

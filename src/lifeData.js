@@ -38,6 +38,10 @@ export const CAREERS = {
   cafe: { titles: ['Barista', 'Café manager'], pay: [16000, 26000], smarts: 0 },
   mall: { titles: ['Sales assistant', 'Floor manager', 'Mall director'], pay: [19000, 30000, 55000], smarts: 10 },
   factory: { titles: ['Machine operator', 'Foreman', 'Plant manager'], pay: [24000, 34000, 60000], smarts: 20 },
+  bakery: { titles: ["Baker's helper", 'Baker', 'Master baker'], pay: [15000, 22000, 31000], smarts: 0 },
+  library: { titles: ['Library assistant', 'Librarian', 'Head librarian'], pay: [17000, 27000, 38000], smarts: 35 },
+  firestation: { titles: ['Volunteer firefighter', 'Firefighter', 'Fire chief'], pay: [20000, 32000, 50000], smarts: 10 },
+  university: { titles: ['Lab technician', 'Lecturer', 'Professor', 'Dean'], pay: [24000, 40000, 62000, 90000], smarts: 70 },
 };
 
 export const STAGES = [

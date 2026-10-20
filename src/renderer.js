@@ -1419,6 +1419,10 @@ export class Renderer {
     if (s.type === 'office') return { inset: 0.14, h: 8 + growthOf(t).floors * 12 };
     if (s.type === 'school') return { inset: 0.12, h: 26 };
     if (s.type === 'clinic') return { inset: 0.15, h: 24 };
+    if (s.type === 'bakery') return { inset: 0.2, h: 18 };
+    if (s.type === 'library') return { inset: 0.14, h: 18 };
+    if (s.type === 'firestation') return { inset: 0.12, h: 20 };
+    if (s.type === 'university') return { inset: 0.06, h: 26 };
     if (s.type === 'cottage') return { inset: 0.27, h: 18 };
     if (s.type === 'apartments') return { inset: 0.15, h: 8 + growthOf(t).floors * 10 };
     if (s.type === 'cafe') return { inset: 0.24, h: 14 };
@@ -1699,6 +1703,14 @@ export class Renderer {
         return this.drawSchool(ctx, x, y, s, L, ghost);
       case 'clinic':
         return this.drawClinic(ctx, x, y, s, L, ghost);
+      case 'bakery':
+        return this.drawBakery(ctx, x, y, s, L, ghost);
+      case 'library':
+        return this.drawLibrary(ctx, x, y, s, L, ghost);
+      case 'firestation':
+        return this.drawFireStation(ctx, x, y, s, L, ghost);
+      case 'university':
+        return this.drawUniversity(ctx, x, y, s, L, ghost);
       case 'tree':
         return this.drawTree(ctx, x + 0.5, y + 0.5, s.shape || 0, L, hash2(x, y, 12) * 6.28, 1, x, y);
       case 'rubble':
@@ -2506,6 +2518,215 @@ export class Renderer {
       const p = gridToWorld(cx, cy, h);
       this.glows.push({ x: p.x, y: p.y, r: 14, a: 0.3 * L.lamps, rgb: '255,150,150', flat: true });
     }
+  }
+
+  // A pitched roof with its ridge running along x, gable end on the right face.
+  gableRoof(ctx, L, x0, y0, x1, y1, h, rise, roof, wall) {
+    const ym = (y0 + y1) / 2;
+    const e = 0.03;
+    ctx.fillStyle = lit(wall, 0.78, L);
+    poly(ctx, [[x1, y0, h], [x1, y1, h], [x1, ym, h + rise]]);
+    ctx.fill();
+    ctx.fillStyle = lit(roof, 0.86, L);
+    poly(ctx, [[x0 - e, y0 - e, h], [x1 + e, y0 - e, h], [x1 + e, ym, h + rise], [x0 - e, ym, h + rise]]);
+    ctx.fill();
+    ctx.fillStyle = lit(roof, 1.02, L);
+    poly(ctx, [[x0 - e, y1 + e, h], [x1 + e, y1 + e, h], [x1 + e, ym, h + rise], [x0 - e, ym, h + rise]]);
+    ctx.fill();
+  }
+
+  // A bakery: a cream cottage with a big shop window, a bread sign and a warm oven chimney that
+  // smokes from before dawn.
+  drawBakery(ctx, x, y, s, L, ghost) {
+    const wall = '#fbe7c6';
+    const roof = '#d49a6a';
+    const x0 = x + 0.2;
+    const x1 = x + 0.8;
+    const y0 = y + 0.22;
+    const y1 = y + 0.74;
+    const h = 12;
+    const fill = this.workFill(x, y, s, ghost);
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall, false);
+    const open = !ghost && fill > 0 && L.clock > 0.2 && L.clock < 0.8 && L.windowLit > 0.05;
+    this.drawWindow(ctx, L, this.faceQuad('L', x0, y0, x1, y1, 0.08, 0.56, 2.5, 8.5), 0.92, open);
+    ctx.fillStyle = lit('#b9845c', 0.8, L);
+    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.66, 0.86, 0, 8.5));
+    ctx.fill();
+    this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, 0.3, 0.7, 4, 9), 0.8, open && hash2(x, y, 17) < 0.6);
+    // Chimney behind the ridge, then the roof.
+    const cx0 = x0 + 0.1;
+    const cy0 = y0 + 0.06;
+    this.drawBox(ctx, L, cx0, cy0, cx0 + 0.09, cy0 + 0.09, h, 12, '#e3b08f');
+    this.gableRoof(ctx, L, x0, y0, x1, y1, h, 8, roof, wall);
+    // Bread sign over the window: a golden loaf with three scores.
+    const p = gridToWorld(x0 + (x1 - x0) * 0.32, y1 + 0.04, 10.5);
+    ctx.fillStyle = lit('#e8b56a', 1, L);
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, 4.6, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = lit('#b9845c', 1, L);
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (const d of [-2, 0, 2]) {
+      ctx.moveTo(p.x + d - 0.7, p.y + 1);
+      ctx.lineTo(p.x + d + 0.7, p.y - 1);
+    }
+    ctx.stroke();
+    // Ovens are lit from the small hours until the afternoon.
+    const baking = !ghost && fill > 0 && L.clock > 0.15 && L.clock < 0.6;
+    if (baking && !this.reduceMotion) {
+      const top = gridToWorld(cx0 + 0.045, cy0 + 0.045, h + 13);
+      for (let i = 0; i < 3; i++) {
+        const t = (this.time * 0.3 + i / 3 + hash2(x, y, 5)) % 1;
+        ctx.fillStyle = litA('#f7f2ea', 1, L, (0.55 * (1 - t)).toFixed(3));
+        ctx.beginPath();
+        ctx.arc(top.x + t * 7 + Math.sin(t * 6) * 1.5, top.y - t * 16, 1.8 + t * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // A library: a pale stone hall with a columned porch and a pediment, tall windows down the side.
+  drawLibrary(ctx, x, y, s, L, ghost) {
+    const wall = '#f3ecf6';
+    const accent = PALETTE.lavender;
+    const x0 = x + 0.14;
+    const x1 = x + 0.86;
+    const y0 = y + 0.18;
+    const y1 = y + 0.72;
+    const h = 15;
+    const fill = this.workFill(x, y, s, ghost);
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall);
+    this.drawBox(ctx, L, x0 - 0.02, y0 - 0.02, x1 + 0.02, y1 + 0.02, h, 2.5, accent);
+    const open = !ghost && fill > 0 && this.shopOpen(L) && L.windowLit > 0.05;
+    for (let k = 0; k < 4; k++) {
+      const u0 = 0.08 + k * 0.23;
+      this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, u0, u0 + 0.13, 3, 12), 0.8, open && this.isWindowLit(x, y, k, 0.8, L));
+    }
+    ctx.fillStyle = lit('#a98fbf', 0.85, L);
+    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.42, 0.58, 0, 9));
+    ctx.fill();
+    // Porch: a step, four columns, a beam and a triangular pediment.
+    const px0 = x0 + 0.1;
+    const px1 = x1 - 0.1;
+    const py = y1 + 0.1;
+    this.drawBox(ctx, L, px0 - 0.03, y1, px1 + 0.03, py + 0.03, 0, 1.5, PALETTE.stone);
+    for (let k = 0; k < 4; k++) {
+      const cx = px0 + ((px1 - px0) * (k + 0.5)) / 4;
+      this.drawBox(ctx, L, cx - 0.025, py - 0.05, cx + 0.025, py, 1.5, 10.5, '#fffaf6');
+    }
+    this.drawBox(ctx, L, px0 - 0.02, y1, px1 + 0.02, py + 0.01, 12, 2.5, wall);
+    ctx.fillStyle = lit(accent, 0.95, L);
+    poly(ctx, [[px0 - 0.02, py + 0.01, 14.5], [px1 + 0.02, py + 0.01, 14.5], [(px0 + px1) / 2, py + 0.01, 20]]);
+    ctx.fill();
+  }
+
+  // A fire station: a coral brick hall with two big engine doors and a tall hose tower. Its beacon
+  // glows red at night.
+  drawFireStation(ctx, x, y, s, L, ghost) {
+    const wall = '#f4978e';
+    const trim = '#fff3ef';
+    const x0 = x + 0.12;
+    const x1 = x + 0.88;
+    const y0 = y + 0.18;
+    const y1 = y + 0.84;
+    const h = 17;
+    const fill = this.workFill(x, y, s, ghost);
+    // Hose tower at the back, drawn first so the hall sits in front of it.
+    const tx0 = x1 - 0.22;
+    const ty0 = y0 + 0.02;
+    this.drawBox(ctx, L, tx0, ty0, tx0 + 0.16, ty0 + 0.16, 0, 34, wall);
+    this.drawBox(ctx, L, tx0 - 0.02, ty0 - 0.02, tx0 + 0.18, ty0 + 0.18, 34, 2.5, trim);
+    this.drawWindow(ctx, L, this.faceQuad('R', tx0, ty0, tx0 + 0.16, ty0 + 0.16, 0.3, 0.7, 24, 30), 0.8, this.isWindowLit(x, y, 7, fill, L));
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall);
+    this.drawBox(ctx, L, x0 - 0.01, y0 - 0.01, x1 + 0.01, y1 + 0.01, h, 2, trim);
+    // Two engine doors with panel lines.
+    for (const [u0, u1] of [[0.08, 0.44], [0.54, 0.9]]) {
+      ctx.fillStyle = lit(trim, 0.92, L);
+      poly(ctx, this.faceQuad('L', x0, y0, x1, y1, u0, u1, 0, 11));
+      ctx.fill();
+      ctx.strokeStyle = lit('#e0c8c2', 1, L);
+      ctx.lineWidth = 0.6;
+      for (const v of [3.5, 6.5, 9.5]) {
+        const a = gridToWorld(x0 + (x1 - x0) * u0, y1, v);
+        const b = gridToWorld(x0 + (x1 - x0) * u1, y1, v);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+    // Crew quarters upstairs keep a light on all night.
+    const night = Math.max(0.4, fill);
+    for (let k = 0; k < 3; k++) {
+      const u0 = 0.1 + k * 0.3;
+      this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, u0, u0 + 0.2, 6, 12), 0.8, this.isWindowLit(x, y, k, night, L));
+    }
+    // Beacon on the roof.
+    const b = gridToWorld(x0 + 0.14, y1 - 0.14, h + 4);
+    ctx.fillStyle = lit('#ff6b5e', 1, L);
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    if (L.lamps > 0.1) this.glows.push({ x: b.x, y: b.y, r: 10, a: 0.35 * L.lamps, rgb: '255,110,100' });
+  }
+
+  // A university: a long two-storey hall in warm sandstone, a clock tower in the middle and a
+  // flag on top.
+  drawUniversity(ctx, x, y, s, L, ghost) {
+    const wall = '#f3dcc8';
+    const roof = '#b79ad0';
+    const x0 = x + 0.06;
+    const x1 = x + 0.94;
+    const y0 = y + 0.12;
+    const y1 = y + 0.88;
+    const h = 22;
+    const fill = this.workFill(x, y, s, ghost);
+    this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, wall);
+    this.drawBox(ctx, L, x0 - 0.02, y0 - 0.02, x1 + 0.02, y1 + 0.02, h, 2.5, roof);
+    // Two floors of windows; students study late, so a few stay lit into the night.
+    const late = Math.max(0.25, fill * 0.7);
+    for (let row = 0; row < 2; row++) {
+      const v0 = 3.5 + row * 9;
+      for (let k = 0; k < 5; k++) {
+        const u0 = 0.06 + k * 0.19;
+        if (row === 0 && k === 2) continue;
+        this.drawWindow(ctx, L, this.faceQuad('L', x0, y0, x1, y1, u0, u0 + 0.11, v0, v0 + 5.5), 0.92, this.isWindowLit(x, y, row * 5 + k, late, L));
+        this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, u0, u0 + 0.11, v0, v0 + 5.5), 0.8, this.isWindowLit(x, y, 10 + row * 5 + k, late, L));
+      }
+    }
+    // Arched entrance.
+    ctx.fillStyle = lit('#a98fbf', 0.85, L);
+    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.43, 0.57, 0, 10));
+    ctx.fill();
+    // Clock tower with a pyramid cap.
+    const bx0 = x + 0.4;
+    const bx1 = x + 0.6;
+    const by0 = y + 0.4;
+    const by1 = y + 0.6;
+    const top = h + 2.5;
+    this.drawBox(ctx, L, bx0, by0, bx1, by1, top, 16, wall);
+    const c = gridToWorld((bx0 + bx1) / 2, by1, top + 10);
+    ctx.fillStyle = lit('#fffaf2', 1, L);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = lit('#7d6a8f', 1, L);
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(c.x, c.y - 2);
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(c.x + 1.4, c.y);
+    ctx.stroke();
+    const apex = [(bx0 + bx1) / 2, (by0 + by1) / 2, top + 26];
+    const e = 0.02;
+    ctx.fillStyle = lit(roof, 1.02, L);
+    poly(ctx, [[bx0 - e, by1 + e, top + 16], [bx1 + e, by1 + e, top + 16], apex]);
+    ctx.fill();
+    ctx.fillStyle = lit(roof, 0.8, L);
+    poly(ctx, [[bx1 + e, by1 + e, top + 16], [bx1 + e, by0 - e, top + 16], apex]);
+    ctx.fill();
   }
 
   drawTree(ctx, gx, gy, shape, L, phase, scale, tx = gx, ty = gy) {
