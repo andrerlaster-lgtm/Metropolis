@@ -482,19 +482,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       ui.closeTray();
     },
     beforeOpen: () => saver.flush(),
-    onPlay: (n) => {
-      saver.flush();
-      const r = readSlot(n);
-      if (r.status !== 'ok') return ui.toast(r.status === 'broken' ? unreadableNote(n, r.newer) : 'That save slot is empty', 6000);
-      const left = visiting;
-      if (visiting) leaveVisit();
-      setActiveSlot(n);
-      swapCity(r.city);
-      ui.refreshLocks();
-      lifeUI.render();
-      stopFollow();
-      ui.toast(`Save slot ${n}: welcome back${left ? '. You left the shared town' : ''}`, 2400);
-    },
+    onPlay: (n) => openSlot(n),
+    // Not saved first: the town in memory would otherwise write over a file imported into this slot.
+    onImported: (n) => openSlot(n, { imported: true }),
+    toast: (text, ms) => ui.toast(text, ms),
     onHome: () => backHome(),
     onNew: (n) => newTownSheet.toggle(true, { slot: n }),
     // Saving a copy over a slot is the player's choice, so it may replace an unreadable save.
@@ -509,6 +500,21 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       if (back?.slot) ui.toast(`Your town from before a shared visit is back, in slot ${back.slot}`, 4200);
     },
   });
+
+  function openSlot(n, { imported = false } = {}) {
+    if (!imported) saver.flush();
+    const r = readSlot(n);
+    if (r.status !== 'ok') return ui.toast(r.status === 'broken' ? unreadableNote(n, r.newer) : 'That save slot is empty', 6000);
+    const left = visiting;
+    if (visiting) leaveVisit();
+    setActiveSlot(n);
+    swapCity(r.city);
+    ui.refreshLocks();
+    lifeUI.render();
+    stopFollow();
+    const said = imported ? `The imported town is in save slot ${n}` : `Save slot ${n}: welcome back`;
+    ui.toast(`${said}${left ? '. You left the shared town' : ''}`, 3200);
+  }
 
   // Build a fresh town of the chosen size and mode. The Life Story and achievements carry over;
   // a character whose home is gone moves into whatever the new town offers (or waits for one).

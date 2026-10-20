@@ -184,6 +184,59 @@ export function loadCity(slot = activeSlot()) {
   return r.status === 'ok' ? r.city : null;
 }
 
+// ---- Town files ------------------------------------------------------------------------
+// Export a slot as a file and import one back, so a town survives clearing the browser or moving
+// to another device. A file is the save exactly as stored (an unreadable save exports as-is, so it
+// can be rescued by a newer version of the game).
+export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+
+// { name, text } for a slot's save, or null when the slot is empty.
+export function exportSlot(n) {
+  const text = getRaw(slotKey(n));
+  if (!text) return null;
+  const info = slotInfo(n);
+  const bits = info && !info.broken ? [info.era, info.year, `${info.pop}-people`] : [`slot-${n}`, 'unreadable'];
+  const slug = bits.join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return { name: `pocket-metropolis-${slug}.json`, text };
+}
+
+// Check a file before it goes anywhere: { city, text } or { error: 'size' | 'newer' | 'invalid' }.
+export function parseImport(text) {
+  if (typeof text !== 'string' || text.length > MAX_IMPORT_BYTES) return { error: 'size' };
+  let save;
+  try {
+    save = JSON.parse(text);
+  } catch {
+    return { error: 'invalid' };
+  }
+  const c = save?.city;
+  if (!c || !Array.isArray(c.tiles) || !(save.version >= 1)) return { error: 'invalid' };
+  if (save.version > SAVE_VERSION) return { error: 'newer' };
+  try {
+    const city = CityState.fromJSON(migrate(save).city);
+    const ok = city.width >= 8 && city.width <= 64 && city.height >= 8 && city.height <= 64;
+    return ok ? { city } : { error: 'invalid' };
+  } catch {
+    return { error: 'invalid' };
+  }
+}
+
+// Put a checked town into a slot. Choosing the slot is the player's call, so it may replace anything.
+export function importInto(n, parsed) {
+  return !!parsed?.city && saveCity(parsed.city, n, { force: true });
+}
+
+// Ask the browser not to clear saves when space runs low. Resolves true, false, or null if unknown.
+export async function keepSavesSafe() {
+  try {
+    const st = globalThis.navigator?.storage;
+    if (!st?.persist) return null;
+    return (await st.persisted?.()) || (await st.persist());
+  } catch {
+    return null;
+  }
+}
+
 // ---- Visiting a shared town -------------------------------------------------------------
 // The visit has its own key; your own town stays in its slot (activeSlot) the whole time.
 const VISIT_KEY = `${KEY}:visit`;
