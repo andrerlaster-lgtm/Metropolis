@@ -1332,6 +1332,17 @@ button:focus-visible {
 }
 
 /* Milestone celebration */
+.save-warning {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(239, 100, 97, 0.12);
+  color: var(--sev-bad-ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .tab-guard {
   position: fixed;
   inset: 0;

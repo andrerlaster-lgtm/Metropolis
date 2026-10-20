@@ -190,14 +190,21 @@ export function loadCity(slot = activeSlot()) {
 // can be rescued by a newer version of the game).
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 
+const fileName = (bits) => `pocket-metropolis-${bits.join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.json`;
+
 // { name, text } for a slot's save, or null when the slot is empty.
 export function exportSlot(n) {
   const text = getRaw(slotKey(n));
   if (!text) return null;
   const info = slotInfo(n);
-  const bits = info && !info.broken ? [info.era, info.year, `${info.pop}-people`] : [`slot-${n}`, 'unreadable'];
-  const slug = bits.join('-').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return { name: `pocket-metropolis-${slug}.json`, text };
+  return { name: fileName(info && !info.broken ? [info.era, info.year, `${info.pop}-people`] : [`slot-${n}`, 'unreadable']), text };
+}
+
+// { name, text } for the town being played, straight from memory: up to date even when saving fails.
+export function exportCity(city) {
+  const meta = metaOf(city);
+  const text = JSON.stringify({ version: SAVE_VERSION, savedAt: Date.now(), meta, city: city.toJSON() });
+  return { name: fileName([meta.era, meta.year, `${meta.pop}-people`]), text };
 }
 
 // Check a file before it goes anywhere: { city, text } or { error: 'size' | 'newer' | 'invalid' }.
@@ -296,15 +303,31 @@ export function rescueLegacyBackup() {
   }
 }
 
+// Why the town being played isn't saving: 'locked' (it has no slot it may write: every slot was taken
+// when its own save couldn't be read) or 'storage' (the browser refused: full, or storage blocked).
+function saveProblem() {
+  return !isVisiting() && locked.has(activeSlot()) ? 'locked' : 'storage';
+}
+
+// How often a save problem is mentioned again while it lasts.
+export const WARN_EVERY_MS = 2 * 60 * 1000;
+
 // Saves shortly after each edit, every so often while the city lives, and when the page is hidden.
+// When saving fails it says so through onFail(reason) (again every WARN_EVERY_MS while it lasts), and
+// onRecover() once it works again.
 export class AutoSaver {
-  constructor(city, { delayMs = 800, intervalS = 15 } = {}) {
+  constructor(city, { delayMs = 800, intervalS = 15, now = () => Date.now() } = {}) {
     this.city = city;
     this.delayMs = delayMs;
     this.intervalS = intervalS;
+    this.now = now;
     this.pending = -1;
     this.since = 0;
     this.enabled = true; // false in a tab that isn't the one playing (see tabGuard.js)
+    this.problem = null; // 'locked' | 'storage' while saves are failing
+    this.warnedAt = -Infinity;
+    this.onFail = null;
+    this.onRecover = null;
     city.on((ev) => {
       if (['placed', 'removed', 'watered', 'reset', 'lifeChanged', 'lifeEvent'].includes(ev.type)) {
         this.pending = this.delayMs;
@@ -327,9 +350,25 @@ export class AutoSaver {
   }
 
   flush() {
-    if (!this.enabled) return;
-    saveCurrent(this.city);
+    if (!this.enabled) return true;
+    const ok = saveCurrent(this.city);
     this.since = 0;
     this.pending = -1;
+    if (ok) {
+      if (this.problem) {
+        this.problem = null;
+        this.warnedAt = -Infinity;
+        this.onRecover?.();
+      }
+      return true;
+    }
+    const reason = saveProblem();
+    const t = this.now();
+    if (reason !== this.problem || t - this.warnedAt >= WARN_EVERY_MS) {
+      this.warnedAt = t;
+      this.onFail?.(reason);
+    }
+    this.problem = reason;
+    return false;
   }
 }

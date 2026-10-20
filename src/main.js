@@ -35,6 +35,17 @@ import { daylightAt } from './time.js';
 
 const MAX_STROKE = 160;
 
+// What to tell the player when their town isn't being saved (see AutoSaver in persistence.js).
+const SAVE_PROBLEMS = {
+  storage: "Your town couldn't be saved: this browser's storage is full or blocked. Export it from ☰ → Save slots to keep a copy, or delete a slot you don't need.",
+  locked: "This town isn't being saved yet: every save slot is taken. Open ☰ → Save slots and pick one for it.",
+};
+// The same, said inside Save slots.
+const SAVE_PROBLEMS_HERE = {
+  storage: "Your town isn't being saved: this browser's storage is full or blocked. Export it below to keep a copy, or delete a slot you don't need.",
+  locked: "This town isn't being saved yet: every save slot is taken. Pick a slot for it below with Save a copy here or Overwrite with this town.",
+};
+
 // What to tell the player about a save that couldn't be read. It is never written over by autosave.
 function unreadableNote(n, newer) {
   return newer
@@ -485,6 +496,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onPlay: (n) => openSlot(n),
     // Not saved first: the town in memory would otherwise write over a file imported into this slot.
     onImported: (n) => openSlot(n, { imported: true }),
+    saveProblem: () => (saver.problem ? SAVE_PROBLEMS_HERE[saver.problem] : null),
+    currentTown: () => city,
     toast: (text, ms) => ui.toast(text, ms),
     onHome: () => backHome(),
     onNew: (n) => newTownSheet.toggle(true, { slot: n }),
@@ -1124,6 +1137,12 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     };
   }
   if (readOnly) showTabGuard('busy');
+
+  // ---- Saves that fail -------------------------------------------------------------
+  // Autosave says when the browser refuses a save (storage full or blocked) or when the town has no
+  // slot it may write, and again every couple of minutes while that lasts.
+  saver.onFail = (reason) => ui.toast(`⚠ ${SAVE_PROBLEMS[reason]}`, 9000);
+  saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
   window.pocketMetropolis = { city, sim, camera, renderer, history, audio, ui, saver, guard, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
