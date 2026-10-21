@@ -2,6 +2,7 @@
 // Shows state from LifeSystem; every change goes through the callbacks main.js passes in.
 
 import { STRUCTURES } from './config.js';
+import { typingTarget } from './input.js';
 import { PRONOUNS, SKIN_TONES, HAIR_COLORS, OUTFIT_COLORS, TRAITS, CAREERS, stageFor } from './lifeData.js';
 import { STAT_LABELS } from './lifeEngine.js';
 import { addressOf } from './streets.js';
@@ -48,7 +49,7 @@ export class LifeInterface {
     window.addEventListener(
       'keydown',
       (e) => {
-        if (this.card.hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (this.card.hidden || e.metaKey || e.ctrlKey || e.altKey || typingTarget(e.target)) return;
         const n = Number(e.key);
         if (this.outcome && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
