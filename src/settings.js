@@ -4,7 +4,8 @@
 import { SEVERITY_COLORS } from './config.js';
 
 const KEY = 'pocket-metropolis:settings';
-const DEFAULTS = { colorBlind: false, largeText: false, minimap: null }; // minimap null = automatic
+// minimap null = automatic; scroll 'auto' = trackpad scrolling pans and mouse wheels zoom ('zoom' or 'pan' always)
+const DEFAULTS = { colorBlind: false, largeText: false, minimap: null, scroll: 'auto' };
 
 // Okabe–Ito colours: told apart with every common type of colour blindness.
 const CB_SEVERITY = { bad: '#d55e00', caution: '#e69f00', good: '#0072b2' };

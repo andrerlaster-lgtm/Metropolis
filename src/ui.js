@@ -10,6 +10,7 @@ import { FACTORS } from './desirability.js';
 import { formatClock } from './time.js';
 import { workersIn } from './labor.js';
 import { seasonFor, WEATHER_LABELS } from './weather.js';
+import { typingTarget } from './input.js';
 
 const svg = (body) =>
   `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
@@ -140,6 +141,7 @@ export class Interface {
     });
     window.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (typingTarget(e.target)) return; // typing a name: every key is text
       if (e.key === ' ') {
         e.preventDefault();
         this.speedBtn.click();
@@ -312,7 +314,14 @@ export class Interface {
               const on = !!this.display.get(k);
               return `<span class="sheet-label">${label}</span><div class="seg big"><button type="button" data-display="${k}" data-value="1" aria-pressed="${on}">On</button><button type="button" data-display="${k}" data-value="0" aria-pressed="${!on}">Off</button></div>`;
             })
-            .join('')
+            .join('') +
+          `<span class="sheet-label">Scroll wheel / trackpad</span><div class="seg big">${[
+            ['auto', 'Auto'],
+            ['zoom', 'Always zoom'],
+            ['pan', 'Always pan'],
+          ]
+            .map(([v, l]) => `<button type="button" data-scroll="${v}" aria-pressed="${(this.display.get('scroll') || 'auto') === v}">${l}</button>`)
+            .join('')}</div><p class="sheet-hint">Auto: two-finger trackpad scrolling moves the map; pinching and mouse wheels zoom. Arrow keys or WASD move the map too.</p>`
         : '') +
       `<div class="sheet-actions"><button type="button" class="ghost-btn" data-more="share">Share town link</button>` +
       (this.hasBackup() ? '<button type="button" class="ghost-btn" data-more="home">Back to my town</button>' : '<span></span>') +
@@ -332,6 +341,7 @@ export class Interface {
       return this.renderSound();
     }
     else if (t.dataset.display) this.display.set(t.dataset.display, t.dataset.value === '1');
+    else if (t.dataset.scroll) this.display.set('scroll', t.dataset.scroll);
     else if (t.dataset.growth) this.growth.set(t.dataset.growth === '1');
     else if (t.dataset.extreme) this.extremeWeather.set(t.dataset.extreme);
     else if (t.dataset.more === 'slots') {

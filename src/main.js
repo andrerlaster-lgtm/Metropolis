@@ -5,7 +5,7 @@ import { CityState } from './state.js';
 import { Simulation } from './simulation.js';
 import { Renderer } from './renderer.js';
 import { Camera } from './camera.js';
-import { InputController } from './input.js';
+import { InputController, typingTarget } from './input.js';
 import { AutoSaver, readSlot, saveCity, activeSlot, setActiveSlot, deleteSlot, isLocked, firstEmptySlot, isVisiting, saveVisit, loadVisit, endVisit, rescueLegacyBackup } from './persistence.js';
 import { SlotsSheet } from './slotsUI.js';
 import { TabGuard } from './tabGuard.js';
@@ -398,7 +398,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   undoBtn.addEventListener('click', doUndo);
   redoBtn.addEventListener('click', doRedo);
   window.addEventListener('keydown', (e) => {
-    if (!(e.metaKey || e.ctrlKey) || e.target.closest?.('input')) return;
+    if (!(e.metaKey || e.ctrlKey) || typingTarget(e.target)) return; // in a text field it undoes the typing
     const k = e.key.toLowerCase();
     if (k === 'z' && !e.shiftKey) doUndo();
     else if ((k === 'z' && e.shiftKey) || k === 'y') doRedo();
@@ -956,6 +956,9 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   });
 
   const input = new InputController(canvas, camera, {
+    scrollMode: () => settings.scroll || 'auto',
+    // Not while this tab is waiting for another tab to finish playing.
+    canKeyPan: () => document.getElementById('tab-guard')?.hidden !== false,
     onTap: (sx, sy) => {
       const th = renderer.thoughtAt(sx, sy);
       if (th) {
@@ -1035,7 +1038,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     askForMainPerson();
     const touch = window.matchMedia?.('(pointer: coarse)').matches;
     ui.toast(
-      touch ? 'Tap or drag to build · two fingers to move · long-press to bulldoze' : 'Click or drag to build · right-drag to move · right-click to bulldoze',
+      touch ? 'Tap or drag to build · two fingers to move · long-press to bulldoze' : 'Click or drag to build · right-drag, arrow keys or two-finger scroll to move · right-click to bulldoze',
       6000
     );
   } else {
@@ -1070,6 +1073,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     last = now;
     sim.update(dt);
     input.edgeScroll(dt);
+    input.keyPan(dt);
     if (following) {
       const f = followTarget();
       if (f) {
@@ -1145,7 +1149,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, history, audio, ui, saver, guard, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

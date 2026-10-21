@@ -129,13 +129,14 @@ Events are plain data in `src/lifeEvents.js` and `src/lifeEventsMore.js` (78 in 
 | --- | --- | --- |
 | Build selected item | Click | Tap |
 | Build many at once | Drag (roads draw as an L) | Drag with one finger |
-| Undo / redo | Ctrl+Z / Ctrl+Shift+Z, or the buttons by the toolbar | Buttons by the toolbar |
+| Undo / redo | Ctrl+Z / Ctrl+Shift+Z (⌘ on a Mac), or the buttons by the toolbar. In a text field these undo your typing instead | Buttons by the toolbar |
 | Sound on / off | M, or the speaker button | ☰ City controls |
 | Bulldoze | Right-click (or Bulldoze tool, B) | Long-press (or Bulldoze tool) |
 | Inspect a tile | Inspect tool (I), then click | Inspect tool, then tap |
-| Pan | Right-drag or middle-drag (or drag with Inspect) | Two fingers (or one finger with Inspect) |
-| Zoom | Mouse wheel | Pinch |
-| Pick a tool | 1 House · K Cottage · A Apartments · 2 Tower · 3 Shop · E Café · 4 Office · L Mall · Y Factory · 5 School · 6 Clinic · 7 Tree · 8 Park · P Playground · F Sports field · 9 Road · 0 Water | Toolbar; buttons with a dot open more choices |
+| Pan | Arrow keys or WASD (hold to glide), two-finger scroll on a trackpad, right-drag or middle-drag (or drag with Inspect) | Two fingers (or one finger with Inspect) |
+| Zoom | Mouse wheel, or pinch on a trackpad | Pinch |
+| Scroll wheel / trackpad | ☰ Settings: **Auto** (trackpad scrolling pans, mouse wheels zoom), **Always zoom** or **Always pan** | – |
+| Pick a tool | 1 House · K Cottage · O Apartments · 2 Tower · 3 Shop · E Café · N Bakery · 4 Office · L Mall · Y Factory · 5 School · 6 Clinic · J Library · H Fire station · U University · 7 Tree · 8 Park · P Playground · F Sports field · 9 Road · 0 Water. Keys do nothing while you type in a text field | Toolbar; buttons with a dot open more choices |
 | Pause / change speed | Space, or the speed button | ☰ City controls |
 | Switch map view | V, or the layers button | ☰ City controls |
 | Recenter | Recenter button (press again for the whole map) | ☰ City controls |
@@ -167,7 +168,7 @@ Each system lives in its own module under `src/` and talks to the others only th
 | Life Story | `life.js`, `lifeEngine.js`, `lifeEvents.js`, `lifeEventsMore.js`, `lifeActivities.js`, `lifeAchievements.js`, `lifeData.js`, `lifeUI.js` | One resident's life: aging, yearly stats, home and job tied to real tiles, the event engine and content, and the panel and event card. Saved in `city.systems.life`. |
 | Simulation | `simulation.js`, `desirability.js`, `labor.js`, `coverage.js`, `agents.js`, `time.js` | Fixed-step ticks: time of day, service coverage, the labor market and road congestion, desirability, residents moving in and out, stats. Agents (commuters, cruising cars, pedestrians) read the city and move through it. |
 | Renderer | `renderer.js`, `lighting.js`, `color.js`, `iso.js` | Reads state and draws the diorama. The ground layer is cached offscreen and redrawn only when the map changes; buildings and agents are depth-sorted and drawn each frame for on-screen tiles only. Also draws the data overlays. |
-| Input/Camera | `input.js`, `camera.js` | Pointer, wheel and pinch gestures; smooth pan and zoom; fitting to the screen. |
+| Input/Camera | `input.js`, `camera.js` | Pointer, wheel, trackpad and pinch gestures; keyboard camera (arrows/WASD); smooth pan and zoom; fitting to the screen. |
 | Persistence | `persistence.js` | Versioned localStorage saves with a migration table; autosave. |
 | Weather | `weather.js` | Seasons from the day count; weather spells with seasonal odds; smoothed rain, snow, fog and snow cover for the renderer and agents. |
 | Extreme weather | `disasters.js` | Storms, heatwaves, blizzards, floods, tornadoes and hurricanes; warnings, damage (`structure.damage`, rubble, broken or snowed roads), repairs. State in `city.systems.disasters`. |

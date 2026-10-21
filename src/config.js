@@ -141,7 +141,7 @@ export const TOOL_GROUPS = [
     tools: [
       { id: 'house', label: 'House', key: '1' },
       { id: 'cottage', label: 'Cottage', key: 'k' },
-      { id: 'apartments', label: 'Apartments', key: 'a' },
+      { id: 'apartments', label: 'Apartments', key: 'o' }, // A moves the camera (WASD)
       { id: 'tower', label: 'Tower', key: '2' },
     ],
   },

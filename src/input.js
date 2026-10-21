@@ -1,9 +1,39 @@
-// Input: turns mouse, touch and pen gestures into camera moves and tile actions.
+// Input: turns mouse, touch, pen, trackpad and keyboard input into camera moves and tile actions.
 // Tap/click builds one tile; dragging with a build tool paints a stroke (roads draw as an L).
 // Touch: two fingers pan and pinch; long-press bulldozes. Mouse: right or middle drag pans,
 // right-click bulldozes, wheel zooms. With the Inspect tool, a one-finger or left drag pans.
+// Trackpad: two-finger scrolling pans and pinching zooms (the scroll setting can make scrolling
+// always zoom or always pan). Keyboard: arrow keys and WASD glide the camera.
 
 const LONG_PRESS_MS = 480;
+
+// Camera keys, by physical position (so French AZERTY keyboards get ZQSD), and the direction each moves.
+const PAN_KEYS = {
+  ArrowUp: [0, -1],
+  KeyW: [0, -1],
+  ArrowDown: [0, 1],
+  KeyS: [0, 1],
+  ArrowLeft: [-1, 0],
+  KeyA: [-1, 0],
+  ArrowRight: [1, 0],
+  KeyD: [1, 0],
+};
+const KEY_PAN_SPEED = 720; // screen pixels per second at full speed
+const KEY_PAN_EASE = 10; // how quickly the glide speeds up and slows down
+const WHEEL_GESTURE_GAP_MS = 250; // wheel events closer than this belong to the same scroll
+
+// Is the player typing? Then single keys are text, not game shortcuts.
+export function typingTarget(el) {
+  if (!el || !el.closest) return false;
+  if (el.isContentEditable) return true;
+  const field = el.closest('textarea, select, input');
+  if (!field) return false;
+  if (field.tagName !== 'INPUT') return true;
+  return !['button', 'checkbox', 'radio', 'range', 'color', 'file', 'submit', 'reset', 'image'].includes(field.type);
+}
+
+// Menus and panels keep their keys (scrolling a list, answering an event) while focus is inside them.
+const PANELS = '.more-sheet, .life-panel, .life-card, .city-panel, .inspector, .decision-card, .tab-guard, [role="dialog"]';
 
 export class InputController {
   constructor(canvas, camera, handlers) {
@@ -14,16 +44,70 @@ export class InputController {
     this.gesture = null;
     this.longTimer = 0;
     this.last = null; // last pointer position, for edge scrolling while painting
+    this.mouse = null; // where the mouse is resting over the map, for the hover preview while the camera moves
+    this.keysDown = new Set(); // camera keys being held
+    this.keyVel = { x: 0, y: 0 }; // current keyboard glide, screen pixels per second
+    this.wheelGesture = null; // { last, trackpad }: how the current scroll was classified
 
     canvas.addEventListener('pointerdown', (e) => this.onDown(e));
     canvas.addEventListener('pointermove', (e) => this.onMove(e));
     canvas.addEventListener('pointerup', (e) => this.onUp(e));
     canvas.addEventListener('pointercancel', (e) => this.onUp(e, true));
     canvas.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse') this.mouse = null;
       if (e.pointerType === 'mouse' && !this.gesture) this.handlers.onHover(null);
     });
     canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('keydown', (e) => this.onKeyDown(e));
+    window.addEventListener('keyup', (e) => this.keysDown.delete(e.code));
+    // A key released while the window was in the background never sends keyup: let go of everything.
+    window.addEventListener('blur', () => this.keysDown.clear());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this.keysDown.clear();
+    });
+  }
+
+  onKeyDown(e) {
+    if (!PAN_KEYS[e.code]) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return; // browser shortcuts, or a control that used the key
+    if (typingTarget(e.target) || e.target?.closest?.(PANELS)) return;
+    if (this.handlers.canKeyPan && !this.handlers.canKeyPan()) return;
+    e.preventDefault();
+    this.keysDown.add(e.code);
+  }
+
+  // Glide the camera while camera keys are held, easing in and out. Called once a frame.
+  keyPan(dt) {
+    let dx = 0;
+    let dy = 0;
+    for (const code of this.keysDown) {
+      dx += PAN_KEYS[code][0];
+      dy += PAN_KEYS[code][1];
+    }
+    const len = Math.hypot(dx, dy);
+    if (len) {
+      dx /= len;
+      dy /= len;
+    }
+    const v = this.keyVel;
+    const k = this.camera.smooth ? 1 - Math.exp(-dt * KEY_PAN_EASE) : 1;
+    v.x += (dx * KEY_PAN_SPEED - v.x) * k;
+    v.y += (dy * KEY_PAN_SPEED - v.y) * k;
+    if (!len && Math.abs(v.x) < 1 && Math.abs(v.y) < 1) {
+      v.x = 0;
+      v.y = 0;
+      return false;
+    }
+    this.camera.panBy(-v.x * dt, -v.y * dt);
+    this.afterCameraMove();
+    return true;
+  }
+
+  // The map moved under a still pointer: keep a stroke or the hover preview on the tile beneath it.
+  afterCameraMove() {
+    if (this.painting && this.last) this.handlers.onPaintMove(this.last.x, this.last.y);
+    else if (this.mouse && !this.gesture) this.handlers.onHover(this.mouse.x, this.mouse.y);
   }
 
   get painting() {
@@ -88,6 +172,7 @@ export class InputController {
 
   onMove(e) {
     const p = this.local(e);
+    if (e.pointerType === 'mouse') this.mouse = p;
     const ptr = this.pointers.get(e.pointerId);
     if (!ptr) {
       if (e.pointerType === 'mouse') this.handlers.onHover(p.x, p.y);
@@ -158,8 +243,34 @@ export class InputController {
   onWheel(e) {
     e.preventDefault();
     const p = this.local(e);
+    // A trackpad pinch arrives as a wheel event with ctrlKey set, and always zooms.
+    const mode = this.handlers.scrollMode?.() || 'auto';
+    if (!e.ctrlKey && (mode === 'pan' || (mode === 'auto' && this.isTrackpadScroll(e)))) {
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? this.canvas.clientHeight : 1;
+      this.camera.panBy(-e.deltaX * unit, -e.deltaY * unit);
+      this.afterCameraMove();
+      return;
+    }
     const scale = e.deltaMode === 1 ? 0.05 : e.ctrlKey ? 0.01 : 0.0015;
     this.camera.zoomAt(Math.exp(-e.deltaY * scale), p.x, p.y);
+  }
+
+  // Browsers don't say whether a scroll came from a trackpad or a mouse wheel. Each scroll gesture
+  // is judged by its first event and keeps that answer, so one gesture never switches between
+  // panning and zooming. Anything unsure counts as a mouse wheel, which zooms as it always has.
+  isTrackpadScroll(e) {
+    const g = this.wheelGesture;
+    if (g && e.timeStamp - g.last < WHEEL_GESTURE_GAP_MS) {
+      g.last = e.timeStamp;
+      return g.trackpad;
+    }
+    let trackpad;
+    if (e.deltaMode !== 0) trackpad = false; // scrolling by lines or pages: a mouse wheel
+    else if (e.deltaX !== 0) trackpad = true; // sideways scrolling: a trackpad
+    else if (typeof e.wheelDeltaY === 'number' && e.wheelDeltaY !== 0) trackpad = e.wheelDeltaY === -3 * e.deltaY; // Chrome and Safari: trackpads report exactly this
+    else trackpad = !Number.isInteger(e.deltaY) && Math.abs(e.deltaY) < 50; // fine-grained steps: a trackpad
+    this.wheelGesture = { last: e.timeStamp, trackpad };
+    return trackpad;
   }
 
   // While painting near a screen edge, slide the map so long strokes can continue.
