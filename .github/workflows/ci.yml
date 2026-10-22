@@ -1,0 +1,31 @@
+# Runs the tests and the build on every pull request (and on demand).
+# No dependencies to install: the tests use node --test and the build is plain Node.
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: node build.mjs

@@ -109,4 +109,4 @@ From [isometric-city](https://github.com/uxcaleb/isometric-city) (originally ami
 ## 4. Deploy and tooling
 - [ ] Move the code to `andrerlaster-lgtm/Metropolis` and link it to Vercel so every push redeploys (until then each deploy is started by hand)
 - [ ] Test pinch and long-press on a real phone
-- [ ] Run `npm test` on every pull request with GitHub Actions
+- [x] Run `npm test` and the build on every pull request with GitHub Actions (`.github/workflows/ci.yml`)
