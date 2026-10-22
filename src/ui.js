@@ -59,7 +59,7 @@ const MOUTHS = {
 const LEGENDS = {
   desirability: ['Where people want to live', 'Low', 'High', 'ramp'],
   traffic: ['Commuters on each road', 'Clear', 'Jammed', 'ramp-rev'],
-  services: ['School and clinic coverage', 'None', 'Covered', 'service'],
+  services: ['School, clinic and fire cover (fainter when crowded)', 'None', 'Covered', 'service'],
 };
 
 const pct = (v) => `${Math.round(v * 100)}%`;
@@ -449,6 +449,11 @@ export class Interface {
     }
     if (def?.jobs) facts.push(['Jobs filled', `${t.workersFilled} of ${def.jobs}`]);
     if (def?.service) facts.push(['Covers', `${def.radius} tiles around it`]);
+    const care = def?.serves && city.derived.serviceStats?.find((x) => x.tile === t);
+    if (care) {
+      facts.push(['Quality', `${pct(care.rating)}${care.rating < care.target - 0.02 ? ' (falling)' : care.rating > care.target + 0.02 ? ' (recovering)' : ''}`]);
+      facts.push(['Looking after', `${Math.round(care.demand)} of ${care.serves} residents${care.load > 1 ? ': too many for one' : ''}`]);
+    }
     for (const p of city.systems.notables?.people || []) {
       if (p.home && p.home.x === t.x && p.home.y === t.y) facts.push(['Home of', `${p.first} ${p.last}, ${notableType(p.type)?.title || ''}`]);
     }

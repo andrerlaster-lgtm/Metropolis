@@ -1243,13 +1243,15 @@ export class Renderer {
       const school = c.school || 0;
       const health = c.health || 0;
       const fun = c.fun || 0;
-      if (school < 0.02 && health < 0.02 && fun < 0.02) color = 'rgba(70,60,110,0.22)';
+      const fire = c.fire || 0;
+      if (school < 0.02 && health < 0.02 && fun < 0.02 && fire < 0.02) color = 'rgba(70,60,110,0.22)';
       else {
         // Schools tint lavender, clinics mint, play areas peach; together they read as a soft blend.
-        const r = Math.round(200 - 60 * health + 55 * fun);
-        const g = Math.round(180 + 40 * health - 20 * school);
-        const b = Math.round(200 + 40 * school - 50 * fun);
-        color = `rgba(${Math.min(255, r)},${g},${Math.max(0, b)},${(0.25 + 0.45 * Math.max(school, health, fun)).toFixed(3)})`;
+        // Fire cover adds a coral warmth. Strength follows service quality: a crowded building tints less.
+        const r = Math.round(200 - 60 * health + 55 * fun + 40 * fire);
+        const g = Math.round(180 + 40 * health - 20 * school - 30 * fire);
+        const b = Math.round(200 + 40 * school - 50 * fun - 40 * fire);
+        color = `rgba(${Math.min(255, r)},${Math.max(0, g)},${Math.max(0, b)},${(0.25 + 0.45 * Math.max(school, health, fun, fire)).toFixed(3)})`;
       }
     }
     if (!color) return;

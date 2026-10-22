@@ -74,14 +74,17 @@ export class Simulation {
   tick() {
     const city = this.city;
     this._marketTimer -= SIM_STEP;
+    this._ratingTime = (this._ratingTime || 0) + SIM_STEP;
     this.updateStreets();
     // Jobs, traffic and desirability feed each other, so refresh them together about once a second.
     if (city.dirty || this._marketTimer <= 0) {
       if (city.dirty) {
         this.notables.syncHomes();
         this.applyNotables();
-        computeCoverage(city);
       }
+      // Every refresh, not only when the map changed: residents moving in change how busy services are.
+      computeCoverage(city, this._ratingTime / DAY_LENGTH_SECONDS);
+      this._ratingTime = 0;
       city.derived.labor = computeLaborMarket(city);
       recomputeDesirability(city);
       this.economy.assess();

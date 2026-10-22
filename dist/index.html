@@ -2994,7 +2994,8 @@ const BUILDING_VARIANTS = {
 const VARIANT_KEYS = Object.keys(BUILDING_VARIANTS);
 
 // Structure definitions. `capacity` > 0 makes a structure housing; `jobs` > 0 makes it a workplace;
-// `service` names the coverage it provides; `greenery` feeds desirability.
+// `service` names the coverage it provides, `serves` how many residents it can look after at full quality
+// (see SERVICE_RATING); `greenery` feeds desirability.
 // Future per-structure data (upkeep, power draw, pollution, …) belongs here.
 const STRUCTURES = {
   house: { label: 'House', capacity: 4, jobs: 0, greenery: 0, height: 27 },
@@ -3006,8 +3007,8 @@ const STRUCTURES = {
   mall: { label: 'Mall', capacity: 0, jobs: 24, greenery: 0, height: 26 },
   factory: { label: 'Factory', capacity: 0, jobs: 20, greenery: 0, height: 34, pollution: 1 },
   office: { label: 'Office', capacity: 0, jobs: 16, greenery: 0, height: 58 },
-  school: { label: 'School', capacity: 0, jobs: 4, greenery: 0, height: 30, service: 'school', radius: 7 },
-  clinic: { label: 'Clinic', capacity: 0, jobs: 4, greenery: 0, height: 28, service: 'health', radius: 7 },
+  school: { label: 'School', capacity: 0, jobs: 4, greenery: 0, height: 30, service: 'school', radius: 7, serves: 250 },
+  clinic: { label: 'Clinic', capacity: 0, jobs: 4, greenery: 0, height: 28, service: 'health', radius: 7, serves: 320 },
   playground: { label: 'Playground', capacity: 0, jobs: 0, greenery: 0.5, walkable: true, height: 14, service: 'fun', radius: 4 },
   field: { label: 'Sports field', capacity: 0, jobs: 2, greenery: 1, walkable: true, height: 12, service: 'fun', radius: 6 },
   tree: { label: 'Tree', capacity: 0, jobs: 0, greenery: 1, walkable: true, height: 26 },
@@ -3017,9 +3018,9 @@ const STRUCTURES = {
   rubble: { label: 'Rubble', capacity: 0, jobs: 0, greenery: 0, height: 7 },
   // New kinds go at the end: share links store each type by its position in this list.
   bakery: { label: 'Bakery', capacity: 0, jobs: 4, greenery: 0, height: 20 },
-  library: { label: 'Library', capacity: 0, jobs: 3, greenery: 0, height: 26, service: 'school', radius: 5 },
-  firestation: { label: 'Fire station', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'fire', radius: 7 },
-  university: { label: 'University', capacity: 0, jobs: 30, greenery: 0, height: 40, service: 'school', radius: 9 },
+  library: { label: 'Library', capacity: 0, jobs: 3, greenery: 0, height: 26, service: 'school', radius: 5, serves: 100 },
+  firestation: { label: 'Fire station', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'fire', radius: 7, serves: 280 },
+  university: { label: 'University', capacity: 0, jobs: 30, greenery: 0, height: 40, service: 'school', radius: 9, serves: 450 },
 };
 
 // Share of residents who go out to work.
@@ -3033,6 +3034,13 @@ const SERVICES = [
 // Every kind of coverage a building can provide (services above, plus recreation and fire cover,
 // which protects buildings from disaster damage rather than making homes more desirable).
 const COVERAGE_IDS = ['school', 'health', 'fun', 'fire'];
+
+// Service quality: a school, clinic, library, university or fire station looks after `serves` residents.
+// The residents in its reach are shared between the buildings that cover them (the nearer, the bigger
+// share); when a building has more than it can serve, its quality target falls (never below `min`).
+// Quality drifts toward that target by at most `perDay` a day, so it recovers or slips over several days,
+// and below `strained` the town starts asking for another one. Quality scales the building's coverage.
+const SERVICE_RATING = { min: 0.3, perDay: 0.3, strained: 0.75 };
 
 // Milestones: the town's title grows with its population, and each step unlocks new buildings.
 // Unlocks are permanent. Tools not listed here are always available.
@@ -3144,7 +3152,7 @@ const CAR_COLORS = ['#ff9f8f', '#8fd0bd', '#b49ad1', '#ffd98f', '#9cc4ea', '#f7f
 const SHIRT_COLORS = ['#ff8f7e', '#7fc4ad', '#a98bd0', '#ffcf6e', '#86b5e6', '#f49ab8', '#ffffff'];
 const SKIN_TONES = ['#f6d5bd', '#e8b896', '#c98e6a', '#8d5a3f', '#f1c7a5'];
 
-return { TILE_W, TILE_H, DEFAULT_MAP_SIZE, SAVE_VERSION, DAY_LENGTH_SECONDS, SIM_STEP, PALETTE, BUILDING_VARIANTS, VARIANT_KEYS, STRUCTURES, WORKER_SHARE, ROAD_CAPACITY, SERVICES, COVERAGE_IDS, MILESTONES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, SEVERITY_COLORS, TOOL_GROUPS, TOOLS, VIEWS, CAR_COLORS, SHIRT_COLORS, SKIN_TONES };
+return { TILE_W, TILE_H, DEFAULT_MAP_SIZE, SAVE_VERSION, DAY_LENGTH_SECONDS, SIM_STEP, PALETTE, BUILDING_VARIANTS, VARIANT_KEYS, STRUCTURES, WORKER_SHARE, ROAD_CAPACITY, SERVICES, COVERAGE_IDS, SERVICE_RATING, MILESTONES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, SEVERITY_COLORS, TOOL_GROUPS, TOOLS, VIEWS, CAR_COLORS, SHIRT_COLORS, SKIN_TONES };
 })();
 
 // ---- state.js ----
@@ -4714,19 +4722,45 @@ return { workersIn, computeLaborMarket };
 
 // ---- coverage.js ----
 const __mod_coverage = (() => {
-// Coverage: each school, clinic, playground or sports field covers the tiles around it, strongest nearby.
+// Coverage: each school, clinic, library, university or fire station covers the tiles around it, strongest
+// nearby. Each also has a quality (SERVICE_RATING in config.js): it falls when more residents rely on the
+// building than it can look after, drifts back when they don't, and scales the coverage it gives.
+//
+// Quality is derived data like the rest of coverage: it is never saved, so a reloaded town starts at each
+// building's current target (no lag) and then drifts as usual.
+//   city.derived.serviceRatings: structure id → quality (0.3..1)
+//   city.derived.serviceStats:   one entry per service building, for the inspector, advisor and growth
 
-const { STRUCTURES, COVERAGE_IDS } = __mod_config;
-function computeCoverage(city) {
+const { STRUCTURES, COVERAGE_IDS, SERVICE_RATING } = __mod_config;
+// Quality a building is heading for, given how many residents rely on it.
+function targetRating(demand, serves) {
+  const load = demand / serves;
+  return load <= 1 ? 1 : Math.max(SERVICE_RATING.min, 1 / load);
+}
+
+// `days`: in-game days since the last call. Quality moves toward its target by at most
+// SERVICE_RATING.perDay a day; with 0 days it only settles buildings that have no quality yet.
+function computeCoverage(city, days = 0) {
+  const derived = city.derived;
+  const old = derived.serviceRatings || {};
+  const ratings = {};
+  const stats = [];
+
   for (const t of city.tiles) {
-    const c = {};
+    const c = (t.coverage ||= {});
     for (const id of COVERAGE_IDS) c[id] = 0;
-    t.coverage = c;
   }
+
+  // Pass 1: how strongly each service building reaches each tile, and how much total reach every home with
+  // residents has per service. A home's residents are shared out in proportion to that reach, weighted by
+  // capacity: people use the nearer and the bigger building more, so neighbours end up equally busy.
+  const sources = [];
+  const reach = new Map(); // home tile → { service → total strength }
   for (const src of city.tiles) {
     const def = src.structure && STRUCTURES[src.structure.type];
     if (!def?.service) continue;
     const r = def.radius + (city.derived.notableEffects?.radius?.[def.service] || 0); // notable people widen it
+    const cells = [];
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         const t = city.getTile(src.x + dx, src.y + dy);
@@ -4734,13 +4768,47 @@ function computeCoverage(city) {
         const d = Math.hypot(dx, dy);
         if (d > r) continue;
         const v = 1 - (d / (r + 1)) ** 2;
-        if (v > t.coverage[def.service]) t.coverage[def.service] = v;
+        cells.push(t, v);
+        if (def.serves && t.structure?.residents > 0) {
+          const sums = reach.get(t) || reach.set(t, {}).get(t);
+          sums[def.service] = (sums[def.service] || 0) + v * def.serves;
+        }
       }
     }
+    sources.push({ src, def, cells });
   }
+
+  // Pass 2: each building's demand, then its quality, then the coverage it gives.
+  for (const { src, def, cells } of sources) {
+    let demand = 0;
+    if (def.serves) {
+      for (let i = 0; i < cells.length; i += 2) {
+        const t = cells[i];
+        if (t.structure?.residents > 0) demand += (t.structure.residents * cells[i + 1] * def.serves) / reach.get(t)[def.service];
+      }
+    }
+    const id = src.structure.id;
+    let rating = 1;
+    if (def.serves) {
+      const target = targetRating(demand, def.serves);
+      rating = old[id] ?? target;
+      const step = SERVICE_RATING.perDay * days;
+      rating += Math.max(-step, Math.min(step, target - rating));
+      ratings[id] = rating;
+      stats.push({ tile: src, id, type: src.structure.type, service: def.service, demand, serves: def.serves, load: demand / def.serves, target, rating });
+    }
+    for (let i = 0; i < cells.length; i += 2) {
+      const v = cells[i + 1] * rating;
+      const c = cells[i].coverage;
+      if (v > c[def.service]) c[def.service] = v;
+    }
+  }
+
+  derived.serviceRatings = ratings;
+  derived.serviceStats = stats;
 }
 
-return { computeCoverage };
+return { targetRating, computeCoverage };
 })();
 
 // ---- streets.js ----
@@ -8768,7 +8836,7 @@ const __mod_growth = (() => {
 //
 // Saved in city.systems.growth = { on, timer, boosts: [{ mult, until, label }], built }.
 
-const { STRUCTURES } = __mod_config;
+const { STRUCTURES, SERVICE_RATING } = __mod_config;
 const { DIRS } = __mod_state;
 const { buildsFor } = __mod_eras;
 const { clamp, pickWeighted } = __mod_utils;
@@ -8886,12 +8954,13 @@ class Growth {
     d.play = clamp(((unmet.play?.length || 0) + (unmet.social?.length || 0)) * 0.35, 0, 2) + (lived.length >= 6 && !this.count(['park', 'playground', 'field']) ? 1 : 0);
     const noSchool = lived.filter((h) => (h.coverage?.school || 0) < 0.1).length;
     const noClinic = lived.filter((h) => (h.coverage?.health || 0) < 0.1).length;
-    d.school = noSchool >= 5 && this.allowed('school') ? 1.2 : 0;
-    d.clinic = noClinic >= 6 && this.allowed('clinic') ? 0.9 : 0;
+    // A crowded service (quality below SERVICE_RATING.strained) also calls for another one.
+    d.school = this.allowed('school') ? (noSchool >= 5 ? 1.2 : this.strained('school').length ? 0.9 : 0) : 0;
+    d.clinic = this.allowed('clinic') ? (noClinic >= 6 ? 0.9 : this.strained('health').length ? 0.7 : 0) : 0;
     // Fire stations only matter when extreme weather is on; libraries and universities come with size.
     const noFire = lived.filter((h) => (h.coverage?.fire || 0) < 0.1).length;
     const disastersOn = (city.systems.disasters?.level ?? 'gentle') !== 'off';
-    d.fire = disastersOn && noFire >= 8 && this.allowed('firestation') ? 0.7 : 0;
+    d.fire = disastersOn && this.allowed('firestation') ? (noFire >= 8 ? 0.7 : this.strained('fire').length ? 0.5 : 0) : 0;
     d.library = lived.length >= 12 && this.allowed('library') ? 0.4 : 0;
     d.university = (s.population || 0) >= 500 && this.allowed('university') ? 0.5 : 0;
     let roads = 0;
@@ -8938,11 +9007,11 @@ class Growth {
       case 'play':
         return this.buildNear(this.unmetHomes('play', 'social'), ['park', 'playground', 'cafe', 'field']);
       case 'school':
-        return this.buildNear(this.uncovered('school'), ['school']);
+        return this.buildNear(this.needing('school'), ['school']);
       case 'clinic':
-        return this.buildNear(this.uncovered('health'), ['clinic']);
+        return this.buildNear(this.needing('health'), ['clinic']);
       case 'fire':
-        return this.buildNear(this.uncovered('fire'), ['firestation']);
+        return this.buildNear(this.needing('fire'), ['firestation']);
       case 'library':
         return this.buildNear(this.city.homes().filter((h) => h.structure.residents > 0), ['library']);
       case 'university':
@@ -9087,6 +9156,23 @@ class Growth {
 
   uncovered(service) {
     return this.city.homes().filter((h) => h.structure.residents > 0 && (h.coverage?.[service] || 0) < 0.1);
+  }
+
+  // Service buildings of one kind that have more residents than they can look after.
+  strained(service) {
+    return (this.city.derived.serviceStats || []).filter((st) => st.service === service && st.rating < SERVICE_RATING.strained && st.demand > 0);
+  }
+
+  // Homes that need a service: those with none within reach, else those leaning on a crowded building.
+  needing(service) {
+    const bare = this.uncovered(service);
+    if (bare.length) return bare;
+    const out = new Set();
+    for (const st of this.strained(service)) {
+      const r = STRUCTURES[st.type].radius;
+      for (const h of this.city.homes()) if (h.structure.residents > 0 && Math.hypot(h.x - st.tile.x, h.y - st.tile.y) <= r) out.add(h);
+    }
+    return [...out];
   }
 
   // A building close to the homes that need it.
@@ -9881,7 +9967,7 @@ const __mod_advisor = (() => {
 // Advisor: turns the city's state into a few short resident "thoughts". Each one is a wish (something
 // residents would like) or a happy note, with a tile to point the camera at. Read-only: nothing is changed.
 
-const { STRUCTURES } = __mod_config;
+const { STRUCTURES, SERVICE_RATING } = __mod_config;
 const { roadPlanFor } = __mod_roadPlanner;
 const MAX_THOUGHTS = 5;
 const MAX_TILES = 240;
@@ -10003,6 +10089,20 @@ function computeThoughts(city, milestones) {
   if (unlocked('firestation') && lived.length >= 10 && (city.systems.disasters?.level ?? 'gentle') !== 'off') {
     const far = lived.filter((h) => (h.coverage.fire || 0) < 0.1);
     if (far.length) add('fire', 'caution', 1.5, 'If a fire breaks out, no fire engine could get here in time.', 'Build a fire station', worstOf(far), far);
+  }
+
+  // A service with more residents than it can look after slips in quality until another is built.
+  const stretched = (city.derived.serviceStats || []).filter((st) => st.rating < SERVICE_RATING.strained && st.demand > 0);
+  for (const [service, text, hint] of [
+    ['school', 'The school is too crowded for all our children.', 'Build another school or a library nearby'],
+    ['health', 'The waiting room at the clinic is always full.', 'Build another clinic nearby'],
+    ['fire', 'One fire station can’t look after all these homes.', 'Build another fire station nearby'],
+  ]) {
+    const worst = stretched.filter((st) => st.service === service).sort((a, b) => a.rating - b.rating)[0];
+    if (!worst) continue;
+    const r = STRUCTURES[worst.type].radius;
+    const served = lived.filter((h) => Math.hypot(h.x - worst.tile.x, h.y - worst.tile.y) <= r);
+    add(`strained-${service}`, worst.rating < 0.5 ? 'bad' : 'caution', 2.6, text, hint, worst.tile, [worst.tile, ...served]);
   }
 
   const bare = lived.filter((h) => (h.factors.greenery || 0) < 0.02);
@@ -10171,14 +10271,17 @@ class Simulation {
   tick() {
     const city = this.city;
     this._marketTimer -= SIM_STEP;
+    this._ratingTime = (this._ratingTime || 0) + SIM_STEP;
     this.updateStreets();
     // Jobs, traffic and desirability feed each other, so refresh them together about once a second.
     if (city.dirty || this._marketTimer <= 0) {
       if (city.dirty) {
         this.notables.syncHomes();
         this.applyNotables();
-        computeCoverage(city);
       }
+      // Every refresh, not only when the map changed: residents moving in change how busy services are.
+      computeCoverage(city, this._ratingTime / DAY_LENGTH_SECONDS);
+      this._ratingTime = 0;
       city.derived.labor = computeLaborMarket(city);
       recomputeDesirability(city);
       this.economy.assess();
@@ -11809,13 +11912,15 @@ class Renderer {
       const school = c.school || 0;
       const health = c.health || 0;
       const fun = c.fun || 0;
-      if (school < 0.02 && health < 0.02 && fun < 0.02) color = 'rgba(70,60,110,0.22)';
+      const fire = c.fire || 0;
+      if (school < 0.02 && health < 0.02 && fun < 0.02 && fire < 0.02) color = 'rgba(70,60,110,0.22)';
       else {
         // Schools tint lavender, clinics mint, play areas peach; together they read as a soft blend.
-        const r = Math.round(200 - 60 * health + 55 * fun);
-        const g = Math.round(180 + 40 * health - 20 * school);
-        const b = Math.round(200 + 40 * school - 50 * fun);
-        color = `rgba(${Math.min(255, r)},${g},${Math.max(0, b)},${(0.25 + 0.45 * Math.max(school, health, fun)).toFixed(3)})`;
+        // Fire cover adds a coral warmth. Strength follows service quality: a crowded building tints less.
+        const r = Math.round(200 - 60 * health + 55 * fun + 40 * fire);
+        const g = Math.round(180 + 40 * health - 20 * school - 30 * fire);
+        const b = Math.round(200 + 40 * school - 50 * fun - 40 * fire);
+        color = `rgba(${Math.min(255, r)},${Math.max(0, g)},${Math.max(0, b)},${(0.25 + 0.45 * Math.max(school, health, fun, fire)).toFixed(3)})`;
       }
     }
     if (!color) return;
@@ -15794,7 +15899,7 @@ const MOUTHS = {
 const LEGENDS = {
   desirability: ['Where people want to live', 'Low', 'High', 'ramp'],
   traffic: ['Commuters on each road', 'Clear', 'Jammed', 'ramp-rev'],
-  services: ['School and clinic coverage', 'None', 'Covered', 'service'],
+  services: ['School, clinic and fire cover (fainter when crowded)', 'None', 'Covered', 'service'],
 };
 
 const pct = (v) => `${Math.round(v * 100)}%`;
@@ -16184,6 +16289,11 @@ class Interface {
     }
     if (def?.jobs) facts.push(['Jobs filled', `${t.workersFilled} of ${def.jobs}`]);
     if (def?.service) facts.push(['Covers', `${def.radius} tiles around it`]);
+    const care = def?.serves && city.derived.serviceStats?.find((x) => x.tile === t);
+    if (care) {
+      facts.push(['Quality', `${pct(care.rating)}${care.rating < care.target - 0.02 ? ' (falling)' : care.rating > care.target + 0.02 ? ' (recovering)' : ''}`]);
+      facts.push(['Looking after', `${Math.round(care.demand)} of ${care.serves} residents${care.load > 1 ? ': too many for one' : ''}`]);
+    }
     for (const p of city.systems.notables?.people || []) {
       if (p.home && p.home.x === t.x && p.home.y === t.y) facts.push(['Home of', `${p.first} ${p.last}, ${notableType(p.type)?.title || ''}`]);
     }

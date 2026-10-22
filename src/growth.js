@@ -15,7 +15,7 @@
 //
 // Saved in city.systems.growth = { on, timer, boosts: [{ mult, until, label }], built }.
 
-import { STRUCTURES } from './config.js';
+import { STRUCTURES, SERVICE_RATING } from './config.js';
 import { DIRS } from './state.js';
 import { buildsFor } from './eras.js';
 import { clamp, pickWeighted } from './utils.js';
@@ -134,12 +134,13 @@ export class Growth {
     d.play = clamp(((unmet.play?.length || 0) + (unmet.social?.length || 0)) * 0.35, 0, 2) + (lived.length >= 6 && !this.count(['park', 'playground', 'field']) ? 1 : 0);
     const noSchool = lived.filter((h) => (h.coverage?.school || 0) < 0.1).length;
     const noClinic = lived.filter((h) => (h.coverage?.health || 0) < 0.1).length;
-    d.school = noSchool >= 5 && this.allowed('school') ? 1.2 : 0;
-    d.clinic = noClinic >= 6 && this.allowed('clinic') ? 0.9 : 0;
+    // A crowded service (quality below SERVICE_RATING.strained) also calls for another one.
+    d.school = this.allowed('school') ? (noSchool >= 5 ? 1.2 : this.strained('school').length ? 0.9 : 0) : 0;
+    d.clinic = this.allowed('clinic') ? (noClinic >= 6 ? 0.9 : this.strained('health').length ? 0.7 : 0) : 0;
     // Fire stations only matter when extreme weather is on; libraries and universities come with size.
     const noFire = lived.filter((h) => (h.coverage?.fire || 0) < 0.1).length;
     const disastersOn = (city.systems.disasters?.level ?? 'gentle') !== 'off';
-    d.fire = disastersOn && noFire >= 8 && this.allowed('firestation') ? 0.7 : 0;
+    d.fire = disastersOn && this.allowed('firestation') ? (noFire >= 8 ? 0.7 : this.strained('fire').length ? 0.5 : 0) : 0;
     d.library = lived.length >= 12 && this.allowed('library') ? 0.4 : 0;
     d.university = (s.population || 0) >= 500 && this.allowed('university') ? 0.5 : 0;
     let roads = 0;
@@ -186,11 +187,11 @@ export class Growth {
       case 'play':
         return this.buildNear(this.unmetHomes('play', 'social'), ['park', 'playground', 'cafe', 'field']);
       case 'school':
-        return this.buildNear(this.uncovered('school'), ['school']);
+        return this.buildNear(this.needing('school'), ['school']);
       case 'clinic':
-        return this.buildNear(this.uncovered('health'), ['clinic']);
+        return this.buildNear(this.needing('health'), ['clinic']);
       case 'fire':
-        return this.buildNear(this.uncovered('fire'), ['firestation']);
+        return this.buildNear(this.needing('fire'), ['firestation']);
       case 'library':
         return this.buildNear(this.city.homes().filter((h) => h.structure.residents > 0), ['library']);
       case 'university':
@@ -335,6 +336,23 @@ export class Growth {
 
   uncovered(service) {
     return this.city.homes().filter((h) => h.structure.residents > 0 && (h.coverage?.[service] || 0) < 0.1);
+  }
+
+  // Service buildings of one kind that have more residents than they can look after.
+  strained(service) {
+    return (this.city.derived.serviceStats || []).filter((st) => st.service === service && st.rating < SERVICE_RATING.strained && st.demand > 0);
+  }
+
+  // Homes that need a service: those with none within reach, else those leaning on a crowded building.
+  needing(service) {
+    const bare = this.uncovered(service);
+    if (bare.length) return bare;
+    const out = new Set();
+    for (const st of this.strained(service)) {
+      const r = STRUCTURES[st.type].radius;
+      for (const h of this.city.homes()) if (h.structure.residents > 0 && Math.hypot(h.x - st.tile.x, h.y - st.tile.y) <= r) out.add(h);
+    }
+    return [...out];
   }
 
   // A building close to the homes that need it.
