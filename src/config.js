@@ -45,7 +45,8 @@ export const BUILDING_VARIANTS = {
 export const VARIANT_KEYS = Object.keys(BUILDING_VARIANTS);
 
 // Structure definitions. `capacity` > 0 makes a structure housing; `jobs` > 0 makes it a workplace;
-// `service` names the coverage it provides; `greenery` feeds desirability.
+// `service` names the coverage it provides, `serves` how many residents it can look after at full quality
+// (see SERVICE_RATING); `greenery` feeds desirability.
 // Future per-structure data (upkeep, power draw, pollution, …) belongs here.
 export const STRUCTURES = {
   house: { label: 'House', capacity: 4, jobs: 0, greenery: 0, height: 27 },
@@ -57,8 +58,8 @@ export const STRUCTURES = {
   mall: { label: 'Mall', capacity: 0, jobs: 24, greenery: 0, height: 26 },
   factory: { label: 'Factory', capacity: 0, jobs: 20, greenery: 0, height: 34, pollution: 1 },
   office: { label: 'Office', capacity: 0, jobs: 16, greenery: 0, height: 58 },
-  school: { label: 'School', capacity: 0, jobs: 4, greenery: 0, height: 30, service: 'school', radius: 7 },
-  clinic: { label: 'Clinic', capacity: 0, jobs: 4, greenery: 0, height: 28, service: 'health', radius: 7 },
+  school: { label: 'School', capacity: 0, jobs: 4, greenery: 0, height: 30, service: 'school', radius: 7, serves: 250 },
+  clinic: { label: 'Clinic', capacity: 0, jobs: 4, greenery: 0, height: 28, service: 'health', radius: 7, serves: 320 },
   playground: { label: 'Playground', capacity: 0, jobs: 0, greenery: 0.5, walkable: true, height: 14, service: 'fun', radius: 4 },
   field: { label: 'Sports field', capacity: 0, jobs: 2, greenery: 1, walkable: true, height: 12, service: 'fun', radius: 6 },
   tree: { label: 'Tree', capacity: 0, jobs: 0, greenery: 1, walkable: true, height: 26 },
@@ -68,9 +69,9 @@ export const STRUCTURES = {
   rubble: { label: 'Rubble', capacity: 0, jobs: 0, greenery: 0, height: 7 },
   // New kinds go at the end: share links store each type by its position in this list.
   bakery: { label: 'Bakery', capacity: 0, jobs: 4, greenery: 0, height: 20 },
-  library: { label: 'Library', capacity: 0, jobs: 3, greenery: 0, height: 26, service: 'school', radius: 5 },
-  firestation: { label: 'Fire station', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'fire', radius: 7 },
-  university: { label: 'University', capacity: 0, jobs: 30, greenery: 0, height: 40, service: 'school', radius: 9 },
+  library: { label: 'Library', capacity: 0, jobs: 3, greenery: 0, height: 26, service: 'school', radius: 5, serves: 100 },
+  firestation: { label: 'Fire station', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'fire', radius: 7, serves: 280 },
+  university: { label: 'University', capacity: 0, jobs: 30, greenery: 0, height: 40, service: 'school', radius: 9, serves: 450 },
 };
 
 // Share of residents who go out to work.
@@ -84,6 +85,13 @@ export const SERVICES = [
 // Every kind of coverage a building can provide (services above, plus recreation and fire cover,
 // which protects buildings from disaster damage rather than making homes more desirable).
 export const COVERAGE_IDS = ['school', 'health', 'fun', 'fire'];
+
+// Service quality: a school, clinic, library, university or fire station looks after `serves` residents.
+// The residents in its reach are shared between the buildings that cover them (the nearer, the bigger
+// share); when a building has more than it can serve, its quality target falls (never below `min`).
+// Quality drifts toward that target by at most `perDay` a day, so it recovers or slips over several days,
+// and below `strained` the town starts asking for another one. Quality scales the building's coverage.
+export const SERVICE_RATING = { min: 0.3, perDay: 0.3, strained: 0.75 };
 
 // Milestones: the town's title grows with its population, and each step unlocks new buildings.
 // Unlocks are permanent. Tools not listed here are always available.

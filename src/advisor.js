@@ -1,7 +1,7 @@
 // Advisor: turns the city's state into a few short resident "thoughts". Each one is a wish (something
 // residents would like) or a happy note, with a tile to point the camera at. Read-only: nothing is changed.
 
-import { STRUCTURES } from './config.js';
+import { STRUCTURES, SERVICE_RATING } from './config.js';
 import { roadPlanFor } from './roadPlanner.js';
 
 const MAX_THOUGHTS = 5;
@@ -124,6 +124,20 @@ export function computeThoughts(city, milestones) {
   if (unlocked('firestation') && lived.length >= 10 && (city.systems.disasters?.level ?? 'gentle') !== 'off') {
     const far = lived.filter((h) => (h.coverage.fire || 0) < 0.1);
     if (far.length) add('fire', 'caution', 1.5, 'If a fire breaks out, no fire engine could get here in time.', 'Build a fire station', worstOf(far), far);
+  }
+
+  // A service with more residents than it can look after slips in quality until another is built.
+  const stretched = (city.derived.serviceStats || []).filter((st) => st.rating < SERVICE_RATING.strained && st.demand > 0);
+  for (const [service, text, hint] of [
+    ['school', 'The school is too crowded for all our children.', 'Build another school or a library nearby'],
+    ['health', 'The waiting room at the clinic is always full.', 'Build another clinic nearby'],
+    ['fire', 'One fire station can’t look after all these homes.', 'Build another fire station nearby'],
+  ]) {
+    const worst = stretched.filter((st) => st.service === service).sort((a, b) => a.rating - b.rating)[0];
+    if (!worst) continue;
+    const r = STRUCTURES[worst.type].radius;
+    const served = lived.filter((h) => Math.hypot(h.x - worst.tile.x, h.y - worst.tile.y) <= r);
+    add(`strained-${service}`, worst.rating < 0.5 ? 'bad' : 'caution', 2.6, text, hint, worst.tile, [worst.tile, ...served]);
   }
 
   const bare = lived.filter((h) => (h.factors.greenery || 0) < 0.02);
