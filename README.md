@@ -191,6 +191,8 @@ Derived data (labor market, commute routes, congestion, coverage, resident thoug
 npm test   # node --test, no dependencies
 ```
 
+GitHub Actions (`.github/workflows/ci.yml`) runs the tests and the build on every pull request, on Node 24.
+
 The tests cover the seed, calendar and eras (people and years, hurrying, older towns), growth (a seed becoming a town, era limits, kept street gaps, off means off), decisions (effects, lapsing), heirs and family over a life, three save slots, townsfolk (the cast following the population, the daily schedule, friendships and news, unmet needs as resident wishes, notables and bulldozed homes, saving), the budget (costs, taxes, upkeep, undo refunds, no debt), notable people, the new buildings, share links, trends, colour-blind colours, street names and addresses, the labor market, road reachability, service and play coverage, milestones and unlocks, resident thoughts, save migration, town generation, pausing, and Life Story (aging, events, jobs and homes from the city, bulldozed homes, activities, buying a home, neighbours, achievements and ribbons, the character's walker, whole lives start to finish, saving).
 
 ### Extending it
