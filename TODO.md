@@ -18,7 +18,9 @@
 - [x] Three save slots
 - [x] Extreme weather: storms, heatwaves, blizzards, floods, tornadoes and hurricanes that damage or destroy buildings and roads; warnings and preparing; repairs; building code and flood wall; Off/Gentle/Wild setting
 - [x] Service quality (idea from OpenTTD's station ratings): schools, clinics, libraries, universities and fire stations have a capacity; crowded ones slip in quality gradually, shrinking their coverage; residents shared by distance and size; shown in the inspector and Services view; advisor and growth respond
-- [ ] Service quality next: capacity for cafés, playgrounds and sports fields; a town reputation that rewards parks and trees
+- [ ] Service quality next: capacity for cafés, playgrounds and sports fields
+- [x] Town reputation (idea from OpenTTD's local authority rating): a slow score from greenery, upkeep and service reach; titles; a pull on home appeal and growth; shown in the City panel
+- [ ] Town reputation next: more reasons to gain or lose it (decisions, bulldozing occupied homes), and a link to notable people arriving
 - [ ] Weather next: fire station that puts out fires, insurance, earthquakes, a weather forecast in the stats bubble
 - [ ] Eras next: a growth timelapse to replay the town from its first road, a chronicle camera that drifts to where things happen, trains and a station in the railway age, buses in the motor age
 - [x] Townsfolk (ideas from emergent-city): named residents with personalities, needs and daily routines; friendships, love and weddings; favourite places; town news; mood dots on walkers; unmet needs as resident wishes

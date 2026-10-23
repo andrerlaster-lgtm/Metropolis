@@ -93,6 +93,14 @@ export const COVERAGE_IDS = ['school', 'health', 'fun', 'fire'];
 // and below `strained` the town starts asking for another one. Quality scales the building's coverage.
 export const SERVICE_RATING = { min: 0.3, perDay: 0.3, strained: 0.75 };
 
+// Town reputation (reputation.js): a slow 0..1 score from how green and well kept the town is. 0.5 is neutral.
+export const REPUTATION = {
+  perDay: 0.04, // the most it moves in a game day, so the whole range takes about 25 days
+  homeAppeal: 0.1, // homes look up to ±0.05 more or less appealing at the ends
+  growth: 0.3, // a town that grows by itself runs up to ±15% faster or slower
+  weights: { green: 0.4, care: 0.35, services: 0.25 },
+};
+
 // Milestones: the town's title grows with its population, and each step unlocks new buildings.
 // Unlocks are permanent. Tools not listed here are always available.
 export const MILESTONES = [

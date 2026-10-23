@@ -4,6 +4,7 @@ import { STRUCTURES, DAY_LENGTH_SECONDS, SIM_STEP } from './config.js';
 import { recomputeDesirability } from './desirability.js';
 import { computeLaborMarket } from './labor.js';
 import { computeCoverage } from './coverage.js';
+import { Reputation } from './reputation.js';
 import { computeStreets } from './streets.js';
 import { AgentSystem } from './agents.js';
 import { LifeSystem } from './life.js';
@@ -30,6 +31,7 @@ export class Simulation {
     this.life = new LifeSystem(city);
     this.weather = new WeatherSystem(city);
     this.milestones = new Milestones(city);
+    this.reputation = new Reputation(city, { unlocked: (tool) => this.milestones.isUnlocked(tool) });
     this.economy = new Economy(city);
     this.notables = new Notables(city);
     this.townsfolk = new Townsfolk(city);
@@ -83,9 +85,11 @@ export class Simulation {
         this.applyNotables();
       }
       // Every refresh, not only when the map changed: residents moving in change how busy services are.
-      computeCoverage(city, this._ratingTime / DAY_LENGTH_SECONDS);
+      const elapsed = this._ratingTime / DAY_LENGTH_SECONDS;
+      computeCoverage(city, elapsed);
       this._ratingTime = 0;
       city.derived.labor = computeLaborMarket(city);
+      this.reputation.update(elapsed); // from this pass's coverage and the last pass's greenery
       recomputeDesirability(city);
       this.economy.assess();
       this._notableRates = this.notables.rates();
@@ -118,6 +122,11 @@ export class Simulation {
     this.updateStats();
     void this.milestones.state; // settle the starting title without a celebration
     void this.eras.state; // and the era and calendar
+    // Reputation needs the stats and title settled above (what is unlocked) and the greenery just computed;
+    // homes and stats are then scored again with it.
+    this.reputation.update(0);
+    recomputeDesirability(this.city);
+    this.updateStats();
     this.city.derived.thoughts = computeThoughts(this.city, this.milestones);
   }
 
