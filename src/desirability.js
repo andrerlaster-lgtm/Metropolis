@@ -6,7 +6,7 @@
 // whose layout changed, which is checked on every recompute, so a change is never missed whatever made
 // it. The results are exactly what computing every factor afresh would give.
 
-import { STRUCTURES, SERVICES } from './config.js';
+import { STRUCTURES, SERVICES, REPUTATION } from './config.js';
 import { clamp } from './utils.js';
 
 const BASE = 0.28;
@@ -141,6 +141,13 @@ export const FACTORS = [
     enabled: true,
     // Town decisions lift or dent how everyone feels about living here, for a while.
     compute: (city) => city.derived.spirit || 0,
+  },
+  {
+    id: 'reputation',
+    label: 'Town reputation',
+    enabled: true,
+    // A well-thought-of town draws people; a run-down name puts them off.
+    compute: (city) => ((city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.homeAppeal,
   },
   { id: 'overcrowding', label: 'Overcrowding', enabled: false, compute: () => 0 },
   { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },

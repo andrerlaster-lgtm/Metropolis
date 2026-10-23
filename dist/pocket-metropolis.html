@@ -3034,6 +3034,14 @@ const COVERAGE_IDS = ['school', 'health', 'fun', 'fire'];
 // and below `strained` the town starts asking for another one. Quality scales the building's coverage.
 const SERVICE_RATING = { min: 0.3, perDay: 0.3, strained: 0.75 };
 
+// Town reputation (reputation.js): a slow 0..1 score from how green and well kept the town is. 0.5 is neutral.
+const REPUTATION = {
+  perDay: 0.04, // the most it moves in a game day, so the whole range takes about 25 days
+  homeAppeal: 0.1, // homes look up to ±0.05 more or less appealing at the ends
+  growth: 0.3, // a town that grows by itself runs up to ±15% faster or slower
+  weights: { green: 0.4, care: 0.35, services: 0.25 },
+};
+
 // Milestones: the town's title grows with its population, and each step unlocks new buildings.
 // Unlocks are permanent. Tools not listed here are always available.
 const MILESTONES = [
@@ -3144,7 +3152,7 @@ const CAR_COLORS = ['#ff9f8f', '#8fd0bd', '#b49ad1', '#ffd98f', '#9cc4ea', '#f7f
 const SHIRT_COLORS = ['#ff8f7e', '#7fc4ad', '#a98bd0', '#ffcf6e', '#86b5e6', '#f49ab8', '#ffffff'];
 const SKIN_TONES = ['#f6d5bd', '#e8b896', '#c98e6a', '#8d5a3f', '#f1c7a5'];
 
-return { TILE_W, TILE_H, DEFAULT_MAP_SIZE, SAVE_VERSION, DAY_LENGTH_SECONDS, SIM_STEP, PALETTE, BUILDING_VARIANTS, VARIANT_KEYS, STRUCTURES, WORKER_SHARE, ROAD_CAPACITY, SERVICES, COVERAGE_IDS, SERVICE_RATING, MILESTONES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, SEVERITY_COLORS, TOOL_GROUPS, TOOLS, VIEWS, CAR_COLORS, SHIRT_COLORS, SKIN_TONES };
+return { TILE_W, TILE_H, DEFAULT_MAP_SIZE, SAVE_VERSION, DAY_LENGTH_SECONDS, SIM_STEP, PALETTE, BUILDING_VARIANTS, VARIANT_KEYS, STRUCTURES, WORKER_SHARE, ROAD_CAPACITY, SERVICES, COVERAGE_IDS, SERVICE_RATING, REPUTATION, MILESTONES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, SEVERITY_COLORS, TOOL_GROUPS, TOOLS, VIEWS, CAR_COLORS, SHIRT_COLORS, SKIN_TONES };
 })();
 
 // ---- state.js ----
@@ -3495,7 +3503,7 @@ const __mod_desirability = (() => {
 // whose layout changed, which is checked on every recompute, so a change is never missed whatever made
 // it. The results are exactly what computing every factor afresh would give.
 
-const { STRUCTURES, SERVICES } = __mod_config;
+const { STRUCTURES, SERVICES, REPUTATION } = __mod_config;
 const { clamp } = __mod_utils;
 const BASE = 0.28;
 
@@ -3629,6 +3637,13 @@ const FACTORS = [
     enabled: true,
     // Town decisions lift or dent how everyone feels about living here, for a while.
     compute: (city) => city.derived.spirit || 0,
+  },
+  {
+    id: 'reputation',
+    label: 'Town reputation',
+    enabled: true,
+    // A well-thought-of town draws people; a run-down name puts them off.
+    compute: (city) => ((city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.homeAppeal,
   },
   { id: 'overcrowding', label: 'Overcrowding', enabled: false, compute: () => 0 },
   { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
@@ -4801,6 +4816,122 @@ function computeCoverage(city, days = 0) {
 }
 
 return { targetRating, computeCoverage };
+})();
+
+// ---- reputation.js ----
+const __mod_reputation = (() => {
+// Town reputation: how well the town is thought of, from 0 to 1. It builds slowly from how green and
+// well kept the town is (trees and parks near homes, few damaged or ruined buildings, schools and clinics
+// that cover the homes), so planting trees helps and clearing them hurts, but it takes days to move.
+//
+// A good name draws newcomers: it nudges how appealing homes are (Town reputation in the inspector) and
+// how fast a town that grows by itself grows. Saved in city.systems.reputation = { value, title }.
+// The score parts and the reasons are derived (city.derived.reputation) and never saved.
+
+const { STRUCTURES, REPUTATION } = __mod_config;
+const { addChronicle } = __mod_chronicle;
+const { clamp } = __mod_utils;
+// Lowest value for each title. A title only changes once the value is 0.02 past its edge.
+const TITLES = [
+  { min: 0, label: 'Run-down', up: '', down: 'The town has a run-down name now.' },
+  { min: 0.25, label: 'Plain', up: 'Visitors call the town plain, but fair.', down: 'People say the town has lost its charm.' },
+  { min: 0.45, label: 'Pleasant', up: 'The town is thought of as a pleasant place to live.', down: 'The town is only thought pleasant now.' },
+  { min: 0.65, label: 'Lovely', up: 'Word has spread that the town is lovely.', down: 'The town is not quite as lovely as it was.' },
+  { min: 0.85, label: 'Beloved', up: 'The town is beloved far and wide.', down: '' },
+];
+const HYSTERESIS = 0.02;
+
+const titleIndex = (value, from = 0) => {
+  let i = from;
+  while (i < TITLES.length - 1 && value >= TITLES[i + 1].min + HYSTERESIS) i++;
+  while (i > 0 && value < TITLES[i].min - HYSTERESIS) i--;
+  return i;
+};
+
+// Score the town now. `unlocked(tool)` says whether a service can be built yet, so a young town isn't
+// marked down for a clinic it can't build. Returns null with no residents (nothing to judge yet).
+function assessReputation(city, unlocked = () => true) {
+  const lived = city.homes().filter((h) => h.structure.residents > 0);
+  if (!lived.length) return null;
+
+  // Green: how much park and tree there is around the homes people live in.
+  let green = 0;
+  for (const h of lived) green += clamp((h.factors?.greenery || 0) / 0.22, 0, 1);
+  green /= lived.length;
+
+  // Well kept: damaged or ruined buildings and washed-out roads count against the town.
+  let buildings = 0;
+  let neglected = 0;
+  for (const t of city.tiles) {
+    const s = t.structure;
+    if (!s) continue;
+    if (s.broken) neglected++;
+    if (s.type === 'road' || s.type === 'tree') continue;
+    if (s.type === 'rubble' || (!STRUCTURES[s.type].walkable && (s.damage || 0) >= 0.34)) neglected++;
+    if (!STRUCTURES[s.type].walkable && s.type !== 'rubble') buildings++;
+  }
+  const care = clamp(1 - (5 * neglected) / Math.max(buildings, 10), 0, 1);
+
+  // Looked after: schools and clinics (at their current quality) reach the homes.
+  const kinds = [];
+  if (unlocked('school')) kinds.push('school');
+  if (unlocked('clinic')) kinds.push('health');
+  let services = null;
+  if (kinds.length) {
+    services = 0;
+    for (const h of lived) for (const k of kinds) services += clamp((h.coverage?.[k] || 0) / 0.5, 0, 1) / kinds.length;
+    services /= lived.length;
+  }
+
+  const w = REPUTATION.weights;
+  const parts = { green, care, services };
+  let sum = w.green + w.care;
+  let target = w.green * green + w.care * care;
+  if (services != null) {
+    sum += w.services;
+    target += w.services * services;
+  }
+  return { target: target / sum, parts, neglected };
+}
+
+class Reputation {
+  constructor(city, { unlocked } = {}) {
+    this.city = city;
+    this.unlocked = unlocked;
+  }
+
+  get state() {
+    return (this.city.systems.reputation ||= { value: null, title: 0 });
+  }
+
+  // `days`: in-game days since the last call. Moves toward the town's current score by at most
+  // REPUTATION.perDay a day. A town with no reputation yet (new, or saved before this existed) starts at its
+  // score, quietly.
+  update(days = 0) {
+    const city = this.city;
+    const st = this.state;
+    const a = assessReputation(city, this.unlocked);
+    if (a) {
+      if (st.value == null) {
+        st.value = a.target;
+        st.title = titleIndex(st.value);
+      } else {
+        const step = REPUTATION.perDay * days;
+        st.value = clamp(st.value + clamp(a.target - st.value, -step, step), 0, 1);
+        const was = st.title;
+        st.title = titleIndex(st.value, was);
+        if (st.title !== was) {
+          const text = st.title > was ? TITLES[st.title].up : TITLES[was].down;
+          if (text) addChronicle(city, text, null, 'note');
+        }
+      }
+    }
+    const value = st.value ?? 0.5;
+    city.derived.reputation = { value, title: TITLES[st.title || 0], target: a?.target ?? value, parts: a?.parts || null, neglected: a?.neglected || 0 };
+  }
+}
+
+return { TITLES, titleIndex, assessReputation, Reputation };
 })();
 
 // ---- streets.js ----
@@ -8828,7 +8959,7 @@ const __mod_growth = (() => {
 //
 // Saved in city.systems.growth = { on, timer, boosts: [{ mult, until, label }], built }.
 
-const { STRUCTURES, SERVICE_RATING } = __mod_config;
+const { STRUCTURES, SERVICE_RATING, REPUTATION } = __mod_config;
 const { DIRS } = __mod_state;
 const { buildsFor } = __mod_eras;
 const { clamp, pickWeighted } = __mod_utils;
@@ -8888,7 +9019,9 @@ class Growth {
     st.boosts = (st.boosts || []).filter((b) => b.until > now);
     const happy = this.city.stats?.homes ? (this.city.stats.happiness || 0) / 100 : 0.6;
     const sprout = this.city.homes().length < 12 ? 2 : 1; // a seed sprouts quickly at first
-    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout;
+    // A well-thought-of town draws newcomers too: up to 15% faster or slower (see reputation.js).
+    const name = 1 + ((this.city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.growth;
+    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout * name;
   }
 
   boost(mult, days, label) {
@@ -10194,6 +10327,7 @@ const { STRUCTURES, DAY_LENGTH_SECONDS, SIM_STEP } = __mod_config;
 const { recomputeDesirability } = __mod_desirability;
 const { computeLaborMarket } = __mod_labor;
 const { computeCoverage } = __mod_coverage;
+const { Reputation } = __mod_reputation;
 const { computeStreets } = __mod_streets;
 const { AgentSystem } = __mod_agents;
 const { LifeSystem } = __mod_life;
@@ -10219,6 +10353,7 @@ class Simulation {
     this.life = new LifeSystem(city);
     this.weather = new WeatherSystem(city);
     this.milestones = new Milestones(city);
+    this.reputation = new Reputation(city, { unlocked: (tool) => this.milestones.isUnlocked(tool) });
     this.economy = new Economy(city);
     this.notables = new Notables(city);
     this.townsfolk = new Townsfolk(city);
@@ -10272,9 +10407,11 @@ class Simulation {
         this.applyNotables();
       }
       // Every refresh, not only when the map changed: residents moving in change how busy services are.
-      computeCoverage(city, this._ratingTime / DAY_LENGTH_SECONDS);
+      const elapsed = this._ratingTime / DAY_LENGTH_SECONDS;
+      computeCoverage(city, elapsed);
       this._ratingTime = 0;
       city.derived.labor = computeLaborMarket(city);
+      this.reputation.update(elapsed); // from this pass's coverage and the last pass's greenery
       recomputeDesirability(city);
       this.economy.assess();
       this._notableRates = this.notables.rates();
@@ -10307,6 +10444,11 @@ class Simulation {
     this.updateStats();
     void this.milestones.state; // settle the starting title without a celebration
     void this.eras.state; // and the era and calendar
+    // Reputation needs the stats and title settled above (what is unlocked) and the greenery just computed;
+    // homes and stats are then scored again with it.
+    this.reputation.update(0);
+    recomputeDesirability(this.city);
+    this.updateStats();
     this.city.derived.thoughts = computeThoughts(this.city, this.milestones);
   }
 
@@ -17094,12 +17236,13 @@ const __mod_eraUI = (() => {
 // and years), how fast the town is growing, and the chronicle of firsts, eras, decisions and family.
 
 const { ERAS } = __mod_eras;
+const { REPUTATION } = __mod_config;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const ICON = { first: '★', era: '◆', decision: '⚖', family: '♥', note: '•' };
 
 function eraKey(eras, growth, city) {
   const p = eras.progress();
-  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length]);
+  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100)]);
 }
 
 function eraHTML(eras, growth) {
@@ -17114,10 +17257,31 @@ function eraHTML(eras, growth) {
       ? `<div class="tier-progress"><span style="width:${Math.round(p.fraction * 100)}%"></span></div>` +
         `<p class="era-need">Next: <b>${esc(p.next.label)}</b> needs ${p.needPop.toLocaleString()} people (now ${p.pop.toLocaleString()}) and ${p.needYears} years since founding (now ${p.years}).</p>`
       : '<p class="era-need">The town has reached its brightest era.</p>') +
+    reputationHTML(eras.city.derived.reputation) +
     (growth
       ? `<p class="era-need">${growth.on ? `Growing by itself at ${Math.round(rate * 100)}% pace. Happier towns grow faster; decisions can speed it up or slow it down.` : 'Growth is off: the town only changes when you build. Turn it on in ☰ Settings.'}</p>` +
         (boosts ? `<p class="dtags">${boosts}</p>` : '')
       : '')
+  );
+}
+
+// What the town is known for, and what is lifting or dragging it. Hidden until there are residents.
+function reputationHTML(rep) {
+  if (!rep?.parts) return '';
+  const pct = Math.round(rep.value * 100);
+  const nudge = Math.round((rep.value - 0.5) * REPUTATION.growth * 100);
+  const { green, care, services } = rep.parts;
+  const notes = [];
+  if (green < 0.35) notes.push('Few trees or parks near homes (plant some)');
+  else if (green > 0.7) notes.push('Plenty of green around homes');
+  if (rep.neglected) notes.push(`${rep.neglected} damaged or ruined ${rep.neglected === 1 ? 'thing' : 'things'} to repair`);
+  else if (care === 1) notes.push('Everything is well kept');
+  if (services != null && services < 0.5) notes.push('Schools and clinics don\'t reach many homes');
+  const trend = rep.target - rep.value > 0.03 ? ' · rising' : rep.target - rep.value < -0.03 ? ' · slipping' : '';
+  return (
+    `<p class="era-need"><b>Reputation: ${esc(rep.title.label)}</b> (${pct}%${trend}). A good name makes homes a little more appealing and ${nudge >= 0 ? 'speeds up' : 'slows down'} a town that grows by itself (${nudge >= 0 ? '+' : ''}${nudge}%).` +
+    (notes.length ? `<br><small>${notes.map(esc).join(' · ')}.</small>` : '') +
+    '</p>'
   );
 }
 

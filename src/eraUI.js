@@ -2,13 +2,14 @@
 // and years), how fast the town is growing, and the chronicle of firsts, eras, decisions and family.
 
 import { ERAS } from './eras.js';
+import { REPUTATION } from './config.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const ICON = { first: '★', era: '◆', decision: '⚖', family: '♥', note: '•' };
 
 export function eraKey(eras, growth, city) {
   const p = eras.progress();
-  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length]);
+  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100)]);
 }
 
 export function eraHTML(eras, growth) {
@@ -23,10 +24,31 @@ export function eraHTML(eras, growth) {
       ? `<div class="tier-progress"><span style="width:${Math.round(p.fraction * 100)}%"></span></div>` +
         `<p class="era-need">Next: <b>${esc(p.next.label)}</b> needs ${p.needPop.toLocaleString()} people (now ${p.pop.toLocaleString()}) and ${p.needYears} years since founding (now ${p.years}).</p>`
       : '<p class="era-need">The town has reached its brightest era.</p>') +
+    reputationHTML(eras.city.derived.reputation) +
     (growth
       ? `<p class="era-need">${growth.on ? `Growing by itself at ${Math.round(rate * 100)}% pace. Happier towns grow faster; decisions can speed it up or slow it down.` : 'Growth is off: the town only changes when you build. Turn it on in ☰ Settings.'}</p>` +
         (boosts ? `<p class="dtags">${boosts}</p>` : '')
       : '')
+  );
+}
+
+// What the town is known for, and what is lifting or dragging it. Hidden until there are residents.
+function reputationHTML(rep) {
+  if (!rep?.parts) return '';
+  const pct = Math.round(rep.value * 100);
+  const nudge = Math.round((rep.value - 0.5) * REPUTATION.growth * 100);
+  const { green, care, services } = rep.parts;
+  const notes = [];
+  if (green < 0.35) notes.push('Few trees or parks near homes (plant some)');
+  else if (green > 0.7) notes.push('Plenty of green around homes');
+  if (rep.neglected) notes.push(`${rep.neglected} damaged or ruined ${rep.neglected === 1 ? 'thing' : 'things'} to repair`);
+  else if (care === 1) notes.push('Everything is well kept');
+  if (services != null && services < 0.5) notes.push('Schools and clinics don\'t reach many homes');
+  const trend = rep.target - rep.value > 0.03 ? ' · rising' : rep.target - rep.value < -0.03 ? ' · slipping' : '';
+  return (
+    `<p class="era-need"><b>Reputation: ${esc(rep.title.label)}</b> (${pct}%${trend}). A good name makes homes a little more appealing and ${nudge >= 0 ? 'speeds up' : 'slows down'} a town that grows by itself (${nudge >= 0 ? '+' : ''}${nudge}%).` +
+    (notes.length ? `<br><small>${notes.map(esc).join(' · ')}.</small>` : '') +
+    '</p>'
   );
 }
 
