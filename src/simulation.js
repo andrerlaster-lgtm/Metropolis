@@ -17,6 +17,7 @@ import { Eras } from './eras.js';
 import { Growth } from './growth.js';
 import { Decisions } from './decisions.js';
 import { Disasters, soundness } from './disasters.js';
+import { Skills } from './skills.js';
 import { computeThoughts } from './advisor.js';
 import { daylightAt } from './time.js';
 import { clamp, pickWeighted } from './utils.js';
@@ -40,6 +41,7 @@ export class Simulation {
     this.decisions = new Decisions(city, { economy: this.economy, growth: this.growth, eras: this.eras, townsfolk: this.townsfolk });
     this.disasters = new Disasters(city, { economy: this.economy, decisions: this.decisions, eras: this.eras });
     this.decisions.disasters = this.disasters;
+    this.skills = new Skills(city);
     this._notableRates = null;
     this._thoughtTimer = 0;
     this._streetsRev = -1;
@@ -101,6 +103,8 @@ export class Simulation {
     this.updateStats();
     this.updateTrends();
     this.milestones.update();
+    const points = this.skills.update();
+    if (points) city.emit('skillPoint', { points, available: this.skills.available() });
     this.eras.update();
     this.decisions.update();
     this._thoughtTimer -= SIM_STEP;
@@ -132,11 +136,14 @@ export class Simulation {
     this.city.derived.thoughts = computeThoughts(this.city, this.milestones);
   }
 
-  // Notable people's bonuses: wider coverage, cheaper building, more tax, less upkeep.
+  // Notable people's bonuses (wider coverage, cheaper building, more tax, less upkeep) and the town's
+  // upgrades (skills.js), which every other system reads from city.derived.skills.
   applyNotables() {
     const fx = this.notables.effects();
+    const sk = this.skills.effects();
     this.city.derived.notableEffects = fx;
-    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax, buildCost: fx.buildCost, upkeep: fx.upkeep });
+    this.city.derived.skills = sk;
+    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax * sk.businessTax, buildCost: fx.buildCost * sk.buildCost, upkeep: fx.upkeep * sk.upkeep });
   }
 
   // Trends for the City panel: a sample every three in-game hours, the last six days kept.
@@ -168,7 +175,7 @@ export class Simulation {
 
   // Desirability maps to how full a home can get: a bare lot fills a little, a leafy one fills up.
   targetResidents(tile) {
-    const cap = STRUCTURES[tile.structure.type].capacity * soundness(tile.structure); // storm damage halves it
+    const cap = STRUCTURES[tile.structure.type].capacity * soundness(tile.structure) * (this.city.derived.skills?.capacity ?? 1); // storm damage halves it
     return Math.round(cap * clamp((tile.desirability - 0.15) / 0.7, 0, 1));
   }
 
@@ -191,7 +198,7 @@ export class Simulation {
     if (!open.length) return;
     const attempts = 1 + Math.floor(open.length / 8);
     for (let i = 0; i < attempts; i++) {
-      if (Math.random() > 0.3) continue;
+      if (Math.random() > Math.min(0.9, 0.3 * (city.derived.skills?.moveIn ?? 1))) continue;
       const h = pickWeighted(open, (c) => (c.housingTarget - c.structure.residents) * c.desirability ** 2);
       if (!h || h.structure.residents >= h.housingTarget) continue;
       h.structure.residents++;
@@ -209,7 +216,7 @@ export class Simulation {
     for (const h of homes) {
       const r = h.structure.residents;
       population += r;
-      capacity += STRUCTURES[h.structure.type].capacity;
+      capacity += Math.round(STRUCTURES[h.structure.type].capacity * (city.derived.skills?.capacity ?? 1));
       weighted += r * h.desirability;
       desirSum += h.desirability;
     }

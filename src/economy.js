@@ -34,6 +34,7 @@ export const CATEGORY_LABELS = {
   park: 'Parks',
   playground: 'Playgrounds',
   field: 'Sports fields',
+  bonds: 'Town bonds',
 };
 
 export class Economy {
@@ -107,7 +108,7 @@ export class Economy {
       let e = 0;
       if (def.capacity) {
         const workers = Math.round(s.residents * WORKER_SHARE) * (t.employment || 0);
-        e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1);
+        e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
       } else if (BUSINESS_TAX[s.type]) {
         e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax;
       } else if (UPKEEP[s.type]) {
@@ -120,6 +121,9 @@ export class Economy {
       else expenses[cat] = (expenses[cat] || 0) - e;
       if (s.type !== 'road') earners.push(t);
     }
+    // Town bonds (an upgrade, skills.js): a steady income that grows with the town.
+    const sk = city.derived.skills;
+    if (sk?.grantBase || sk?.grantPerResident) income.bonds = sk.grantBase + sk.grantPerResident * (city.stats?.population || 0);
     const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
     const totalIn = sum(income);
     const totalOut = sum(expenses);

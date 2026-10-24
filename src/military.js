@@ -43,6 +43,9 @@ import {
 } from './militaryData.js';
 import { buildField } from './flowfield.js';
 import { mulberry32 } from './utils.js';
+import { noEffects } from './skills.js';
+
+const NO_SKILLS = noEffects();
 
 export const MILITARY_VERSION = 1;
 export const START_FUNDS = 500;
@@ -129,6 +132,16 @@ export class Military {
   get funds() {
     return this.state.funds;
   }
+  // The town's Defence upgrades (skills.js), as the simulation last worked them out.
+  get skills() {
+    return this.city.derived?.skills || NO_SKILLS;
+  }
+  defenceCost(type) {
+    return Math.round(DEFENCES[type].cost * this.skills.defenceCost);
+  }
+  upgradeCostOf(s) {
+    return Math.round(upgradeCost(s.type, s.level) * this.skills.defenceCost);
+  }
   get hq() {
     return this.state.structures.find((s) => s.type === 'hq');
   }
@@ -169,7 +182,7 @@ export class Military {
 
   // What the soldiers are paid each day.
   upkeep() {
-    return this.state.soldiers.reduce((sum, s) => sum + (UNITS[s.type]?.upkeep || 0), 0);
+    return this.state.soldiers.reduce((sum, s) => sum + (UNITS[s.type]?.upkeep || 0), 0) * this.skills.pay;
   }
 
   // ---- The base map -------------------------------------------------------------------------
@@ -215,7 +228,8 @@ export class Military {
       if (this.structureAt(xx, yy)) return 'Something is already built here';
       if (this.postAt(xx, yy)) return 'A soldier stands guard here. Move them first';
     }
-    if (!this.canPay(d.cost)) return `Needs ${d.cost} in the military budget`;
+    const cost = this.defenceCost(type);
+    if (!this.canPay(cost)) return `Needs ${cost} in the military budget`;
     const extra = new Set();
     for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) extra.add(key(xx, yy));
     if (!this.routeOpen(extra)) return 'That would close the last way in. Attackers must have a route';
@@ -226,7 +240,7 @@ export class Military {
     const err = this.placeError(type, x, y);
     if (err) return { error: err };
     const st = this.state;
-    this.pay(DEFENCES[type].cost);
+    this.pay(this.defenceCost(type));
     const s = { id: st.nextId++, type, x, y, level: 1, hp: maxHpOf(type) };
     st.structures.push(s);
     return { structure: s };
@@ -234,8 +248,8 @@ export class Military {
 
   // Money back for taking a defence down: half of what went into it, less for damage.
   refundOf(s) {
-    let spent = DEFENCES[s.type].cost;
-    for (let l = 1; l < s.level; l++) spent += upgradeCost(s.type, l);
+    let spent = this.defenceCost(s.type);
+    for (let l = 1; l < s.level; l++) spent += Math.round(upgradeCost(s.type, l) * this.skills.defenceCost);
     return Math.round(spent * 0.5 * (s.hp / maxHpOf(s.type, s.level)));
   }
 
@@ -254,7 +268,7 @@ export class Military {
     if (!s) return 'Pick a defence';
     if (s.level >= MAX_LEVEL) return 'Fully upgraded';
     if (s.hp <= 0) return 'Repair it first';
-    const c = upgradeCost(s.type, s.level);
+    const c = this.upgradeCostOf(s);
     if (!this.canPay(c)) return `Needs ${c} in the military budget`;
     return null;
   }
@@ -263,7 +277,7 @@ export class Military {
     const s = this.state.structures.find((t) => t.id === id);
     const err = this.upgradeError(s);
     if (err) return { error: err };
-    this.pay(upgradeCost(s.type, s.level));
+    this.pay(this.upgradeCostOf(s));
     const before = maxHpOf(s.type, s.level);
     s.level++;
     s.hp = Math.min(maxHpOf(s.type, s.level), s.hp + maxHpOf(s.type, s.level) - before);
@@ -314,7 +328,7 @@ export class Military {
 
   addSoldier(type, rand = this.rand) {
     const st = this.state;
-    const s = { id: st.nextId++, type, name: soldierName(rand), xp: 0, kills: 0, battles: 0, status: 'ready', until: 0, post: null };
+    const s = { id: st.nextId++, type, name: soldierName(rand), xp: this.skills.veteranXp, kills: 0, battles: 0, status: 'ready', until: 0, post: null };
     st.soldiers.push(s);
     return s;
   }
@@ -346,7 +360,7 @@ export class Military {
     if (u.train && !emergency) {
       const start = Math.max(now(this.city), st.trainingUntil || 0);
       s.status = 'training';
-      s.until = start + u.train;
+      s.until = start + u.train * this.skills.train;
       st.trainingUntil = s.until;
     }
     return { soldier: s };
@@ -437,7 +451,7 @@ export class Military {
       }
     }
     // Repair crews work down the list, as far as the day and the budget allow.
-    let hp = REPAIR_HP_PER_DAY * dayFraction;
+    let hp = REPAIR_HP_PER_DAY * this.skills.repair * dayFraction;
     for (const s of this.damaged()) {
       if (hp <= 0) break;
       const max = maxHpOf(s.type, s.level);
@@ -483,10 +497,10 @@ export class Military {
         st.fallen.unshift({ name: titleOf(s), type: s.type, day: this.city.day, battle: battleName });
       } else if (r.fate === 'injured') {
         s.status = 'injured';
-        s.until = t + injuryDays(this.rand());
+        s.until = t + injuryDays(this.rand()) * this.skills.recovery;
       } else if (r.fate === 'hurt') {
         s.status = 'injured';
-        s.until = t + LIGHT_INJURY_DAYS;
+        s.until = t + LIGHT_INJURY_DAYS * this.skills.recovery;
       }
     }
     if (lost.length) st.soldiers = st.soldiers.filter((s) => !lost.includes(s));

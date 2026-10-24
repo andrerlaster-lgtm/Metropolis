@@ -4033,6 +4033,177 @@ button.mil-sq {
   margin-left: 0;
 }
 
+/* Town upgrades (skills.js, skillsUI.js) */
+.skill-chip {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #f2b230;
+  color: #4a3500;
+  font: 800 11px/1.2 var(--font-body);
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+  animation: card-in 0.3s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.skill-chip:hover {
+  filter: brightness(1.05);
+}
+.skill-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.skills-sheet {
+  width: min(1000px, calc(100vw - 24px));
+}
+.sk-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sk-points {
+  margin: 0;
+  font: 700 14px/1.3 var(--font-body);
+}
+.sk-points b {
+  color: #b07a00;
+}
+.sk-intro,
+.sk-line {
+  margin: 0;
+  color: var(--ink-soft);
+  font: 700 12.5px/1.45 var(--font-body);
+}
+.sk-line b {
+  color: var(--ink);
+}
+.upgrades-box {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.sk-branches {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+.sk-branch {
+  --branch: #5cbf88;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--branch) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--branch) 30%, transparent);
+}
+.sk-treasury {
+  --branch: #e0a526;
+}
+.sk-wellbeing {
+  --branch: #e8749a;
+}
+.sk-services {
+  --branch: #5b9be0;
+}
+.sk-defence {
+  --branch: #8a6cc4;
+}
+.sk-branch h3 {
+  margin: 0;
+  font: 600 15px/1.2 var(--font-display);
+}
+.sk-blurb {
+  margin: 2px 0 8px;
+  color: var(--ink-soft);
+  font: 700 11.5px/1.35 var(--font-body);
+}
+.sk-tier {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.sk-link {
+  display: block;
+  width: 2px;
+  height: 10px;
+  margin: 0 auto;
+  background: color-mix(in srgb, var(--branch) 55%, transparent);
+}
+.sk-node {
+  appearance: none;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-height: 44px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.sk-node:hover {
+  transform: translateY(-1px);
+}
+.sk-node:active {
+  transform: scale(0.98);
+}
+.sk-node:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.sk-name {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  font: 800 12.5px/1.2 var(--font-body);
+}
+.sk-cost {
+  flex: none;
+  color: #b07a00;
+  font-size: 11px;
+}
+.sk-text,
+.sk-needs {
+  font: 700 11px/1.35 var(--font-body);
+  color: var(--ink-soft);
+}
+.sk-needs {
+  font-style: italic;
+}
+.sk-node.is-have {
+  border-color: var(--branch);
+  background: color-mix(in srgb, var(--branch) 22%, var(--panel));
+}
+.sk-node.is-have .sk-cost {
+  visibility: hidden;
+}
+.sk-node.is-ready {
+  border-color: color-mix(in srgb, var(--branch) 60%, transparent);
+  border-style: dashed;
+}
+.sk-node.is-short {
+  opacity: 0.8;
+}
+.sk-node.is-locked {
+  opacity: 0.5;
+}
+@media (max-width: 900px) {
+  .sk-branches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .sk-branches {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 </style>
 </head>
 <body>
@@ -4061,7 +4232,7 @@ button.mil-sq {
         </div>
         <div class="clock" id="stat-clock">Day 1</div>
         <div class="money-row" aria-label="Town budget"><span class="money-coin" aria-hidden="true">$</span><span id="stat-money">$0</span><span id="stat-net" class="net"></span></div>
-        <div class="tier"><span class="tier-name" id="tier-name">Hamlet</span><span class="tier-bar" aria-hidden="true"><span id="tier-meter"></span></span><span class="badge" id="tier-badge" hidden></span></div>
+        <div class="tier"><span class="tier-name" id="tier-name">Hamlet</span><span class="tier-bar" aria-hidden="true"><span id="tier-meter"></span></span><span class="badge" id="tier-badge" hidden></span><span class="skill-chip" id="skill-chip" role="button" tabindex="0" hidden></span></div>
       </section>
 
       <div class="legend glass" id="legend" hidden></div>
@@ -4125,6 +4296,7 @@ button.mil-sq {
       <nav class="toolbar glass" id="toolbar" aria-label="Build tools"></nav>
       <section class="military" id="military" aria-label="Military base" hidden></section>
       <section class="more-sheet glass diplomacy-sheet" id="diplomacy-sheet" role="dialog" aria-label="Diplomacy" hidden></section>
+      <section class="more-sheet glass skills-sheet" id="skills-sheet" role="dialog" aria-label="Town upgrades" hidden></section>
       <section class="decision-card glass diplo-card" id="diplo-card" role="dialog" aria-label="A message from a neighbouring mayor" hidden></section>
       <div class="toast glass" id="toast" role="status"></div>
     </main>
@@ -4843,6 +5015,13 @@ const FACTORS = [
   { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
   { id: 'utilities', label: 'Utilities', enabled: false, compute: () => 0 },
   {
+    id: 'upgrades',
+    label: 'Town upgrades',
+    enabled: true,
+    // Festivals and Civic pride (skills.js) lift every home a little.
+    compute: (city) => city.derived.skills?.happy || 0,
+  },
+  {
     id: 'entertainment',
     label: 'Playgrounds & sport',
     enabled: true,
@@ -4853,6 +5032,8 @@ const FACTORS = [
 // ---- Layout cache ---------------------------------------------------------------------------
 
 const ACTIVE = FACTORS.filter((f) => f.enabled);
+// Factors the town's upgrades make count for more or less (skills.js), by the same name.
+const SCALED = new Set(['greenery', 'traffic', 'pollution', 'entertainment']);
 const LAYOUT = ACTIVE.filter((f) => f.layout);
 const REACH = Math.max(...LAYOUT.map((f) => f.reach));
 const TYPE_CODE = Object.fromEntries(Object.keys(STRUCTURES).map((type, i) => [type, i + 1]));
@@ -4906,8 +5087,10 @@ function recomputeDesirability(city) {
     let d = BASE;
     const factors = tile.factors || (tile.factors = {});
     let k = 0;
+    const sk = city.derived.skills;
     for (const f of ACTIVE) {
-      const v = f.layout ? values[k++][i] : f.compute(city, tile);
+      let v = f.layout ? values[k++][i] : f.compute(city, tile);
+      if (sk && SCALED.has(f.id)) v *= sk[f.id];
       factors[f.id] = v;
       d += v;
     }
@@ -5827,7 +6010,7 @@ function computeLaborMarket(city, { extraRoads = null, dryRun = false } = {}) {
   let jobs = 0;
   for (let w = 0; w < nw; w++) {
     const t = workplaces[w];
-    const cap = Math.round(STRUCTURES[t.structure.type].jobs * soundness(t.structure)); // damaged workplaces employ fewer
+    const cap = Math.round(STRUCTURES[t.structure.type].jobs * soundness(t.structure) * (city.derived.skills?.jobs ?? 1)); // damaged workplaces employ fewer; Business hubs more
     jobsAt[w] = cap;
     jobs += cap;
     const r = city.accessRoad(t.x, t.y);
@@ -5960,7 +6143,7 @@ function computeCoverage(city, days = 0) {
   for (const src of city.tiles) {
     const def = src.structure && STRUCTURES[src.structure.type];
     if (!def?.service) continue;
-    const r = def.radius + (city.derived.notableEffects?.radius?.[def.service] || 0); // notable people widen it
+    const r = def.radius + (city.derived.notableEffects?.radius?.[def.service] || 0) + (city.derived.skills?.radius?.[def.service] || 0); // notable people and upgrades widen it
     const cells = [];
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -9651,6 +9834,7 @@ const CATEGORY_LABELS = {
   park: 'Parks',
   playground: 'Playgrounds',
   field: 'Sports fields',
+  bonds: 'Town bonds',
 };
 
 class Economy {
@@ -9724,7 +9908,7 @@ class Economy {
       let e = 0;
       if (def.capacity) {
         const workers = Math.round(s.residents * WORKER_SHARE) * (t.employment || 0);
-        e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1);
+        e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
       } else if (BUSINESS_TAX[s.type]) {
         e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax;
       } else if (UPKEEP[s.type]) {
@@ -9737,6 +9921,9 @@ class Economy {
       else expenses[cat] = (expenses[cat] || 0) - e;
       if (s.type !== 'road') earners.push(t);
     }
+    // Town bonds (an upgrade, skills.js): a steady income that grows with the town.
+    const sk = city.derived.skills;
+    if (sk?.grantBase || sk?.grantPerResident) income.bonds = sk.grantBase + sk.grantPerResident * (city.stats?.population || 0);
     const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
     const totalIn = sum(income);
     const totalOut = sum(expenses);
@@ -11454,6 +11641,200 @@ class Decisions {
 return { DECISIONS, decisionById, effectTags, Decisions };
 })();
 
+// ---- skills.js ----
+const __mod_skills = (() => {
+// Town upgrades: a skill tree for your town. The town earns points by growing (one to start, one for
+// each new town title, one for every 50 residents at its biggest) and spends them on upgrades in four
+// branches: Treasury (money), Wellbeing (happiness), Services & growth, and Defence (the military
+// base). An upgrade needs one of the upgrades listed before it in its branch. Points can be taken
+// back at any time for free: one upgrade at a time (when nothing learned after it depends on it), or
+// all at once.
+//
+// Saved in city.systems.skills = { v, learned: [ids], peak } where peak is the most residents the
+// town has had, so points never go away when people move out. Pure rules, no screen (skillsUI.js).
+//
+// Every other system reads the combined effects from city.derived.skills (filled in by the
+// simulation): economy.js (taxes, costs, upkeep, the bonds), desirability.js (how much parks,
+// traffic, smoke and sport count, plus a flat happiness bonus), coverage.js (how far services
+// reach), labor.js (jobs), simulation.js (how many people homes hold, how fast newcomers arrive)
+// and military.js (training, defence costs, repairs, pay, recovery, veterans).
+
+const { MILESTONES } = __mod_config;
+const SKILLS_VERSION = 1;
+const START_POINTS = 1;
+const RESIDENTS_PER_POINT = 50;
+
+const BRANCHES = [
+  { id: 'treasury', label: 'Treasury', blurb: 'More money in, less going out' },
+  { id: 'wellbeing', label: 'Wellbeing', blurb: 'Happier homes' },
+  { id: 'services', label: 'Services & growth', blurb: 'Services reach further, homes and jobs grow' },
+  { id: 'defence', label: 'Defence', blurb: 'A stronger, cheaper military base' },
+];
+
+// Tier 1 needs nothing; every later upgrade needs any one of `needs`. Tier 4 upgrades cost 2 points.
+// `fx` says what the upgrade does; effects() combines them.
+const SKILLS = [
+  // Treasury
+  { id: 'taxOffice', branch: 'treasury', tier: 1, name: 'Tax office', text: 'Home taxes bring in 10% more.', fx: { residentTax: 1.1 } },
+  { id: 'marketDays', branch: 'treasury', tier: 2, needs: ['taxOffice'], name: 'Market days', text: 'Businesses pay 15% more tax.', fx: { businessTax: 1.15 } },
+  { id: 'thrifty', branch: 'treasury', tier: 2, needs: ['taxOffice'], name: 'Thrifty builders', text: 'Building costs 10% less.', fx: { buildCost: 0.9 } },
+  { id: 'tradeFair', branch: 'treasury', tier: 3, needs: ['marketDays'], name: 'Trade fair', text: 'Businesses pay another 15% more tax.', fx: { businessTax: 1.15 } },
+  { id: 'crews', branch: 'treasury', tier: 3, needs: ['thrifty'], name: 'Maintenance crews', text: 'Upkeep of roads, schools, parks and services costs 20% less.', fx: { upkeep: 0.8 } },
+  { id: 'bonds', branch: 'treasury', tier: 4, cost: 2, needs: ['tradeFair', 'crews'], name: 'Town bonds', text: 'A steady income of $25 a day, plus 25¢ for every resident.', fx: { grantBase: 25, grantPerResident: 0.25 } },
+  // Wellbeing
+  { id: 'gardeners', branch: 'wellbeing', tier: 1, name: 'Town gardeners', text: 'Parks and trees make homes 25% nicer.', fx: { greenery: 1.25 } },
+  { id: 'quietStreets', branch: 'wellbeing', tier: 2, needs: ['gardeners'], name: 'Quiet streets', text: 'Busy roads bother homes 40% less.', fx: { traffic: 0.6 } },
+  { id: 'cleanAir', branch: 'wellbeing', tier: 2, needs: ['gardeners'], name: 'Clean air rules', text: 'Factory smoke bothers homes 40% less.', fx: { pollution: 0.6 } },
+  { id: 'festivals', branch: 'wellbeing', tier: 3, needs: ['quietStreets'], name: 'Festivals', text: 'Every home is 3% happier.', fx: { happy: 0.03 } },
+  { id: 'sportForAll', branch: 'wellbeing', tier: 3, needs: ['cleanAir'], name: 'Sport for all', text: 'Playgrounds and sports fields make homes 50% nicer.', fx: { entertainment: 1.5 } },
+  { id: 'civicPride', branch: 'wellbeing', tier: 4, cost: 2, needs: ['festivals', 'sportForAll'], name: 'Civic pride', text: 'Every home is another 5% happier.', fx: { happy: 0.05 } },
+  // Services & growth
+  { id: 'catchments', branch: 'services', tier: 1, name: 'Wider catchments', text: 'Schools and clinics reach 1 tile further.', fx: { radius: { school: 1, health: 1 } } },
+  { id: 'roomyHomes', branch: 'services', tier: 2, needs: ['catchments'], name: 'Roomier homes', text: 'Homes hold 10% more people.', fx: { capacity: 1.1 } },
+  { id: 'hubs', branch: 'services', tier: 2, needs: ['catchments'], name: 'Business hubs', text: 'Workplaces offer 10% more jobs.', fx: { jobs: 1.1 } },
+  { id: 'playStreets', branch: 'services', tier: 3, needs: ['roomyHomes'], name: 'Play streets', text: 'Playgrounds and sports fields reach 1 tile further.', fx: { radius: { fun: 1 } } },
+  { id: 'fireDrills', branch: 'services', tier: 3, needs: ['hubs'], name: 'Fire drills', text: 'Fire stations reach 2 tiles further.', fx: { radius: { fire: 2 } } },
+  { id: 'welcome', branch: 'services', tier: 4, cost: 2, needs: ['playStreets', 'fireDrills'], name: 'Welcome centre', text: 'Newcomers move in 50% faster.', fx: { moveIn: 1.5 } },
+  // Defence
+  { id: 'drill', branch: 'defence', tier: 1, name: 'Drill sergeants', text: 'Recruits train 30% faster.', fx: { train: 0.7 } },
+  { id: 'engineers', branch: 'defence', tier: 2, needs: ['drill'], name: 'Army engineers', text: 'Defences and their upgrades cost 20% less.', fx: { defenceCost: 0.8 } },
+  { id: 'fieldHospital', branch: 'defence', tier: 2, needs: ['drill'], name: 'Field hospital', text: 'Wounded soldiers recover 40% faster.', fx: { recovery: 0.6 } },
+  { id: 'repairCrews', branch: 'defence', tier: 3, needs: ['engineers'], name: 'Repair crews', text: 'The base is repaired 50% faster.', fx: { repair: 1.5 } },
+  { id: 'quartermaster', branch: 'defence', tier: 3, needs: ['fieldHospital'], name: 'Quartermaster', text: 'Soldiers’ pay costs 20% less.', fx: { pay: 0.8 } },
+  { id: 'veterans', branch: 'defence', tier: 4, cost: 2, needs: ['repairCrews', 'quartermaster'], name: 'Veteran instructors', text: 'New recruits start as Corporals.', fx: { veteranXp: 40 } },
+];
+
+const SKILL = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
+const costOf = (id) => SKILL[id]?.cost || 1;
+
+const MULTIPLY = ['residentTax', 'businessTax', 'buildCost', 'upkeep', 'greenery', 'traffic', 'pollution', 'entertainment', 'capacity', 'jobs', 'moveIn', 'train', 'defenceCost', 'repair', 'pay', 'recovery'];
+const ADD = ['grantBase', 'grantPerResident', 'happy', 'veteranXp'];
+
+// What no upgrades at all do: nothing.
+function noEffects() {
+  const fx = { radius: { school: 0, health: 0, fun: 0, fire: 0 } };
+  for (const k of MULTIPLY) fx[k] = 1;
+  for (const k of ADD) fx[k] = 0;
+  return fx;
+}
+
+// The combined effects of a list of learned upgrades.
+function effectsOf(learned) {
+  const fx = noEffects();
+  for (const id of learned) {
+    const s = SKILL[id];
+    if (!s) continue;
+    for (const [k, v] of Object.entries(s.fx)) {
+      if (k === 'radius') for (const [svc, r] of Object.entries(v)) fx.radius[svc] = (fx.radius[svc] || 0) + r;
+      else if (MULTIPLY.includes(k)) fx[k] *= v;
+      else fx[k] += v;
+    }
+  }
+  return fx;
+}
+
+class Skills {
+  constructor(city) {
+    this.city = city;
+  }
+
+  // Lazily created, so older saves start with the points their town has already earned.
+  get state() {
+    const s = this.city.systems;
+    if (!s.skills || typeof s.skills !== 'object') s.skills = { v: SKILLS_VERSION, learned: [], peak: 0 };
+    const st = s.skills;
+    if (!Array.isArray(st.learned)) st.learned = [];
+    st.learned = st.learned.filter((id, i, a) => SKILL[id] && a.indexOf(id) === i);
+    if (!Number.isFinite(st.peak)) st.peak = 0;
+    st.peak = Math.max(st.peak, this.city.stats?.population || 0);
+    return st;
+  }
+
+  get learned() {
+    return this.state.learned;
+  }
+
+  has(id) {
+    return this.learned.includes(id);
+  }
+
+  // Points the town has earned: one to start, one per town title past the first, one per 50 residents.
+  earned() {
+    const st = this.state;
+    const reached = Math.max(0, Math.min(MILESTONES.length - 1, this.city.systems.milestones?.reached || 0));
+    return START_POINTS + reached + Math.floor(st.peak / RESIDENTS_PER_POINT);
+  }
+
+  spent() {
+    return this.learned.reduce((n, id) => n + costOf(id), 0);
+  }
+
+  available() {
+    return Math.max(0, this.earned() - this.spent());
+  }
+
+  // Residents still needed for the next point from growth.
+  toNextPoint() {
+    const peak = this.state.peak;
+    return (Math.floor(peak / RESIDENTS_PER_POINT) + 1) * RESIDENTS_PER_POINT - peak;
+  }
+
+  // Why an upgrade can't be learned now, or null when it can.
+  learnError(id) {
+    const s = SKILL[id];
+    if (!s) return 'No such upgrade';
+    if (this.has(id)) return 'Already yours';
+    if (s.needs && !s.needs.some((n) => this.has(n))) return `Needs ${s.needs.map((n) => SKILL[n].name).join(' or ')} first`;
+    const c = costOf(id);
+    if (this.available() < c) return c > 1 ? `Needs ${c} points` : 'Needs a point';
+    return null;
+  }
+
+  learn(id) {
+    const err = this.learnError(id);
+    if (err) return { error: err };
+    this.state.learned.push(id);
+    return { learned: id };
+  }
+
+  // An upgrade can be taken back when nothing learned after it would be left without what it needs.
+  forgetError(id) {
+    if (!this.has(id)) return 'Not learned';
+    const rest = this.learned.filter((x) => x !== id);
+    const stranded = rest.find((x) => SKILL[x].needs && !SKILL[x].needs.some((n) => rest.includes(n)));
+    return stranded ? `${SKILL[stranded].name} needs it. Take that back first` : null;
+  }
+
+  forget(id) {
+    const err = this.forgetError(id);
+    if (err) return { error: err };
+    this.state.learned = this.learned.filter((x) => x !== id);
+    return { forgot: id };
+  }
+
+  // Take every point back, for free.
+  reset() {
+    const n = this.learned.length;
+    this.state.learned = [];
+    return n;
+  }
+
+  effects() {
+    return effectsOf(this.learned);
+  }
+
+  // Call after stats update. Returns how many points were just earned (0 most of the time).
+  update() {
+    const now = this.earned(); // reading the state raises the peak
+    const before = this._last ?? now;
+    this._last = now;
+    return Math.max(0, now - before);
+  }
+}
+
+return { SKILLS_VERSION, START_POINTS, RESIDENTS_PER_POINT, BRANCHES, SKILLS, SKILL, costOf, noEffects, effectsOf, Skills };
+})();
+
 // ---- roadPlanner.js ----
 const __mod_roadPlanner = (() => {
 // Road planner: when a street is jammed, find a new stretch of road that would actually ease it.
@@ -11966,6 +12347,7 @@ const { Eras } = __mod_eras;
 const { Growth } = __mod_growth;
 const { Decisions } = __mod_decisions;
 const { Disasters, soundness } = __mod_disasters;
+const { Skills } = __mod_skills;
 const { computeThoughts } = __mod_advisor;
 const { daylightAt } = __mod_time;
 const { clamp, pickWeighted } = __mod_utils;
@@ -11988,6 +12370,7 @@ class Simulation {
     this.decisions = new Decisions(city, { economy: this.economy, growth: this.growth, eras: this.eras, townsfolk: this.townsfolk });
     this.disasters = new Disasters(city, { economy: this.economy, decisions: this.decisions, eras: this.eras });
     this.decisions.disasters = this.disasters;
+    this.skills = new Skills(city);
     this._notableRates = null;
     this._thoughtTimer = 0;
     this._streetsRev = -1;
@@ -12049,6 +12432,8 @@ class Simulation {
     this.updateStats();
     this.updateTrends();
     this.milestones.update();
+    const points = this.skills.update();
+    if (points) city.emit('skillPoint', { points, available: this.skills.available() });
     this.eras.update();
     this.decisions.update();
     this._thoughtTimer -= SIM_STEP;
@@ -12080,11 +12465,14 @@ class Simulation {
     this.city.derived.thoughts = computeThoughts(this.city, this.milestones);
   }
 
-  // Notable people's bonuses: wider coverage, cheaper building, more tax, less upkeep.
+  // Notable people's bonuses (wider coverage, cheaper building, more tax, less upkeep) and the town's
+  // upgrades (skills.js), which every other system reads from city.derived.skills.
   applyNotables() {
     const fx = this.notables.effects();
+    const sk = this.skills.effects();
     this.city.derived.notableEffects = fx;
-    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax, buildCost: fx.buildCost, upkeep: fx.upkeep });
+    this.city.derived.skills = sk;
+    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax * sk.businessTax, buildCost: fx.buildCost * sk.buildCost, upkeep: fx.upkeep * sk.upkeep });
   }
 
   // Trends for the City panel: a sample every three in-game hours, the last six days kept.
@@ -12116,7 +12504,7 @@ class Simulation {
 
   // Desirability maps to how full a home can get: a bare lot fills a little, a leafy one fills up.
   targetResidents(tile) {
-    const cap = STRUCTURES[tile.structure.type].capacity * soundness(tile.structure); // storm damage halves it
+    const cap = STRUCTURES[tile.structure.type].capacity * soundness(tile.structure) * (this.city.derived.skills?.capacity ?? 1); // storm damage halves it
     return Math.round(cap * clamp((tile.desirability - 0.15) / 0.7, 0, 1));
   }
 
@@ -12139,7 +12527,7 @@ class Simulation {
     if (!open.length) return;
     const attempts = 1 + Math.floor(open.length / 8);
     for (let i = 0; i < attempts; i++) {
-      if (Math.random() > 0.3) continue;
+      if (Math.random() > Math.min(0.9, 0.3 * (city.derived.skills?.moveIn ?? 1))) continue;
       const h = pickWeighted(open, (c) => (c.housingTarget - c.structure.residents) * c.desirability ** 2);
       if (!h || h.structure.residents >= h.housingTarget) continue;
       h.structure.residents++;
@@ -12157,7 +12545,7 @@ class Simulation {
     for (const h of homes) {
       const r = h.structure.residents;
       population += r;
-      capacity += STRUCTURES[h.structure.type].capacity;
+      capacity += Math.round(STRUCTURES[h.structure.type].capacity * (city.derived.skills?.capacity ?? 1));
       weighted += r * h.desirability;
       desirSum += h.desirability;
     }
@@ -18972,6 +19360,152 @@ function chronicleHTML(city) {
 return { eraKey, eraHTML, chronicleHTML };
 })();
 
+// ---- skillsUI.js ----
+const __mod_skillsUI = (() => {
+// Town upgrades sheet: the skill tree from skills.js, four branches side by side (stacked on
+// phones). Tap an upgrade to take it, tap it again to give the point back; Reset all gives every
+// point back. Also keeps the ★ chip on the town card up to date, and gives the City panel its
+// Town upgrades line. Reads and changes skills only; the simulation picks the changes up.
+
+const { BRANCHES, SKILLS, SKILL, costOf, RESIDENTS_PER_POINT } = __mod_skills;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+// The short line the City panel shows, with a button that opens the sheet.
+function upgradesLineHTML(sk) {
+  const n = sk.available();
+  return `<p class="sk-line">${n ? `<b>★ ${plural(n, 'point')} to spend.</b> ` : ''}${plural(sk.learned.length, 'upgrade')} taken. The next point comes in ${plural(sk.toNextPoint(), 'more resident')}, or with a new town title.</p><button type="button" class="ghost-btn small" data-upgrades>Town upgrades</button>`;
+}
+const upgradesLineKey = (sk) => JSON.stringify([sk.available(), sk.learned.length, sk.toNextPoint()]);
+
+class SkillsSheet {
+  // deps: { skills: () → Skills, onChange(), toast(msg, ms), sound(name), onOpen() }
+  constructor(deps) {
+    this.d = deps;
+    this.el = document.getElementById('skills-sheet');
+    this.chip = document.getElementById('skill-chip');
+    this.open = false;
+    this._key = '';
+    this.el.addEventListener('click', (e) => this.onClick(e));
+    // The chip sits on the town card, which opens the City panel: a tap here opens the upgrades instead.
+    const fromChip = (e) => {
+      e.stopPropagation();
+      this.toggle(true);
+    };
+    this.chip.addEventListener('click', fromChip);
+    this.chip.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fromChip(e);
+      }
+    });
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || !this.open || e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+        this.toggle(false);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      },
+      true
+    );
+  }
+
+  get sk() {
+    return this.d.skills();
+  }
+
+  toggle(force = !this.open) {
+    this.open = force;
+    this.el.hidden = !force;
+    if (force) {
+      this.d.onOpen?.();
+      this.render(true);
+    }
+  }
+
+  // A few times a second: the chip, and the sheet while it's open.
+  tick() {
+    const n = this.sk.available();
+    this.chip.hidden = !n;
+    if (n) {
+      this.chip.textContent = `★ ${n}`;
+      this.chip.setAttribute('aria-label', `${plural(n, 'upgrade point')} to spend. Open town upgrades`);
+    }
+    if (this.open) this.render(false);
+  }
+
+  render(force) {
+    const sk = this.sk;
+    const key = JSON.stringify([sk.learned, sk.available(), sk.toNextPoint()]);
+    if (!force && key === this._key) return;
+    this._key = key;
+    const n = sk.available();
+    this.el.innerHTML = `
+      <header><h2>Town upgrades</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>
+      <div class="sk-top">
+        <p class="sk-points"><b>★ ${plural(n, 'point')}</b> to spend</p>
+        <button type="button" class="ghost-btn small" data-reset ${sk.learned.length ? '' : 'disabled'}>Reset all</button>
+      </div>
+      <p class="sk-intro">Your town earns a point for every ${RESIDENTS_PER_POINT} residents at its biggest (${sk.toNextPoint()} more for the next) and one for each new town title. Tap an upgrade to take it; tap it again to get the point back. Changing your mind is free.</p>
+      <div class="sk-branches">${BRANCHES.map((b) => this.branchHTML(b)).join('')}</div>`;
+  }
+
+  branchHTML(b) {
+    const nodes = SKILLS.filter((s) => s.branch === b.id);
+    const tiers = [...new Set(nodes.map((s) => s.tier))].sort((x, y) => x - y);
+    return `<section class="sk-branch sk-${b.id}"><h3>${esc(b.label)}</h3><p class="sk-blurb">${esc(b.blurb)}</p>${tiers
+      .map((t) => `<div class="sk-tier">${nodes.filter((s) => s.tier === t).map((s) => this.nodeHTML(s)).join('')}</div>`)
+      .join('<span class="sk-link" aria-hidden="true"></span>')}</section>`;
+  }
+
+  nodeHTML(s) {
+    const sk = this.sk;
+    const have = sk.has(s.id);
+    const err = have ? null : sk.learnError(s.id);
+    const state = have ? 'have' : err ? (s.needs && !s.needs.some((n) => sk.has(n)) ? 'locked' : 'short') : 'ready';
+    const c = costOf(s.id);
+    const why = have ? 'Taken. Tap to give the point back' : err || `Take it for ${plural(c, 'point')}`;
+    return `<button type="button" class="sk-node is-${state}" data-skill="${s.id}" aria-pressed="${have}" title="${esc(why)}">
+      <span class="sk-name">${have ? '✓ ' : ''}${esc(s.name)}<span class="sk-cost">${c > 1 ? `★${c}` : '★'}</span></span>
+      <span class="sk-text">${esc(s.text)}</span>
+      ${state === 'locked' ? `<span class="sk-needs">Needs ${s.needs.map((n) => esc(SKILL[n].name)).join(' or ')}</span>` : ''}
+    </button>`;
+  }
+
+  onClick(e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.close != null) return this.toggle(false);
+    const sk = this.sk;
+    if (b.dataset.reset != null) {
+      const n = sk.reset();
+      if (n) {
+        this.d.onChange?.();
+        this.d.sound?.('undo');
+        this.d.toast?.(`All ${plural(n, 'upgrade')} given back. Spend the points again however you like`, 3600);
+      }
+      return this.render(true);
+    }
+    const id = b.dataset.skill;
+    if (!id) return;
+    const r = sk.has(id) ? sk.forget(id) : sk.learn(id);
+    if (r.error) {
+      this.d.sound?.('nope');
+      this.d.toast?.(r.error, 2600);
+    } else {
+      this.d.onChange?.();
+      this.d.sound?.(r.learned ? 'chime' : 'undo');
+      if (r.learned) this.d.toast?.(`${SKILL[id].name}: ${SKILL[id].text}`, 3200);
+    }
+    this.render(true);
+  }
+}
+
+return { upgradesLineHTML, upgradesLineKey, SkillsSheet };
+})();
+
 // ---- cityUI.js ----
 const __mod_cityUI = (() => {
 // City panel: the town's title, progress to the next milestone, what it unlocks, and what residents
@@ -18983,6 +19517,7 @@ const { budgetHTML, budgetKey } = __mod_budgetUI;
 const { notablesHTML, notablesKey } = __mod_notablesUI;
 const { townsfolkHTML, townsfolkKey } = __mod_townsfolkUI;
 const { eraHTML, eraKey, chronicleHTML } = __mod_eraUI;
+const { upgradesLineHTML, upgradesLineKey } = __mod_skillsUI;
 const SEVERITY_LABEL = { bad: 'Needs fixing', caution: 'Worth a look', good: 'Going well' };
 
 const labelOf = (id) => STRUCTURES[id]?.label || TOOLS.find((t) => t.id === id)?.label || id;
@@ -18990,7 +19525,9 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 class CityPanel {
-  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair }) {
+  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair, skills, onUpgrades }) {
+    this.skills = skills; // () → Skills
+    this.onUpgrades = onUpgrades; // () → open the Town upgrades sheet
     this.onRepair = onRepair; // () → repair all storm damage now
     this.eras = eras; // () → Eras
     this.growth = growth; // () → Growth
@@ -19039,6 +19576,8 @@ class CityPanel {
       else if (b.dataset.showtile) {
         const [x, y] = b.dataset.showtile.split(',').map(Number);
         this.onShowTile?.(x, y);
+      } else if (b.dataset.upgrades != null) {
+        this.onUpgrades?.();
       } else if (b.dataset.repair != null) {
         this.onRepair?.();
       } else if (b.dataset.build != null) {
@@ -19109,6 +19648,15 @@ class CityPanel {
         const open = !!budgetBox.querySelector('details')?.open;
         budgetBox.innerHTML = budgetHTML(city.derived.economy, eco.state, eco.sandbox);
         if (open) budgetBox.querySelector('details')?.setAttribute('open', '');
+      }
+    }
+    const upBox = this.panel.querySelector('.upgrades-box');
+    if (upBox && this.skills) {
+      const ukey = upgradesLineKey(this.skills());
+      if (ukey !== this._upKey || this._upBox !== upBox) {
+        this._upKey = ukey;
+        this._upBox = upBox;
+        upBox.innerHTML = upgradesLineHTML(this.skills());
       }
     }
     const npBox = this.panel.querySelector('.notable-people');
@@ -19196,6 +19744,7 @@ class CityPanel {
     return (
       `<header><div><span class="insp-kicker">Your town</span><h2>${p.current.label}</h2></div>` +
       `<button type="button" class="insp-close" data-close aria-label="Close city panel">${CLOSE}</button></header>` +
+      (this.skills ? `<h3>Town upgrades</h3><div class="upgrades-box"></div>` : '') +
       `<h3>Era</h3><div class="era-box"></div>` +
       `<h3>Town history</h3><div class="chronicle"></div>` +
       `<h3>Budget</h3><div class="budget"></div>` +
@@ -21128,6 +21677,9 @@ const __mod_military = (() => {
 const { BASE_W, BASE_H, ENTRY_ROWS, DEPLOY_ROWS, HQ_AT, DEFENCES, BUILDABLE, MAX_LEVEL, upgradeCost, maxHpOf, repairRate, REPAIR_HP_PER_DAY, RUSH_REPAIR, ARMY_CAP, GARRISON_CAP, UNITS, EMERGENCY, rankOf, RANKS, SURNAMES, INITIALS, LIGHT_INJURY_DAYS } = __mod_militaryData;
 const { buildField } = __mod_flowfield;
 const { mulberry32 } = __mod_utils;
+const { noEffects } = __mod_skills;
+const NO_SKILLS = noEffects();
+
 const MILITARY_VERSION = 1;
 const START_FUNDS = 500;
 const DEFAULT_SHARE = 0.2;
@@ -21213,6 +21765,16 @@ class Military {
   get funds() {
     return this.state.funds;
   }
+  // The town's Defence upgrades (skills.js), as the simulation last worked them out.
+  get skills() {
+    return this.city.derived?.skills || NO_SKILLS;
+  }
+  defenceCost(type) {
+    return Math.round(DEFENCES[type].cost * this.skills.defenceCost);
+  }
+  upgradeCostOf(s) {
+    return Math.round(upgradeCost(s.type, s.level) * this.skills.defenceCost);
+  }
   get hq() {
     return this.state.structures.find((s) => s.type === 'hq');
   }
@@ -21253,7 +21815,7 @@ class Military {
 
   // What the soldiers are paid each day.
   upkeep() {
-    return this.state.soldiers.reduce((sum, s) => sum + (UNITS[s.type]?.upkeep || 0), 0);
+    return this.state.soldiers.reduce((sum, s) => sum + (UNITS[s.type]?.upkeep || 0), 0) * this.skills.pay;
   }
 
   // ---- The base map -------------------------------------------------------------------------
@@ -21299,7 +21861,8 @@ class Military {
       if (this.structureAt(xx, yy)) return 'Something is already built here';
       if (this.postAt(xx, yy)) return 'A soldier stands guard here. Move them first';
     }
-    if (!this.canPay(d.cost)) return `Needs ${d.cost} in the military budget`;
+    const cost = this.defenceCost(type);
+    if (!this.canPay(cost)) return `Needs ${cost} in the military budget`;
     const extra = new Set();
     for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) extra.add(key(xx, yy));
     if (!this.routeOpen(extra)) return 'That would close the last way in. Attackers must have a route';
@@ -21310,7 +21873,7 @@ class Military {
     const err = this.placeError(type, x, y);
     if (err) return { error: err };
     const st = this.state;
-    this.pay(DEFENCES[type].cost);
+    this.pay(this.defenceCost(type));
     const s = { id: st.nextId++, type, x, y, level: 1, hp: maxHpOf(type) };
     st.structures.push(s);
     return { structure: s };
@@ -21318,8 +21881,8 @@ class Military {
 
   // Money back for taking a defence down: half of what went into it, less for damage.
   refundOf(s) {
-    let spent = DEFENCES[s.type].cost;
-    for (let l = 1; l < s.level; l++) spent += upgradeCost(s.type, l);
+    let spent = this.defenceCost(s.type);
+    for (let l = 1; l < s.level; l++) spent += Math.round(upgradeCost(s.type, l) * this.skills.defenceCost);
     return Math.round(spent * 0.5 * (s.hp / maxHpOf(s.type, s.level)));
   }
 
@@ -21338,7 +21901,7 @@ class Military {
     if (!s) return 'Pick a defence';
     if (s.level >= MAX_LEVEL) return 'Fully upgraded';
     if (s.hp <= 0) return 'Repair it first';
-    const c = upgradeCost(s.type, s.level);
+    const c = this.upgradeCostOf(s);
     if (!this.canPay(c)) return `Needs ${c} in the military budget`;
     return null;
   }
@@ -21347,7 +21910,7 @@ class Military {
     const s = this.state.structures.find((t) => t.id === id);
     const err = this.upgradeError(s);
     if (err) return { error: err };
-    this.pay(upgradeCost(s.type, s.level));
+    this.pay(this.upgradeCostOf(s));
     const before = maxHpOf(s.type, s.level);
     s.level++;
     s.hp = Math.min(maxHpOf(s.type, s.level), s.hp + maxHpOf(s.type, s.level) - before);
@@ -21398,7 +21961,7 @@ class Military {
 
   addSoldier(type, rand = this.rand) {
     const st = this.state;
-    const s = { id: st.nextId++, type, name: soldierName(rand), xp: 0, kills: 0, battles: 0, status: 'ready', until: 0, post: null };
+    const s = { id: st.nextId++, type, name: soldierName(rand), xp: this.skills.veteranXp, kills: 0, battles: 0, status: 'ready', until: 0, post: null };
     st.soldiers.push(s);
     return s;
   }
@@ -21430,7 +21993,7 @@ class Military {
     if (u.train && !emergency) {
       const start = Math.max(now(this.city), st.trainingUntil || 0);
       s.status = 'training';
-      s.until = start + u.train;
+      s.until = start + u.train * this.skills.train;
       st.trainingUntil = s.until;
     }
     return { soldier: s };
@@ -21521,7 +22084,7 @@ class Military {
       }
     }
     // Repair crews work down the list, as far as the day and the budget allow.
-    let hp = REPAIR_HP_PER_DAY * dayFraction;
+    let hp = REPAIR_HP_PER_DAY * this.skills.repair * dayFraction;
     for (const s of this.damaged()) {
       if (hp <= 0) break;
       const max = maxHpOf(s.type, s.level);
@@ -21567,10 +22130,10 @@ class Military {
         st.fallen.unshift({ name: titleOf(s), type: s.type, day: this.city.day, battle: battleName });
       } else if (r.fate === 'injured') {
         s.status = 'injured';
-        s.until = t + injuryDays(this.rand());
+        s.until = t + injuryDays(this.rand()) * this.skills.recovery;
       } else if (r.fate === 'hurt') {
         s.status = 'injured';
-        s.until = t + LIGHT_INJURY_DAYS;
+        s.until = t + LIGHT_INJURY_DAYS * this.skills.recovery;
       }
     }
     if (lost.length) st.soldiers = st.soldiers.filter((s) => !lost.includes(s));
@@ -23200,7 +23763,7 @@ const __mod_militaryUI = (() => {
 //   hold); they defend with their guards, reserve and defences.
 // All the rules live in military.js, battle.js and warRoom.js; this file only shows them.
 
-const { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, upgradeCost, ARTILLERY, ARMY_CAP } = __mod_militaryData;
+const { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, ARTILLERY, ARMY_CAP } = __mod_militaryData;
 const { TIME_LIMIT } = __mod_battle;
 const { titleOf, MAX_SHARE, RAID_LEVELS } = __mod_military;
 const { money } = __mod_economy;
@@ -23716,7 +24279,7 @@ class MilitaryScreen {
       const d = DEFENCES[this.tool];
       this.view.setGhost({ x: tx, y: ty, w: d.w, h: d.h, valid: !this.m.placeError(this.tool, tx, ty), range: d.attack?.range, tall: 1 });
       const err = this.m.placeError(this.tool, tx, ty);
-      this.hint(err ? `${d.label}: ${err}` : `${d.label}: tap to build for ${money(d.cost)}`);
+      this.hint(err ? `${d.label}: ${err}` : `${d.label}: tap to build for ${money(this.m.defenceCost(this.tool))}`);
     } else if (this.selSoldier != null) {
       const s = this.m.state.soldiers.find((t) => t.id === this.selSoldier);
       const err = this.m.stationError(s, x, y);
@@ -24009,7 +24572,7 @@ class MilitaryScreen {
         <p class="mil-small">${sel.hp <= 0 ? 'Destroyed. Repair it to bring it back.' : `${Math.round(sel.hp)} of ${max} health`}${d.attack ? ` · range ${d.attack.range}` : ''}</p>
         <p class="mil-small">${esc(d.desc)}</p>
         <div class="mil-row">
-          ${sel.level < MAX_LEVEL ? `<button type="button" class="pill" data-upgrade data-id="${sel.id}" ${upErr ? 'disabled' : ''} title="${esc(upErr || '')}">Upgrade ${money(upgradeCost(sel.type, sel.level))}</button>` : ''}
+          ${sel.level < MAX_LEVEL ? `<button type="button" class="pill" data-upgrade data-id="${sel.id}" ${upErr ? 'disabled' : ''} title="${esc(upErr || '')}">Upgrade ${money(m.upgradeCostOf(sel))}</button>` : ''}
           ${rc ? `<button type="button" class="pill" data-repairnow data-id="${sel.id}">Repair now ${money(rc)}</button>` : ''}
           ${!d.fixed ? `<button type="button" class="pill" data-remove data-id="${sel.id}">Take down (+${money(m.refundOf(sel))})</button>` : ''}
         </div></div>`;
@@ -24019,7 +24582,7 @@ class MilitaryScreen {
       const a = d.attack;
       const stats = a ? `${a.kind === 'shell' ? 'lobs shells' : 'fires'} · range ${a.range}` : 'blocks the way · cover';
       return `<button type="button" class="mil-item${this.tool === k ? ' is-on' : ''}" data-tool="${k}" aria-pressed="${this.tool === k}">
-        <span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(d.label)}</b><small>${stats} · ${d.hp} health</small></span><span class="mil-cost${m.canPay(d.cost) ? '' : ' short'}">${money(d.cost)}</span></button>`;
+        <span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(d.label)}</b><small>${stats} · ${d.hp} health</small></span><span class="mil-cost${m.canPay(m.defenceCost(k)) ? '' : ' short'}">${money(m.defenceCost(k))}</span></button>`;
     }).join('');
     return `${info}<p class="mil-small">Pick a defence, then tap the field. Attackers come from the red edge; there must always be a way from it to your command post. Tap something you've built to upgrade, repair or take it down.</p><div class="mil-list">${items}</div>`;
   }
@@ -24633,6 +25196,7 @@ const { WorldPanel } = __mod_worldUI;
 const { WarRoom } = __mod_warRoom;
 const { MilitaryScreen, inDays } = __mod_militaryUI;
 const { DiplomacySheet } = __mod_diplomacyUI;
+const { SkillsSheet } = __mod_skillsUI;
 const { KIND_LABEL } = __mod_diplomacy;
 const { crosswalkMask, footArms } = __mod_sidewalks;
 const { hash2 } = __mod_utils;
@@ -24887,6 +25451,23 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   }
 
   // ---- Milestones -------------------------------------------------------------
+  // Town upgrades (skills.js, skillsUI.js): the skill tree your town earns points for by growing.
+  const skillsSheet = new SkillsSheet({
+    skills: () => sim.skills,
+    onChange: () => {
+      city.dirty = true; // the simulation takes the new upgrades in on its next pass
+    },
+    toast: (msg, ms) => ui.toast(msg, ms),
+    sound: (name) => audio.play(name),
+    onOpen: () => {
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      worldPanel.toggle(false);
+      diplomacySheet.toggle(false);
+      ui.closeTray();
+    },
+  });
   const cityPanel = new CityPanel({
     milestones: () => sim.milestones,
     economy: () => sim.economy,
@@ -24899,10 +25480,13 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       if (window.innerWidth < 560) cityPanel.toggle(false);
     },
     onRepair: () => repairAll(),
+    skills: () => sim.skills,
+    onUpgrades: () => skillsSheet.toggle(true),
     onOpen: () => {
       lifeUI.toggle(false);
       ui.toggleMore(false);
       ui.closeTray();
+      skillsSheet.toggle(false);
     },
     onShow: (th) => {
       focusTile(th.x, th.y);
@@ -25081,6 +25665,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       ui.toggleMore(false);
       cityPanel.toggle(false);
       lifeUI.toggle(false);
+      skillsSheet.toggle(false);
       ui.closeTray();
     },
     onStart: (opts) => newTown(opts),
@@ -25106,6 +25691,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       ui.toggleMore(false);
       cityPanel.toggle(false);
       lifeUI.toggle(false);
+      skillsSheet.toggle(false);
       ui.closeTray();
     },
     beforeOpen: () => saver.flush(),
@@ -25351,6 +25937,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onOpen: () => {
       cityPanel.toggle(false);
       ui.toggleMore(false);
+      skillsSheet.toggle(false);
     },
     onFocus: () => {
       const home = sim.life.char?.home;
@@ -25515,6 +26102,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     else if (ev.type === 'lifeEvent') audio.play('chime');
     if (ev.type === 'milestone') celebrate(ev.milestone);
     if (ev.type === 'era') newEra(ev);
+    if (ev.type === 'skillPoint') {
+      audio.play('chime');
+      ui.toast(`★ Your town earned ${ev.points > 1 ? `${ev.points} upgrade points` : 'an upgrade point'}. Tap ★ on the town card to spend ${ev.points > 1 ? 'them' : 'it'}`, 4600);
+    }
     if (ev.type === 'weatherWarning') {
       audio.play('warning');
       ui.toast(`⚠ ${ev.info.label} warning! ${ev.info.warn} It will hit in a few hours`, 6000);
@@ -25757,6 +26348,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       diplomacySheet.toggle(false);
+      skillsSheet.toggle(false);
       ui.closeTray();
     },
   });
@@ -25784,6 +26376,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       lifeUI.toggle(false);
       worldPanel.toggle(false);
       diplomacySheet.toggle(false);
+      skillsSheet.toggle(false);
       ui.closeTray();
       stopFollow();
     },
@@ -25802,6 +26395,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       worldPanel.toggle(false);
+      skillsSheet.toggle(false);
       ui.closeTray();
       if (militaryScreen.open && !warRoom.busy) militaryScreen.close();
     },
@@ -25998,6 +26592,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       decisionCard.tick();
       syncBaseButton();
       diplomacySheet.tick();
+      skillsSheet.tick();
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -26052,7 +26647,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

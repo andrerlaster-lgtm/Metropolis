@@ -36,7 +36,7 @@ export function computeCoverage(city, days = 0) {
   for (const src of city.tiles) {
     const def = src.structure && STRUCTURES[src.structure.type];
     if (!def?.service) continue;
-    const r = def.radius + (city.derived.notableEffects?.radius?.[def.service] || 0); // notable people widen it
+    const r = def.radius + (city.derived.notableEffects?.radius?.[def.service] || 0) + (city.derived.skills?.radius?.[def.service] || 0); // notable people and upgrades widen it
     const cells = [];
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {

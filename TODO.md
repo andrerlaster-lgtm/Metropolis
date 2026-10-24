@@ -160,6 +160,11 @@ Phase 2a (done): diplomacy.
 - [ ] Trade: visible deliveries, dynamic prices, raids on shipments only during declared wars, trade suspended in war
 - [ ] Espionage: fog of war and reconnaissance, last-known positions, intelligence funding from the military budget, counterintelligence, captured spies, then playable rescue missions
 
+Town upgrades (done): a skill tree for the town.
+
+- [x] Points from growth (start, each town title, every 50 residents at the biggest); four branches of six (Treasury, Wellbeing, Services & growth, Defence); free to give points back
+- [ ] Ideas: upgrades unlocked by eras, a branch for the computer's mayors, upgrades for trade and espionage once they exist
+
 ## 4. Deploy and tooling
 - [ ] Move the code to `andrerlaster-lgtm/Metropolis` and link it to Vercel so every push redeploys (until then each deploy is started by hand)
 - [ ] Test pinch and long-press on a real phone
