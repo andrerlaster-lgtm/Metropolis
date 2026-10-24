@@ -51,11 +51,11 @@
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19 6v5.4c0 4.3-2.9 7.8-7 9.4-4.1-1.6-7-5.1-7-9.4V6z"/><path d="m9 12 2 2 4-4"/></svg>
           <span class="pill-text">Base</span><span class="badge" hidden></span>
         </button>
-        <button type="button" id="btn-life" class="pill glass" aria-label="Life Story">
+        <button type="button" id="btn-life" class="pill glass" aria-label="Life Story" title="Life Story">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c.8-4 3.6-6.5 7-6.5s6.2 2.5 7 6.5"/></svg>
           <span class="pill-text">Life</span><span class="badge" hidden></span>
         </button>
-        <button type="button" id="btn-follow" class="pill glass" aria-label="Follow your main person" aria-pressed="false" hidden>
+        <button type="button" id="btn-follow" class="pill glass" aria-label="Follow your main person" title="Follow your main person" aria-pressed="false" hidden>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
           <span class="pill-text">Follow</span>
         </button>
@@ -63,7 +63,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
         <button type="button" id="btn-speed" class="pill glass" aria-label="Change speed"></button>
-        <button type="button" id="btn-view" class="pill glass" aria-label="Switch map view"></button>
+        <button type="button" id="btn-view" class="pill glass" aria-label="Switch map view" title="Map view (V)"></button>
         <button type="button" id="btn-fit" class="pill glass icon-only" aria-label="Recenter the city" title="Recenter">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/><path d="m12 8.5 3.5 2v3l-3.5 2-3.5-2v-3z"/></svg>
         </button>
@@ -72,7 +72,7 @@
           <span class="pill-text">3D</span>
         </button>
         <button type="button" id="btn-sound" class="pill glass icon-only" aria-label="Sound on" title="Sound (M)"></button>
-        <button type="button" id="btn-random" class="pill glass" aria-label="Start a new town">
+        <button type="button" id="btn-random" class="pill glass" aria-label="Start a new town" title="New town">
           <span class="dice"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h.01M15 9h.01M12 12h.01M9 15h.01M15 15h.01" stroke-width="2.8"/></svg></span>
           <span class="pill-text">New town</span>
         </button>
@@ -99,6 +99,8 @@
       </div>
       <nav class="toolbar glass" id="toolbar" aria-label="Build tools"></nav>
       <section class="military" id="military" aria-label="Military base" hidden></section>
+      <section class="more-sheet glass diplomacy-sheet" id="diplomacy-sheet" role="dialog" aria-label="Diplomacy" hidden></section>
+      <section class="decision-card glass diplo-card" id="diplo-card" role="dialog" aria-label="A message from a neighbouring mayor" hidden></section>
       <div class="toast glass" id="toast" role="status"></div>
     </main>
     <!-- app:end -->

@@ -9,10 +9,9 @@
 // The computer plays by your rules: its troops come out of its own military budget (a share of its
 // income, like yours), they train for the same time, and the same battle rules decide the fight.
 //
-// TEMPORARY, until diplomacy exists (Phase 2): every computer town is hostile to you automatically.
-// It raids your base, and you may attack it, without any declaration of war. Diplomacy will add
-// stances (peace, declared war), treaties and peace terms, and raids and attacks will then need a
-// declared war (planRaid and attackError are where that check goes).
+// War has to be declared (diplomacy.js): a computer town only raids you, and you may only attack
+// it, while the two of you are at war. Every battle counts towards that war's score, peace calls
+// off raids on the way, and a treaty can cap a town's army for a while.
 // Time only passes while the game runs, so nothing is planned or fought while you're away.
 //
 // Saved in your town's city.systems.war = { v, count, raids: [...] } where each entry is a raid on
@@ -26,6 +25,7 @@ import { DEFENCES, UNITS, RANKS, rankOf, INJURY_DAYS, BASE_W, BASE_H, ENTRY_ROWS
 import { buildField, nextTile } from './flowfield.js';
 import { Battle } from './battle.js';
 import { addChronicle } from './chronicle.js';
+import { Diplomacy } from './diplomacy.js';
 
 export const WAR_VERSION = 1;
 export const WARN_DAYS = 0.2; // how far ahead a raid is announced (a fifth of a day: about five hours)
@@ -50,6 +50,7 @@ export class WarRoom {
     this.onWarn = null; // (raid) → a raid has been announced
     this.onArrive = null; // (raid) → a raid has reached your base
     this.look = 0;
+    this.diplomacy = new Diplomacy(world, this, { rand });
     this.attach();
   }
 
@@ -78,9 +79,19 @@ export class WarRoom {
         st.funds = CPU_FUNDS;
       }
     }
+    // A treaty may cap a town's army for a while.
+    for (const c of this.world.cities) c.military.limit = () => this.diplomacy.armyLimit(c.owner === 'player' ? 'home' : c.id);
     // A raid from a town that no longer exists is called off.
     const ids = new Set(this.world.cities.map((c) => c.id));
     this.state.raids = this.state.raids.filter((r) => ids.has(r.kind === 'attack' ? r.target : r.from));
+    this.diplomacy.attach();
+  }
+
+  // Peace: raids from that town that are still on the way turn back.
+  cancelRaids(id) {
+    const c = this.byId(id);
+    this.state.raids = this.state.raids.filter((r) => !(r.from === id && r.status === 'coming'));
+    if (c) for (const s of c.military.state.soldiers) if (s.status === 'raiding') s.status = 'ready';
   }
 
   byId(id) {
@@ -103,6 +114,7 @@ export class WarRoom {
   update(dayFraction) {
     if (dayFraction <= 0 || this.busy) return;
     for (const c of this.world.cities) c.military?.update(dayFraction);
+    this.diplomacy.update(dayFraction);
     this.look -= dayFraction;
     if (this.look <= 0) {
       this.look = LOOK_DAYS;
@@ -132,6 +144,8 @@ export class WarRoom {
     // Once it has a fair army for its defences, it saves for defences instead (see fortify).
     const armed = st.structures.filter((s) => s.type !== 'hq' && DEFENCES[s.type].attack).length;
     if (st.soldiers.length >= 6 + armed * 2 && armed < 8) return;
+    const limit = this.diplomacy.armyLimit(c.id);
+    if (limit && st.soldiers.length >= limit.soldiers) return; // a treaty caps its army
     for (let i = 0; i < 2; i++) {
       if (st.soldiers.length >= m.armyCap) return;
       const medics = st.soldiers.filter((s) => s.type === 'medic').length;
@@ -260,6 +274,7 @@ export class WarRoom {
   attackError(c, opts = {}) {
     if (this.busy) return 'Finish the battle at hand first';
     if (!c || c.owner === 'player') return 'Pick a town to attack';
+    if (!this.diplomacy.atWar(c.id)) return `You are not at war with ${c.entry.name}. Declare war in Diplomacy first`;
     const t = nowOf(this.home.city);
     const st = this.military.state;
     if (t < (st.attackReadyAt || 0)) return `Your troops are resting after the last attack: ready ${Math.max(1, Math.round((st.attackReadyAt - t) * 24))} h from now`;
@@ -285,6 +300,7 @@ export class WarRoom {
     const yours = this.military.state;
     const R = RAID_RULES[yours.raids];
     if (!R) return null;
+    if (!this.diplomacy.atWar(c.id)) return null; // only in a declared war
     if (this.state.raids.length) return null;
     const t = nowOf(this.home.city);
     if (t < yours.since + R.first || t < (yours.protectedUntil || 0)) return null;
@@ -413,6 +429,7 @@ export class WarRoom {
       eco.state.today.expenses += loot - fromFunds;
       if (from) from.sim.economy.state.money += loot;
     }
+    this.diplomacy.recordBattle(raid.from, { winner: res.winner === 'def' ? 'you' : 'them', lost: { you: res.defender.lost, them: res.attacker.lost }, loot: { them: loot }, by: 'them' });
     const R = RAID_RULES[mst.raids] || RAID_RULES.gentle;
     mst.protectedUntil = t + R.protect;
     mst.battle = null;
@@ -483,6 +500,7 @@ export class WarRoom {
       tm.state.protectedUntil = t + R.protect;
       tm.state.nextRaidAt = Math.max(tm.state.nextRaidAt || 0, t + 1); // they lick their wounds before raiding
     }
+    this.diplomacy.recordBattle(entry.target, { winner: res.winner === 'att' ? 'you' : 'them', lost: { you: res.attacker.lost, them: res.defender.lost }, loot: { you: loot }, by: 'you' });
     mst.attackReadyAt = t + ATTACK_REST;
     mst.battle = null;
     this.state.raids = this.state.raids.filter((r) => r !== entry);
@@ -535,6 +553,7 @@ export class WarRoom {
         soldiers: c.military.state.soldiers.length,
         ready: c.military.fit().length,
         guards: c.military.garrison().length,
+        stance: this.diplomacy.stance(c.id),
         defences: c.military.state.structures.filter((s) => s.type !== 'hq' && s.hp > 0).length,
         strength: c.military.strength(),
         recovering: Math.max(0, (c.military.state.protectedUntil || 0) - t),
