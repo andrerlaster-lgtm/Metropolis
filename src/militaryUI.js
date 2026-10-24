@@ -9,7 +9,7 @@
 //   hold); they defend with their guards, reserve and defences.
 // All the rules live in military.js, battle.js and warRoom.js; this file only shows them.
 
-import { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, upgradeCost, ARTILLERY, ARMY_CAP } from './militaryData.js';
+import { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, ARTILLERY, ARMY_CAP } from './militaryData.js';
 import { TIME_LIMIT } from './battle.js';
 import { titleOf, MAX_SHARE, RAID_LEVELS } from './military.js';
 import { money } from './economy.js';
@@ -526,7 +526,7 @@ export class MilitaryScreen {
       const d = DEFENCES[this.tool];
       this.view.setGhost({ x: tx, y: ty, w: d.w, h: d.h, valid: !this.m.placeError(this.tool, tx, ty), range: d.attack?.range, tall: 1 });
       const err = this.m.placeError(this.tool, tx, ty);
-      this.hint(err ? `${d.label}: ${err}` : `${d.label}: tap to build for ${money(d.cost)}`);
+      this.hint(err ? `${d.label}: ${err}` : `${d.label}: tap to build for ${money(this.m.defenceCost(this.tool))}`);
     } else if (this.selSoldier != null) {
       const s = this.m.state.soldiers.find((t) => t.id === this.selSoldier);
       const err = this.m.stationError(s, x, y);
@@ -819,7 +819,7 @@ export class MilitaryScreen {
         <p class="mil-small">${sel.hp <= 0 ? 'Destroyed. Repair it to bring it back.' : `${Math.round(sel.hp)} of ${max} health`}${d.attack ? ` · range ${d.attack.range}` : ''}</p>
         <p class="mil-small">${esc(d.desc)}</p>
         <div class="mil-row">
-          ${sel.level < MAX_LEVEL ? `<button type="button" class="pill" data-upgrade data-id="${sel.id}" ${upErr ? 'disabled' : ''} title="${esc(upErr || '')}">Upgrade ${money(upgradeCost(sel.type, sel.level))}</button>` : ''}
+          ${sel.level < MAX_LEVEL ? `<button type="button" class="pill" data-upgrade data-id="${sel.id}" ${upErr ? 'disabled' : ''} title="${esc(upErr || '')}">Upgrade ${money(m.upgradeCostOf(sel))}</button>` : ''}
           ${rc ? `<button type="button" class="pill" data-repairnow data-id="${sel.id}">Repair now ${money(rc)}</button>` : ''}
           ${!d.fixed ? `<button type="button" class="pill" data-remove data-id="${sel.id}">Take down (+${money(m.refundOf(sel))})</button>` : ''}
         </div></div>`;
@@ -829,7 +829,7 @@ export class MilitaryScreen {
       const a = d.attack;
       const stats = a ? `${a.kind === 'shell' ? 'lobs shells' : 'fires'} · range ${a.range}` : 'blocks the way · cover';
       return `<button type="button" class="mil-item${this.tool === k ? ' is-on' : ''}" data-tool="${k}" aria-pressed="${this.tool === k}">
-        <span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(d.label)}</b><small>${stats} · ${d.hp} health</small></span><span class="mil-cost${m.canPay(d.cost) ? '' : ' short'}">${money(d.cost)}</span></button>`;
+        <span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(d.label)}</b><small>${stats} · ${d.hp} health</small></span><span class="mil-cost${m.canPay(m.defenceCost(k)) ? '' : ' short'}">${money(m.defenceCost(k))}</span></button>`;
     }).join('');
     return `${info}<p class="mil-small">Pick a defence, then tap the field. Attackers come from the red edge; there must always be a way from it to your command post. Tap something you've built to upgrade, repair or take it down.</p><div class="mil-list">${items}</div>`;
   }

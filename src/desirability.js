@@ -153,6 +153,13 @@ export const FACTORS = [
   { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
   { id: 'utilities', label: 'Utilities', enabled: false, compute: () => 0 },
   {
+    id: 'upgrades',
+    label: 'Town upgrades',
+    enabled: true,
+    // Festivals and Civic pride (skills.js) lift every home a little.
+    compute: (city) => city.derived.skills?.happy || 0,
+  },
+  {
     id: 'entertainment',
     label: 'Playgrounds & sport',
     enabled: true,
@@ -163,6 +170,8 @@ export const FACTORS = [
 // ---- Layout cache ---------------------------------------------------------------------------
 
 const ACTIVE = FACTORS.filter((f) => f.enabled);
+// Factors the town's upgrades make count for more or less (skills.js), by the same name.
+const SCALED = new Set(['greenery', 'traffic', 'pollution', 'entertainment']);
 const LAYOUT = ACTIVE.filter((f) => f.layout);
 const REACH = Math.max(...LAYOUT.map((f) => f.reach));
 const TYPE_CODE = Object.fromEntries(Object.keys(STRUCTURES).map((type, i) => [type, i + 1]));
@@ -216,8 +225,10 @@ export function recomputeDesirability(city) {
     let d = BASE;
     const factors = tile.factors || (tile.factors = {});
     let k = 0;
+    const sk = city.derived.skills;
     for (const f of ACTIVE) {
-      const v = f.layout ? values[k++][i] : f.compute(city, tile);
+      let v = f.layout ? values[k++][i] : f.compute(city, tile);
+      if (sk && SCALED.has(f.id)) v *= sk[f.id];
       factors[f.id] = v;
       d += v;
     }

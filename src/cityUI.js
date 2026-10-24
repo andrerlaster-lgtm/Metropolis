@@ -7,6 +7,7 @@ import { budgetHTML, budgetKey } from './budgetUI.js';
 import { notablesHTML, notablesKey } from './notablesUI.js';
 import { townsfolkHTML, townsfolkKey } from './townsfolkUI.js';
 import { eraHTML, eraKey, chronicleHTML } from './eraUI.js';
+import { upgradesLineHTML, upgradesLineKey } from './skillsUI.js';
 
 const SEVERITY_LABEL = { bad: 'Needs fixing', caution: 'Worth a look', good: 'Going well' };
 
@@ -15,7 +16,9 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 export class CityPanel {
-  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair }) {
+  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair, skills, onUpgrades }) {
+    this.skills = skills; // () → Skills
+    this.onUpgrades = onUpgrades; // () → open the Town upgrades sheet
     this.onRepair = onRepair; // () → repair all storm damage now
     this.eras = eras; // () → Eras
     this.growth = growth; // () → Growth
@@ -64,6 +67,8 @@ export class CityPanel {
       else if (b.dataset.showtile) {
         const [x, y] = b.dataset.showtile.split(',').map(Number);
         this.onShowTile?.(x, y);
+      } else if (b.dataset.upgrades != null) {
+        this.onUpgrades?.();
       } else if (b.dataset.repair != null) {
         this.onRepair?.();
       } else if (b.dataset.build != null) {
@@ -134,6 +139,15 @@ export class CityPanel {
         const open = !!budgetBox.querySelector('details')?.open;
         budgetBox.innerHTML = budgetHTML(city.derived.economy, eco.state, eco.sandbox);
         if (open) budgetBox.querySelector('details')?.setAttribute('open', '');
+      }
+    }
+    const upBox = this.panel.querySelector('.upgrades-box');
+    if (upBox && this.skills) {
+      const ukey = upgradesLineKey(this.skills());
+      if (ukey !== this._upKey || this._upBox !== upBox) {
+        this._upKey = ukey;
+        this._upBox = upBox;
+        upBox.innerHTML = upgradesLineHTML(this.skills());
       }
     }
     const npBox = this.panel.querySelector('.notable-people');
@@ -221,6 +235,7 @@ export class CityPanel {
     return (
       `<header><div><span class="insp-kicker">Your town</span><h2>${p.current.label}</h2></div>` +
       `<button type="button" class="insp-close" data-close aria-label="Close city panel">${CLOSE}</button></header>` +
+      (this.skills ? `<h3>Town upgrades</h3><div class="upgrades-box"></div>` : '') +
       `<h3>Era</h3><div class="era-box"></div>` +
       `<h3>Town history</h3><div class="chronicle"></div>` +
       `<h3>Budget</h3><div class="budget"></div>` +

@@ -120,7 +120,7 @@ export function computeLaborMarket(city, { extraRoads = null, dryRun = false } =
   let jobs = 0;
   for (let w = 0; w < nw; w++) {
     const t = workplaces[w];
-    const cap = Math.round(STRUCTURES[t.structure.type].jobs * soundness(t.structure)); // damaged workplaces employ fewer
+    const cap = Math.round(STRUCTURES[t.structure.type].jobs * soundness(t.structure) * (city.derived.skills?.jobs ?? 1)); // damaged workplaces employ fewer; Business hubs more
     jobsAt[w] = cap;
     jobs += cap;
     const r = city.accessRoad(t.x, t.y);
