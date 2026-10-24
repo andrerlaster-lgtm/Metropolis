@@ -88,7 +88,10 @@ class View3D {
       lit: new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 70, specular: 0x8899aa, emissive: 0xffd27a, emissiveIntensity: 0 }),
       glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
       water: new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.86, shininess: 110, specular: 0xbfe6f2 }),
+      contact: new THREE.MeshBasicMaterial({ map: softSquare(), transparent: true, depthWrite: false, color: 0x2f2a55, opacity: 0.3, polygonOffset: true, polygonOffsetFactor: -2 }),
     };
+    this.smoke = this.makeSmoke();
+    this.clouds = this.makeClouds();
     this.chunks = new Map();
     this.root = new THREE.Group();
     scene.add(this.root);
@@ -102,6 +105,7 @@ class View3D {
     this.quality = this.prefs.quality || 'auto';
     this.level = this.quality === 'auto' ? (touchFirst() ? 'medium' : 'high') : this.quality;
     this.perf = { t: 0, frames: 0, slow: 0 };
+    this.stats = { js: 0, draw: 0 };
     this.keys = new Set();
     this.pointers = new Map();
     this.raycaster = new THREE.Raycaster();
@@ -132,6 +136,8 @@ class View3D {
     this.canvas.hidden = true;
     this.hud.hidden = true;
     this.stick.hidden = true;
+    this.chip.hidden = true;
+    this.hint.hidden = true;
     this.keys.clear();
     this.pointers.clear();
     const f = this.rig.focus();
@@ -217,7 +223,7 @@ class View3D {
     return 0.5;
   }
 
-  // Rebuild changed chunks, at most `budget` of them this frame.
+  // Rebuild changed chunks, at most `budget` of them this frame. Returns how many still need it.
   syncChunks(budget = 2) {
     const city = this.city;
     const r = this.deps.renderer;
@@ -231,10 +237,12 @@ class View3D {
     r.season = season;
     r.snowCover = snow;
     const g = era * 1000 + Math.round(snow * 10) * 10 + ['spring', 'summer', 'autumn', 'winter'].indexOf(season) + (open ? 500000 : 0) + city.width * 7919;
+    this.rig.setBounds(city.width, city.height); // a different town may have been loaded
     const cw = Math.ceil(city.width / CHUNK);
     const ch = Math.ceil(city.height / CHUNK);
     const live = new Set();
     let built = 0;
+    let pending = 0;
     for (let cz = 0; cz < ch; cz++) {
       for (let cx = 0; cx < cw; cx++) {
         const key = cz * 1000 + cx;
@@ -246,18 +254,24 @@ class View3D {
         const sig = this.chunkSig(x0, y0, x1, y1, g);
         const c = this.chunks.get(key);
         if (c && c.sig === sig) continue;
-        if (built >= budget) continue;
+        if (built >= budget) {
+          pending++;
+          continue;
+        }
         built++;
         this.buildChunk(key, x0, y0, x1, y1, sig, { era, snow, season, open });
       }
     }
     for (const [key, c] of this.chunks) if (!live.has(key)) this.dropChunk(key, c);
+    this.heights = null;
+    return pending;
   }
 
   dropChunk(key, c) {
     for (const m of c.meshes) {
       this.root.remove(m);
-      m.geometry.dispose();
+      if (m.geometry !== this._shadowQuad) m.geometry.dispose();
+      m.dispose?.();
     }
     this.chunks.delete(key);
   }
@@ -268,7 +282,9 @@ class View3D {
     const r = d.renderer;
     const old = this.chunks.get(key);
     if (old) this.dropChunk(key, old);
-    const out = { ground: new MeshData(), water: new MeshData(), solid: new MeshData(), glass: new MeshData(), lit: new MeshData(), glow: new MeshData(), lamps: [] };
+    const out = { ground: new MeshData(), water: new MeshData(), solid: new MeshData(), glass: new MeshData(), lit: new MeshData(), glow: new MeshData(), lamps: [], smoke: [] };
+    const feet = []; // building footprints, for soft contact shadows
+    const tops = []; // [tile index, height] so cameras don't sink into roofs
     const snowHex = (hex, k = 0.8) => (env.snow ? d.mixHex(hex, '#f3f6f9', env.snow * k) : hex);
     buildGround(out, city, x0, y0, x1, y1, {
       palette: d.PALETTE,
@@ -299,7 +315,28 @@ class View3D {
         ctx.y = y;
         ctx.growth = d.growthOf(t);
         ctx.occupancy = Math.max(0.2, Math.min(0.9, this.occupancy(t)));
+        ctx.winter = env.season === 'winter';
+        const from = out.solid.pos.length;
         buildStructure(out, t, ctx);
+        const def = d.STRUCTURES[t.structure.type];
+        if (!def.walkable && t.structure.type !== 'rubble') {
+          let x0b = Infinity;
+          let z0b = Infinity;
+          let x1b = -Infinity;
+          let z1b = -Infinity;
+          let top = 0;
+          const P = out.solid.pos;
+          for (let i = from; i < P.length; i += 3) {
+            if (P[i + 1] > top) top = P[i + 1];
+            if (P[i + 1] > 0.12) continue; // the walls' feet, not awnings and roofs
+            if (P[i] < x0b) x0b = P[i];
+            if (P[i] > x1b) x1b = P[i];
+            if (P[i + 2] < z0b) z0b = P[i + 2];
+            if (P[i + 2] > z1b) z1b = P[i + 2];
+          }
+          if (x0b < x1b) feet.push([(x0b + x1b) / 2, (z0b + z1b) / 2, x1b - x0b + 0.16, z1b - z0b + 0.16]);
+          tops.push([y * city.width + x, top]);
+        }
       }
     }
     const meshes = [];
@@ -324,7 +361,118 @@ class View3D {
     add(out.lit, this.mats.lit);
     add(out.glow, this.mats.glow, { receive: false });
     add(out.water, this.mats.water);
-    this.chunks.set(key, { sig, meshes, lamps: out.lamps });
+    if (feet.length) {
+      const m = new THREE.InstancedMesh(this.shadowQuad(), this.mats.contact, feet.length);
+      const mx = new THREE.Matrix4();
+      feet.forEach(([cx, cz, w, dd], i) => m.setMatrixAt(i, mx.makeScale(w, 1, dd).setPosition(cx, 0.006, cz)));
+      m.renderOrder = 1;
+      this.root.add(m);
+      meshes.push(m);
+    }
+    this.chunks.set(key, { sig, meshes, lamps: out.lamps, smoke: out.smoke, tops });
+  }
+
+  shadowQuad() {
+    return (this._shadowQuad ||= new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
+  }
+
+  // How tall the town is at (x, z): the top of whatever stands on that tile.
+  heightAt(x, z) {
+    const city = this.city;
+    if (!this.heights) {
+      this.heights = new Float32Array(city.width * city.height);
+      for (const c of this.chunks.values()) for (const [k, h] of c.tops) if (k < this.heights.length) this.heights[k] = h;
+    }
+    const tx = Math.floor(x);
+    const tz = Math.floor(z);
+    if (tx < 0 || tz < 0 || tx >= city.width || tz >= city.height) return 0;
+    return this.heights[tz * city.width + tx];
+  }
+
+  // A few soft low-poly clouds drifting over the town; more and greyer on cloudy days.
+  makeClouds() {
+    const md = new MeshData();
+    const white = linear('#ffffff');
+    const shadeW = linear('#e8e6f2');
+    const list = [];
+    for (let i = 0; i < 14; i++) {
+      const r = (k) => Math.abs(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1;
+      const cx = 0;
+      const blobs = 3 + Math.floor(r(1) * 3);
+      md.place(0, 0, 0);
+      const start = md.pos.length;
+      for (let b = 0; b < blobs; b++) md.blob(cx + (b - blobs / 2) * 0.7, 0, (r(b + 2) - 0.5) * 0.6, 0.6 + r(b + 7) * 0.4, 0.35 + r(b + 9) * 0.2, white, white, i + b);
+      // Flatten the undersides a little toward a soft grey.
+      const pos = md.pos;
+      const col = md.col;
+      for (let k = start; k < pos.length; k += 3) if (pos[k + 1] < 0) col.set(shadeW, k);
+      list.push({ start, end: md.pos.length, x: r(3), z: r(4), y: 7 + r(5) * 3, speed: 0.08 + r(6) * 0.08 });
+    }
+    const a = md.arrays();
+    const meshes = list.map((c) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(a.position.slice(c.start, c.end), 3));
+      g.setAttribute('normal', new THREE.BufferAttribute(a.normal.slice(c.start, c.end), 3));
+      g.setAttribute('color', new THREE.BufferAttribute(a.color.slice(c.start, c.end), 3));
+      return g;
+    });
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.92, emissive: 0x555566 });
+    const group = new THREE.Group();
+    list.forEach((c, i) => {
+      const m = new THREE.Mesh(meshes[i], mat);
+      m.userData = c;
+      group.add(m);
+    });
+    this.scene.add(group);
+    return group;
+  }
+
+  updateClouds(w, L) {
+    const amount = 0.35 + 0.65 * Math.max(w.cloud || 0, w.rain || 0, w.snow || 0);
+    const n = this.clouds.children.length;
+    const W = this.city.width;
+    const H = this.city.height;
+    this.clouds.children.forEach((m, i) => {
+      const c = m.userData;
+      m.visible = i < Math.round(n * amount);
+      const span = W + 24;
+      m.position.set(((c.x * span + this.time * c.speed) % span) - 12, c.y, c.z * (H + 16) - 8);
+    });
+    const grey = 1 - 0.35 * Math.max(w.rain || 0, w.cloud || 0) * 0.8;
+    this.clouds.children[0].material.color.setRGB(grey * L.ambient[0], grey * L.ambient[1], grey * L.ambient[2]);
+  }
+
+  // Smoke from factory chimneys (and from house chimneys in winter): puffs that rise, drift and grow.
+  makeSmoke() {
+    const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.11, 0.11), new THREE.MeshBasicMaterial({ map: softRound(), color: 0xf4f0f8, transparent: true, opacity: 0.7, depthWrite: false, fog: true }), 240);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    this.scene.add(mesh);
+    return mesh;
+  }
+
+  updateSmoke(focus) {
+    const m = this.smoke;
+    const mx = new THREE.Matrix4();
+    const q = this.camera.quaternion; // puffs always face the camera
+    const v = new THREE.Vector3();
+    const sc = new THREE.Vector3();
+    let n = 0;
+    const t = this.time;
+    for (const c of this.chunks.values()) {
+      for (const s of c.smoke) {
+        if ((s.x - focus.x) ** 2 + (s.z - focus.z) ** 2 > 900) continue;
+        const puffs = s.big ? 5 : 3;
+        for (let i = 0; i < puffs && n < 240; i++) {
+          const life = (t * (s.big ? 0.35 : 0.28) + i / puffs + s.x * 0.37) % 1;
+          const k = (s.big ? 1 : 0.6) * (0.5 + life * 1.6) * (life > 0.85 ? (1 - life) / 0.15 : 1);
+          mx.compose(v.set(s.x + life * 0.35, s.y + life * (s.big ? 0.7 : 0.4), s.z - life * 0.15), q, sc.set(k, k, k));
+          m.setMatrixAt(n++, mx);
+        }
+      }
+    }
+    m.count = n;
+    m.instanceMatrix.needsUpdate = true;
   }
 
   // Buildings face their street: the side with a road, preferring the ones toward the camera.
@@ -550,12 +698,20 @@ class View3D {
 
   frame(dt) {
     if (!this.active) return;
+    const t0 = performance.now();
     this.time += dt;
-    this.syncChunks(2);
+    // Look for changes a few times a second (a building grows, a road is built), not every frame.
+    this.syncTimer = (this.syncTimer || 0) - dt;
+    if (this.syncTimer <= 0) this.syncTimer = this.syncChunks(1) ? 0 : 0.25;
     this.applyKeys(dt);
     this.applyStick(dt);
     this.rig.update(dt);
     const p = this.rig.pose();
+    // Never sink into a roof: lift the camera clear of whatever it's above.
+    if (this.rig.mode !== 'street') {
+      const top = this.heightAt(p.px, p.pz);
+      if (p.py < top + 0.08) p.py = top + 0.08;
+    }
     const cam = this.camera;
     cam.position.set(p.px, p.py, p.pz);
     cam.lookAt(p.lx, p.ly, p.lz);
@@ -569,11 +725,17 @@ class View3D {
     const { L, w } = this.light(focus, span);
     this.lightLamps(focus, L);
     const agents = this.deps.agents;
-    this.people.update(agents.walkers, this.time, { wet: Math.max(w.rain || 0, w.snow || 0), softShadows: !QUALITY[this.level].shadows });
+    this.people.update(agents.walkers, this.time, { wet: Math.max(w.rain || 0, w.snow || 0), softShadows: !QUALITY[this.level].shadows, paused: this.deps.isPaused() });
+    this.updateSmoke(focus);
+    this.updateClouds(w, L);
     this.cars.update(agents, { night: L.lamps });
     for (const c of this.chunks.values()) for (const m of c.meshes) if (m.material === this.mats.water) m.position.y = Math.sin(this.time * 1.3) * 0.004;
     this.updateWeather(w, focus, span);
+    const t1 = performance.now();
     this.gl.render(this.scene, cam);
+    // How long the 3D view's own work takes each frame (smoothed), not counting the draw itself.
+    this.stats.js += (t1 - t0 - this.stats.js) * 0.05;
+    this.stats.draw += (performance.now() - t1 - this.stats.draw) * 0.05;
     this.watchSpeed(dt);
     if (this.rig.mode === 'follow') this.checkSubject();
   }
@@ -604,6 +766,14 @@ class View3D {
     this.rig.subject = () => this.subjectPos();
     this.rig.setMode('follow', { force: true });
     this.updateHud();
+  }
+
+  // Who is being followed, for the chip at the top of the screen.
+  followLabel() {
+    if (this.rig.mode !== 'follow') return '';
+    const w = this.subjectWalker === 'hero' ? this.deps.agents.hero || 'hero' : this.subjectWalker;
+    const name = w === 'hero' ? this.deps.lifeChar()?.first : w && this.deps.nameOf(w);
+    return name ? `Following ${name}` : 'Following a resident';
   }
 
   followHero() {
@@ -661,8 +831,10 @@ class View3D {
         best = o;
       }
     }
-    if (best) this.subjectWalker = best;
-    else {
+    if (best) {
+      this.subjectWalker = best;
+      this.updateHud();
+    } else {
       this.rig.setMode('orbit');
       this.updateHud();
     }
@@ -853,15 +1025,21 @@ class View3D {
         <button type="button" data-mode="street" title="Walk the streets (2)">Street</button>
         <button type="button" data-mode="follow" title="Follow your Life character, or someone nearby (3)">Follow</button>
       </div>
-      <button type="button" class="pill glass" data-act="quality" title="Picture quality"></button>`;
+      <button type="button" class="pill glass" data-act="quality" title="Picture quality">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+        <span class="pill-text"></span>
+      </button>`;
     this.hint = document.createElement('div');
     this.hint.className = 'v3d-hint glass';
     this.hint.hidden = true;
+    this.chip = document.createElement('div');
+    this.chip.className = 'v3d-chip glass';
+    this.chip.hidden = true;
     this.stick = document.createElement('div');
     this.stick.className = 'v3d-stick glass';
     this.stick.hidden = true;
     this.stick.innerHTML = '<span class="v3d-knob"></span>';
-    this.deps.mountHud(hud, this.hint, this.stick);
+    this.deps.mountHud(hud, this.hint, this.stick, this.chip);
     hud.addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -914,12 +1092,17 @@ class View3D {
   }
 
   qualityLabel() {
-    return this.quality === 'auto' ? `Auto (${QUALITY[this.level].label})` : QUALITY[this.quality].label;
+    return this.quality === 'auto' ? `Auto · ${QUALITY[this.level].label}` : QUALITY[this.quality].label;
   }
 
   updateHud() {
     for (const b of this.hud.querySelectorAll('[data-mode]')) b.classList.toggle('is-on', b.dataset.mode === this.rig.mode);
-    this.hud.querySelector('[data-act="quality"]').textContent = `Quality: ${this.qualityLabel()}`;
+    const label = this.active ? this.followLabel() : '';
+    this.chip.hidden = !label;
+    this.chip.textContent = label;
+    const q = this.hud.querySelector('[data-act="quality"]');
+    q.querySelector('.pill-text').textContent = this.qualityLabel();
+    q.setAttribute('aria-label', `Picture quality: ${this.qualityLabel()}`);
     this.stick.hidden = !(this.active && this.rig.mode === 'street' && touchFirst());
     this.showHint();
   }
@@ -945,6 +1128,43 @@ class View3D {
     clearTimeout(this.hintTimer);
     this.hintTimer = setTimeout(() => (this.hint.hidden = true), 6000);
   }
+}
+
+// A soft round puff (smoke) and a soft-edged square (the shadow at the foot of each building).
+function softRound() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 4, 32, 32, 31);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.6, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function softSquare() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const img = g.createImageData(64, 64);
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      const dx = Math.max(0, Math.abs(x - 31.5) - 18) / 14;
+      const dy = Math.max(0, Math.abs(y - 31.5) - 18) / 14;
+      const a = Math.max(0, 1 - Math.hypot(dx, dy));
+      const i = (y * 64 + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(a * a * 255);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyQ', 'KeyE', 'KeyR', 'KeyF', 'ShiftLeft', 'ShiftRight', 'Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract']);

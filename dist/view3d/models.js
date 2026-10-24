@@ -70,6 +70,13 @@ function windows(o, b, faces, y0, floors, ctx, { floorH = FLOOR, spacing = 0.15,
   }
 }
 
+// Where smoke rises from: a chimney top, in world coordinates.
+function smokeFrom(o, x, y, z, big) {
+  if (!o.smoke) return;
+  const [wx, wz] = o.solid.tx(x, z);
+  o.smoke.push({ x: wx, y, z: wz, big });
+}
+
 function door(o, b, u = 0.5, w = 0.14, hgt = 0.15, color = DOOR) {
   const width = b.x1 - b.x0;
   const hw = w / width / 2;
@@ -145,6 +152,7 @@ function house(o, t, s, ctx) {
   // A chimney on one side of the roof.
   const cx = (s.shape || 0) >= 2 ? b.x0 + 0.1 : b.x1 - 0.1;
   o.solid.box(cx - 0.035, h + 0.05, -0.08, cx + 0.035, h + 0.3, -0.01, linear('#c98e7a'));
+  if (ctx.winter && stage > 0) smokeFrom(o, cx, h + 0.32, -0.045, false); // a fire's lit inside
   if (stage === 2) {
     // A grown family adds a side extension with its own little roof.
     const side = (s.shape || 0) >= 2 ? -1 : 1;
@@ -331,6 +339,7 @@ function factory(o, t, s, ctx) {
     const y0 = h + i * 0.15;
     o.solid.prism(cx, cz, 0.06 - i * 0.004, 0.06 - (i + 1) * 0.004, y0, y0 + 0.15, 8, linear(i % 2 ? '#ffffff' : '#e9a89a'));
   }
+  smokeFrom(o, cx, h + 0.62, cz, true);
   o.solid.prism(b.x0 + 0.13, b.z1 - 0.15, 0.09, 0.09, 0, 0.26, 10, linear('#d9d2e3'));
   o.solid.hip(b.x0 + 0.04, b.z1 - 0.24, b.x0 + 0.22, b.z1 - 0.06, 0.26, 0.04, linear('#a99fc2'), { o: 0 });
 }

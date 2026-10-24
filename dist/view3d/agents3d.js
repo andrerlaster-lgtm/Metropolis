@@ -4,6 +4,7 @@
 // in the rain. Your Life character has a glowing ring at their feet.
 
 import * as THREE from './vendor/three.module.min.js';
+import { MeshData, linear } from './mesh.js';
 
 const MAX_PEOPLE = 160;
 const MAX_CARS = 90;
@@ -89,7 +90,7 @@ export class People3D {
     mesh.setMatrixAt(i, this.m);
   }
 
-  update(walkers, time, { wet = 0, lit = 1, softShadows = true } = {}) {
+  update(walkers, time, { wet = 0, lit = 1, softShadows = true, paused = false } = {}) {
     const counts = new Map(this.parts.map((p) => [p, 0]));
     const next = (mesh) => {
       const n = counts.get(mesh);
@@ -102,8 +103,9 @@ export class People3D {
     for (const w of walkers) {
       if (w.alpha < 0.35 || this.list.length >= MAX_PEOPLE) continue;
       const scale = (w.hero ? (w.child ? 0.95 : 1.2) : w.build || 1) * Math.min(1, 0.6 + w.alpha * 0.4);
-      const swing = w.moving ? Math.sin(time * 9 + w.phase) * 0.55 : 0;
-      const bob = w.moving ? Math.abs(Math.sin(time * 9 + w.phase)) * 0.004 : 0;
+      const moving = w.moving && !paused; // nobody walks on the spot while the game is paused
+      const swing = moving ? Math.sin(time * 9 + w.phase) * 0.55 : 0;
+      const bob = moving ? Math.abs(Math.sin(time * 9 + w.phase)) * 0.004 : 0;
       this.q.setFromAxisAngle(this.v.set(0, 1, 0), -(w.heading || 0));
       this.base.compose(this.v.set(w.gx, bob, w.gy), this.q, this.s.set(scale, scale, scale));
       const id = this.list.length;
@@ -203,10 +205,67 @@ function blobTexture() {
   return t;
 }
 
+// Turn MeshData into a geometry that instancing can tint (vertex colours × each car's colour).
+function geometryOf(md) {
+  const a = md.arrays();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(a.position, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(a.normal, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(a.color, 3));
+  return g;
+}
+
+// A little car facing +x: white body (tinted per car), dark windows, wheels and bumpers.
+function carGeometry() {
+  const m = new MeshData();
+  const body = [1, 1, 1];
+  const glass = linear('#3a4658');
+  const tyre = linear('#2e2a38');
+  const trim = linear('#e9e4ee');
+  m.box(-0.118, 0.022, -0.057, 0.118, 0.064, 0.057, body, { ao: 0.9 });
+  m.box(-0.068, 0.064, -0.051, 0.05, 0.103, 0.051, body, { ao: 1 });
+  // Windows: windscreen, rear window and the side windows, just proud of the cabin.
+  m.quad([0.0505, 0.068, 0.045], [0.0505, 0.068, -0.045], [0.0505, 0.099, -0.045], [0.0505, 0.099, 0.045], glass);
+  m.quad([-0.0685, 0.068, -0.045], [-0.0685, 0.068, 0.045], [-0.0685, 0.099, 0.045], [-0.0685, 0.099, -0.045], glass);
+  m.quad([-0.062, 0.068, 0.0515], [0.044, 0.068, 0.0515], [0.044, 0.099, 0.0515], [-0.062, 0.099, 0.0515], glass);
+  m.quad([0.044, 0.068, -0.0515], [-0.062, 0.068, -0.0515], [-0.062, 0.099, -0.0515], [0.044, 0.099, -0.0515], glass);
+  for (const x of [-0.072, 0.072]) {
+    for (const z of [-0.058, 0.05]) m.box(x - 0.022, 0, z, x + 0.022, 0.044, z + 0.008, tyre, { ao: 1 });
+  }
+  m.box(0.118, 0.024, -0.05, 0.126, 0.04, 0.05, trim, { ao: 1 });
+  m.box(-0.126, 0.024, -0.05, -0.118, 0.04, 0.05, trim, { ao: 1 });
+  return geometryOf(m);
+}
+
+// A wooden cart on two big wheels (behind the horse).
+function cartGeometry() {
+  const m = new MeshData();
+  const wood = [1, 1, 1];
+  const wheel = linear('#6b4a33');
+  m.box(-0.13, 0.05, -0.05, 0.03, 0.065, 0.05, wood);
+  m.box(-0.13, 0.065, -0.05, 0.03, 0.1, -0.042, wood, { ao: 1 });
+  m.box(-0.13, 0.065, 0.042, 0.03, 0.1, 0.05, wood, { ao: 1 });
+  m.box(-0.13, 0.065, -0.05, -0.122, 0.1, 0.05, wood, { ao: 1 });
+  for (const z of [-0.06, 0.052]) m.box(-0.085, 0.0, z, -0.025, 0.06, z + 0.008, wheel, { ao: 1 });
+  m.box(0.03, 0.05, -0.004, 0.08, 0.056, 0.004, wheel, { ao: 1 }); // the shaft
+  return geometryOf(m);
+}
+
+// A horse: body, neck and head, four legs.
+function horseGeometry() {
+  const m = new MeshData();
+  const c = [1, 1, 1];
+  m.box(0.07, 0.055, -0.02, 0.15, 0.095, 0.02, c);
+  m.box(0.14, 0.085, -0.013, 0.165, 0.13, 0.013, c, { ao: 1 });
+  m.box(0.15, 0.115, -0.012, 0.19, 0.135, 0.012, c, { ao: 1 });
+  for (const x of [0.078, 0.14]) for (const z of [-0.016, 0.008]) m.box(x - 0.005, 0, z, x + 0.005, 0.056, z + 0.008, c, { ao: 1 });
+  return geometryOf(m);
+}
+
 // Cars, vintage cars and horse-drawn carts, on the right-hand lane, with headlights after dark.
 export class Cars3D {
   constructor(scene) {
-    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
     const make = (geo, material = mat, shadow = true) => {
       const m = new THREE.InstancedMesh(geo, material, MAX_CARS);
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -217,15 +276,12 @@ export class Cars3D {
       scene.add(m);
       return m;
     };
-    this.body = make(new THREE.BoxGeometry(0.24, 0.05, 0.118).translate(0, 0.045, 0));
-    this.cabin = make(new THREE.BoxGeometry(0.13, 0.042, 0.104).translate(-0.015, 0.091, 0));
-    this.glass = make(new THREE.BoxGeometry(0.134, 0.026, 0.108).translate(-0.015, 0.09, 0), new THREE.MeshPhongMaterial({ color: 0x6b7f99, shininess: 80 }), false);
-    this.wheels = make(new THREE.BoxGeometry(0.2, 0.04, 0.124).translate(0, 0.02, 0), new THREE.MeshLambertMaterial({ color: 0x3a3646 }), false);
-    this.cart = make(new THREE.BoxGeometry(0.16, 0.05, 0.1).translate(-0.04, 0.06, 0));
-    this.horse = make(new THREE.BoxGeometry(0.1, 0.05, 0.04).translate(0.1, 0.08, 0));
-    this.lights = make(new THREE.BoxGeometry(0.01, 0.014, 0.09).translate(0.121, 0.05, 0), new THREE.MeshBasicMaterial({ color: 0xfff1c4 }), false);
-    this.tail = make(new THREE.BoxGeometry(0.01, 0.012, 0.09).translate(-0.121, 0.052, 0), new THREE.MeshBasicMaterial({ color: 0xff7a6e }), false);
-    this.all = [this.body, this.cabin, this.glass, this.wheels, this.cart, this.horse, this.lights, this.tail];
+    this.body = make(carGeometry());
+    this.cart = make(cartGeometry());
+    this.horse = make(horseGeometry());
+    this.lights = make(new THREE.BoxGeometry(0.006, 0.012, 0.08).translate(0.127, 0.05, 0), new THREE.MeshBasicMaterial({ color: 0xfff1c4 }), false);
+    this.tail = make(new THREE.BoxGeometry(0.006, 0.01, 0.08).translate(-0.127, 0.05, 0), new THREE.MeshBasicMaterial({ color: 0xff7a6e }), false);
+    this.all = [this.body, this.cart, this.horse, this.lights, this.tail];
     this.m = new THREE.Matrix4();
     this.q = new THREE.Quaternion();
     this.v = new THREE.Vector3();
@@ -259,12 +315,10 @@ export class Cars3D {
       }
       const i = n.car++;
       if (i >= MAX_CARS) continue;
-      for (const mesh of [this.body, this.cabin, this.glass, this.wheels, this.lights, this.tail]) mesh.setMatrixAt(i, this.m);
-      const col = this.color(c.color || '#ff9f8f');
-      this.body.setColorAt(i, col);
-      this.cabin.setColorAt(i, col);
+      for (const mesh of [this.body, this.lights, this.tail]) mesh.setMatrixAt(i, this.m);
+      this.body.setColorAt(i, this.color(c.color || '#ff9f8f'));
     }
-    for (const mesh of [this.body, this.cabin, this.glass, this.wheels]) mesh.count = Math.min(MAX_CARS, n.car);
+    this.body.count = Math.min(MAX_CARS, n.car);
     this.lights.count = this.tail.count = night > 0.35 ? Math.min(MAX_CARS, n.car) : 0;
     this.cart.count = this.horse.count = Math.min(MAX_CARS, n.cart);
     for (const mesh of this.all) {

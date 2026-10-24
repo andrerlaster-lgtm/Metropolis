@@ -24,14 +24,27 @@ export const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) 
 
 export class MeshData {
   constructor() {
-    this.pos = [];
-    this.nor = [];
-    this.col = [];
+    // Growable typed arrays: positions, normals and colours, 3 floats per vertex; `n` floats in use.
+    this._p = new Float32Array(3 * 2048);
+    this._q = new Float32Array(3 * 2048);
+    this._c = new Float32Array(3 * 2048);
+    this.n = 0;
     this.place(0, 0, 0);
   }
 
   get vertices() {
-    return this.pos.length / 3;
+    return this.n / 3;
+  }
+
+  // Views of what has been built so far (valid until more is added).
+  get pos() {
+    return this._p.subarray(0, this.n);
+  }
+  get nor() {
+    return this._q.subarray(0, this.n);
+  }
+  get col() {
+    return this._c.subarray(0, this.n);
   }
 
   // Put the next shapes at tile-centre (cx, cz), turned `r` quarter turns (0: front faces +z/south,
@@ -56,11 +69,29 @@ export class MeshData {
     }
   }
 
+  grow() {
+    const size = this._p.length * 2;
+    for (const k of ['_p', '_q', '_c']) {
+      const a = new Float32Array(size);
+      a.set(this[k]);
+      this[k] = a;
+    }
+  }
+
   // One triangle with a flat normal; colours per corner (ca, cb, cc) or one for all.
   tri(a, b, c, ca, cb = ca, cc = ca) {
-    const [ax, az] = this.tx(a[0], a[2]);
-    const [bx, bz] = this.tx(b[0], b[2]);
-    const [qx, qz] = this.tx(c[0], c[2]);
+    const r = this.r;
+    const ox = this.cx;
+    const oz = this.cz;
+    // Turn and place the three corners (inline: this runs a few hundred thousand times per town).
+    const X = (x, z) => (r === 0 ? ox + x : r === 1 ? ox + z : r === 2 ? ox - x : ox - z);
+    const Z = (x, z) => (r === 0 ? oz + z : r === 1 ? oz - x : r === 2 ? oz - z : oz + x);
+    const ax = X(a[0], a[2]);
+    const az = Z(a[0], a[2]);
+    const bx = X(b[0], b[2]);
+    const bz = Z(b[0], b[2]);
+    const qx = X(c[0], c[2]);
+    const qz = Z(c[0], c[2]);
     const ux = bx - ax;
     const uy = b[1] - a[1];
     const uz = bz - az;
@@ -75,9 +106,35 @@ export class MeshData {
     nx /= l;
     ny /= l;
     nz /= l;
-    this.pos.push(ax, a[1], az, bx, b[1], bz, qx, c[1], qz);
-    this.nor.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
-    this.col.push(ca[0], ca[1], ca[2], cb[0], cb[1], cb[2], cc[0], cc[1], cc[2]);
+    if (this.n + 9 > this._p.length) this.grow();
+    const i = this.n;
+    const P = this._p;
+    const Q = this._q;
+    const C = this._c;
+    P[i] = ax;
+    P[i + 1] = a[1];
+    P[i + 2] = az;
+    P[i + 3] = bx;
+    P[i + 4] = b[1];
+    P[i + 5] = bz;
+    P[i + 6] = qx;
+    P[i + 7] = c[1];
+    P[i + 8] = qz;
+    for (let k = 0; k < 9; k += 3) {
+      Q[i + k] = nx;
+      Q[i + k + 1] = ny;
+      Q[i + k + 2] = nz;
+    }
+    C[i] = ca[0];
+    C[i + 1] = ca[1];
+    C[i + 2] = ca[2];
+    C[i + 3] = cb[0];
+    C[i + 4] = cb[1];
+    C[i + 5] = cb[2];
+    C[i + 6] = cc[0];
+    C[i + 7] = cc[1];
+    C[i + 8] = cc[2];
+    this.n = i + 9;
   }
 
   // A quad a-b-c-d, counter-clockwise seen from the front. `lo` colours a and b (the bottom edge of a
@@ -201,9 +258,9 @@ export class MeshData {
 
   arrays() {
     return {
-      position: new Float32Array(this.pos),
-      normal: new Float32Array(this.nor),
-      color: new Float32Array(this.col),
+      position: this._p.slice(0, this.n),
+      normal: this._q.slice(0, this.n),
+      color: this._c.slice(0, this.n),
     };
   }
 }

@@ -2966,3 +2966,34 @@ button:focus-visible {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
   }
 }
+.v3d-chip {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: 21px;
+  color: var(--ink);
+  font: 800 13.5px/1 var(--font-body);
+  pointer-events: none;
+  z-index: 4;
+}
+.v3d-chip[hidden] {
+  display: none;
+}
+@media (max-width: 560px) {
+  .v3d-chip {
+    top: calc(env(safe-area-inset-top, 0px) + 100px);
+  }
+}
+@media (max-width: 560px) {
+  .v3d-hud [data-act='exit'] .pill-text {
+    display: none;
+  }
+  .v3d-hud [data-act='exit'] {
+    padding: 0 12px;
+  }
+  .v3d-modes button {
+    padding: 0 11px;
+  }
+}

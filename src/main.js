@@ -1078,13 +1078,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   const app = document.getElementById('app');
   const btn3d = document.getElementById('btn-3d');
   const in3D = () => !!view3d?.active;
+  // Relative to this page in the built game (dist/view3d/), and to src/ when run from source.
+  let module3d = null;
+  const load3d = () => (module3d ||= import('./view3d/view3d.js').catch((err) => ((module3d = null), Promise.reject(err))));
   async function open3D() {
     if (in3D()) return;
     if (!loading3d) {
       ui.toast('Opening the 3D view…', 1400);
-      // Relative to this page in the built game (dist/view3d/), and to src/ when run from source.
-      const url = './view3d/view3d.js';
-      loading3d = import(url)
+      loading3d = load3d()
         .then((m) =>
           m.createView3D({
             city,
@@ -1099,6 +1100,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
             hash2,
             mixHex,
             lifeChar: () => sim.life.char,
+            isPaused: () => sim.speed === 0,
+            nameOf: (w) => (w.townId ? sim.townsfolk.byId(w.townId)?.first : null),
             isTyping: typingTarget,
             toast: (msg, ms) => ui.toast(msg, ms),
             mount: (el) => canvas.after(el),
@@ -1129,7 +1132,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     app.classList.add('mode-3d');
     canvas.style.visibility = 'hidden';
     btn3d.setAttribute('aria-pressed', 'true');
-    view3d.enter({ x: g.gx, z: g.gy, dist: Math.min(40, Math.max(3, 15 / camera.zoom)), follow: followHero ? 'hero' : null });
+    view3d.enter({ x: g.gx, z: g.gy, dist: Math.min(22, Math.max(3, 15 / camera.zoom)), follow: followHero ? 'hero' : null });
   }
   function close3D() {
     if (!in3D()) return;
@@ -1144,6 +1147,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     camera.clampTarget();
   }
   btn3d.addEventListener('click', () => (in3D() ? close3D() : open3D()));
+  // Start fetching the 3D code as soon as the pointer heads for the button.
+  for (const ev of ['pointerenter', 'focus', 'touchstart']) btn3d.addEventListener(ev, () => load3d().catch(() => {}), { passive: true });
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyG' || in3D() || e.metaKey || e.ctrlKey || e.altKey || typingTarget(e.target)) return;
     e.preventDefault();

@@ -88,6 +88,21 @@ export function buildGround(out, city, x0, y0, x1, y1, ctx) {
           // Mown stripes.
           for (let i = 0; i < 4; i++) g.flat(x, y + i / 4, x + 1, y + (i + 1) / 4, 0, shade(c, i % 2 ? 0.95 : 1.03));
         } else g.flat(x, y, x + 1, y + 1, 0, c);
+        // Tufts of longer grass, so lawns don't look like felt.
+        if ((!s || type === 'park' || type === 'tree') && !snow) {
+          const tuft = shade(c, 0.82);
+          const tip = shade(c, 1.08);
+          const count = s ? 2 : 4;
+          for (let i = 0; i < count; i++) {
+            const tx = x + 0.12 + n(30 + i) * 0.76;
+            const tz = y + 0.12 + n(40 + i) * 0.76;
+            const h = 0.018 + n(50 + i) * 0.014;
+            g.tri([tx - 0.012, 0, tz], [tx + 0.012, 0, tz], [tx + 0.002, h, tz + 0.001], tuft, tuft, tip);
+            g.tri([tx + 0.012, 0, tz], [tx - 0.012, 0, tz], [tx + 0.002, h, tz - 0.001], tuft, tuft, tip);
+            g.tri([tx, 0, tz - 0.012], [tx, 0, tz + 0.012], [tx - 0.001, h * 0.9, tz + 0.002], tuft, tuft, tip);
+            g.tri([tx, 0, tz + 0.012], [tx, 0, tz - 0.012], [tx + 0.001, h * 0.9, tz + 0.002], tuft, tuft, tip);
+          }
+        }
         // Wild flowers on open meadow.
         if (!s && !snow && n(9) < 0.3) {
           const flowers = ['#fff4f7', '#ffd3df', '#fff0b3', '#e2d3f5'];
@@ -196,16 +211,18 @@ function road(out, city, t, ctx, snowy) {
         g.flat(Math.min(px0, px1) - hx, Math.min(pz0, pz1) - hz, Math.max(px0, px1) + hx, Math.max(pz0, pz1) + hz, 0.003, mark);
       }
     };
-    const mids = [
-      [cx, y],
-      [x + 1, cz],
-      [cx, y + 1],
-      [x, cz],
-    ];
-    if (m === 5) dash(cx, y, cx, y + 1);
-    else if (m === 10) dash(x, cz, x + 1, cz);
-    else for (let s = 0; s < 4; s++) if (m & (1 << s)) dash(cx, cz, mids[s][0], mids[s][1]);
+    // Centre lines stop short of zebra crossings.
     const zebra = ctx.crossMask(x, y) & m;
+    const gap = (s) => (zebra & (1 << s) ? 0.17 : 0);
+    const mids = [
+      [cx, y + gap(0)],
+      [x + 1 - gap(1), cz],
+      [cx, y + 1 - gap(2)],
+      [x + gap(3), cz],
+    ];
+    if (m === 5) dash(mids[0][0], mids[0][1], mids[2][0], mids[2][1]);
+    else if (m === 10) dash(mids[3][0], mids[3][1], mids[1][0], mids[1][1]);
+    else for (let s = 0; s < 4; s++) if (m & (1 << s)) dash(cx, cz, mids[s][0], mids[s][1]);
     for (let s = 0; s < 4; s++) {
       if (!(zebra & (1 << s))) continue;
       for (let k = 0; k < 6; k++) {

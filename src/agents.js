@@ -84,6 +84,9 @@ export class AgentSystem {
         this._carTimer = 0.6;
       }
     }
+    // Tiles where someone is crossing the street right now: cars wait before driving into them.
+    this.crossing = new Set();
+    for (const w of this.walkers) if (!w.leaving && w.cross?.[w.i] && w.s > 0) this.crossing.add(w.pts[w.i].k);
     for (const c of this.cars) this.stepCar(c, dt);
     this.cars = this.cars.filter((c) => !c.dead);
   }
@@ -158,6 +161,9 @@ export class AgentSystem {
       return;
     }
     if (!city.isRoad(c.nx, c.ny)) return;
+    // Stop for people on the crossing ahead.
+    if (c.t > 0.45 && this.crossing?.has(c.ny * city.width + c.nx) && (c.held = (c.held || 0) + dt) < 4) return;
+    c.held = 0;
     // Busy roads slow everyone down.
     const jam = city.getTile(c.x, c.y)?.congestion || 0;
     c.t += c.speed * (c.kind === 'cart' ? 0.55 : 1) * (1 - 0.55 * jam) * dt;

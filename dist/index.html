@@ -2977,6 +2977,37 @@ button:focus-visible {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
   }
 }
+.v3d-chip {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: 21px;
+  color: var(--ink);
+  font: 800 13.5px/1 var(--font-body);
+  pointer-events: none;
+  z-index: 4;
+}
+.v3d-chip[hidden] {
+  display: none;
+}
+@media (max-width: 560px) {
+  .v3d-chip {
+    top: calc(env(safe-area-inset-top, 0px) + 100px);
+  }
+}
+@media (max-width: 560px) {
+  .v3d-hud [data-act='exit'] .pill-text {
+    display: none;
+  }
+  .v3d-hud [data-act='exit'] {
+    padding: 0 12px;
+  }
+  .v3d-modes button {
+    padding: 0 11px;
+  }
+}
 
 </style>
 </head>
@@ -5634,6 +5665,9 @@ class AgentSystem {
         this._carTimer = 0.6;
       }
     }
+    // Tiles where someone is crossing the street right now: cars wait before driving into them.
+    this.crossing = new Set();
+    for (const w of this.walkers) if (!w.leaving && w.cross?.[w.i] && w.s > 0) this.crossing.add(w.pts[w.i].k);
     for (const c of this.cars) this.stepCar(c, dt);
     this.cars = this.cars.filter((c) => !c.dead);
   }
@@ -5708,6 +5742,9 @@ class AgentSystem {
       return;
     }
     if (!city.isRoad(c.nx, c.ny)) return;
+    // Stop for people on the crossing ahead.
+    if (c.t > 0.45 && this.crossing?.has(c.ny * city.width + c.nx) && (c.held = (c.held || 0) + dt) < 4) return;
+    c.held = 0;
     // Busy roads slow everyone down.
     const jam = city.getTile(c.x, c.y)?.congestion || 0;
     c.t += c.speed * (c.kind === 'cart' ? 0.55 : 1) * (1 - 0.55 * jam) * dt;
@@ -19581,13 +19618,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   const app = document.getElementById('app');
   const btn3d = document.getElementById('btn-3d');
   const in3D = () => !!view3d?.active;
+  // Relative to this page in the built game (dist/view3d/), and to src/ when run from source.
+  let module3d = null;
+  const load3d = () => (module3d ||= import('./view3d/view3d.js').catch((err) => ((module3d = null), Promise.reject(err))));
   async function open3D() {
     if (in3D()) return;
     if (!loading3d) {
       ui.toast('Opening the 3D view…', 1400);
-      // Relative to this page in the built game (dist/view3d/), and to src/ when run from source.
-      const url = './view3d/view3d.js';
-      loading3d = import(url)
+      loading3d = load3d()
         .then((m) =>
           m.createView3D({
             city,
@@ -19602,6 +19640,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
             hash2,
             mixHex,
             lifeChar: () => sim.life.char,
+            isPaused: () => sim.speed === 0,
+            nameOf: (w) => (w.townId ? sim.townsfolk.byId(w.townId)?.first : null),
             isTyping: typingTarget,
             toast: (msg, ms) => ui.toast(msg, ms),
             mount: (el) => canvas.after(el),
@@ -19632,7 +19672,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     app.classList.add('mode-3d');
     canvas.style.visibility = 'hidden';
     btn3d.setAttribute('aria-pressed', 'true');
-    view3d.enter({ x: g.gx, z: g.gy, dist: Math.min(40, Math.max(3, 15 / camera.zoom)), follow: followHero ? 'hero' : null });
+    view3d.enter({ x: g.gx, z: g.gy, dist: Math.min(22, Math.max(3, 15 / camera.zoom)), follow: followHero ? 'hero' : null });
   }
   function close3D() {
     if (!in3D()) return;
@@ -19647,6 +19687,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     camera.clampTarget();
   }
   btn3d.addEventListener('click', () => (in3D() ? close3D() : open3D()));
+  // Start fetching the 3D code as soon as the pointer heads for the button.
+  for (const ev of ['pointerenter', 'focus', 'touchstart']) btn3d.addEventListener(ev, () => load3d().catch(() => {}), { passive: true });
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyG' || in3D() || e.metaKey || e.ctrlKey || e.altKey || typingTarget(e.target)) return;
     e.preventDefault();

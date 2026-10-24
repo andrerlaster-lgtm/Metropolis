@@ -6,7 +6,7 @@
 // new one (an ease-in-out tween, the Godot-style camera smoothing from the Studio notes).
 // Pure maths, no Three.js: pose() gives the camera position and the point it looks at.
 
-export const EYE = 0.115; // eye height on the street (a person is about 0.14 tall)
+export const EYE = 0.13; // eye height on the street (a person is about 0.14 tall)
 const PITCH_MIN = 0.1;
 const PITCH_MAX = 1.48;
 export const DIST_MIN = 0.6;
