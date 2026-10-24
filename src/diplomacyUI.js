@@ -69,6 +69,20 @@ export class DiplomacySheet {
     this._key = '';
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.card.addEventListener('click', (e) => this.onCardClick(e));
+    // Escape closes their card first (like Later), then the sheet. While the base is open it keeps
+    // its own keys (its listener comes first and stops the rest).
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+        if (!this.card.hidden) this.hideCard();
+        else if (this.open) this.toggle(false);
+        else return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      },
+      true
+    );
   }
 
   get dip() {
