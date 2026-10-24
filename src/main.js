@@ -1,6 +1,6 @@
 // Wiring: creates each system, connects input to state, and runs the frame loop.
 
-import { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES, PALETTE } from './config.js';
+import { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES, PALETTE, DAY_LENGTH_SECONDS } from './config.js';
 import { CityState } from './state.js';
 import { Simulation } from './simulation.js';
 import { Renderer, growthOf } from './renderer.js';
@@ -31,10 +31,12 @@ import { recomputeDesirability } from './desirability.js';
 import { worldToGrid, mapBounds, tileRectBounds, gridToWorld } from './iso.js';
 import { History, lPath, tileLine } from './history.js';
 import { Audio } from './audio.js';
-import { daylightAt, sunHeight } from './time.js';
+import { daylightAt, sunHeight, formatClock } from './time.js';
 import { lightingAt } from './lighting.js';
 import { World } from './world.js';
 import { WorldPanel } from './worldUI.js';
+import { WarRoom } from './warRoom.js';
+import { MilitaryScreen, inDays } from './militaryUI.js';
 import { crosswalkMask, footArms } from './sidewalks.js';
 import { hash2 } from './utils.js';
 import { mixHex } from './color.js';
@@ -1136,8 +1138,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     viewing = world.cities[0];
     townViews.clear();
     watchSpots.clear();
+    warRoom.attach();
     if (in3D()) view3d.setWorld(worldFor3D());
     worldPanel.tick();
+    militaryScreen.reset();
+    checkRaid();
   }
   city.on((ev) => {
     if (ev.type === 'loaded') reloadWorld(); // another slot, a new town or a shared visit: its own world
@@ -1156,6 +1161,53 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       ui.closeTray();
     },
   });
+  // ---- The military (military.js, battle.js, warRoom.js, militaryUI.js) -------------------------
+  // Your permanent base and army, and the raids the computer's towns send against it. While a raid
+  // is at the gates or a battle is being fought, the whole world waits.
+  const warRoom = new WarRoom(world);
+  const baseBtn = document.getElementById('btn-base');
+  const SOUND_FOR = { alert: 'warning', build: 'popBig', cheer: 'fanfare', nope: 'nope', click: 'click' };
+  const militaryScreen = new MilitaryScreen({
+    war: () => warRoom,
+    now: () => city.day + city.clock,
+    clock: () => `Day ${city.day} · ${formatClock(city.clock)}`,
+    townName: () => world.cities[0].entry.name,
+    cityMoney: () => sim.economy.money,
+    toast: (msg, ms) => ui.toast(msg, ms),
+    sound: (name) => audio.play(SOUND_FOR[name] || 'click'),
+    load3d: () => import('./view3d/battle3d.js'),
+    isTyping: typingTarget,
+    onOpen: () => {
+      if (in3D()) close3D();
+      if (watching()) showTown(world.cities[0], { immediate: true });
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      worldPanel.toggle(false);
+      ui.closeTray();
+      stopFollow();
+    },
+  });
+  function syncBaseButton() {
+    const coming = warRoom.coming();
+    const badge = baseBtn.querySelector('.badge');
+    badge.hidden = !coming && !warRoom.pending();
+    baseBtn.classList.toggle('is-alert', !!coming || !!warRoom.pending());
+    baseBtn.title = coming ? `${coming.fromName} attacks ${inDays(coming.at - city.day - city.clock)}` : 'Military base';
+  }
+  warRoom.onWarn = (raid) => {
+    ui.toast(`⚔ ${raid.fromName} is sending ${raid.size} soldiers against your base. They arrive ${inDays(raid.at - city.day - city.clock)}. Open Base to prepare`, 7000);
+    audio.play('warning');
+    syncBaseButton();
+  };
+  warRoom.onArrive = (raid) => militaryScreen.alarm(raid);
+  // A raid that arrived (or a battle left half-way) before the page was closed is waiting for you.
+  function checkRaid() {
+    const p = warRoom.pending();
+    if (p) setTimeout(() => militaryScreen.alarm(p), 600);
+    syncBaseButton();
+  }
+
   // While you watch another town, the stats bubble opens the world, not your town's panel.
   document.getElementById('stats').addEventListener(
     'click',
@@ -1167,6 +1219,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     true
   );
   worldPanel.tick();
+  checkRaid();
 
   // Say what happened to a save that couldn't be opened, after the welcome toast has had its turn.
   const notes = [startNote, rescued?.slot ? `Your town from before a shared visit was kept, in save slot ${rescued.slot}.` : rescued ? 'A town saved before a shared visit is kept safe. Free up a save slot to get it back.' : null].filter(Boolean);
@@ -1280,9 +1333,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   function frame(now) {
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // the first frame can be stamped before `last`
     last = now;
-    sim.update(dt);
-    world.update(dt, sim.speed); // the computer's towns live on at the same pace, in step with yours
-    if (in3D()) view3d.frame(dt);
+    // A raid at the gates or a battle being fought holds the whole world still.
+    if (!warRoom.busy) {
+      sim.update(dt);
+      world.update(dt, sim.speed); // the computer's towns live on at the same pace, in step with yours
+      warRoom.update((Math.min(dt, 0.25) * sim.speed) / DAY_LENGTH_SECONDS);
+    }
+    if (militaryScreen.open) militaryScreen.frame(dt);
+    else if (in3D()) view3d.frame(dt);
     else {
       input.edgeScroll(dt);
       input.keyPan(dt);
@@ -1309,6 +1367,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       if (!watching()) cityPanel.update(city);
       worldPanel.tick();
       decisionCard.tick();
+      syncBaseButton();
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -1363,7 +1422,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.
