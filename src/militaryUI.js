@@ -13,6 +13,7 @@ import { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, upgradeCost, ARTILLE
 import { TIME_LIMIT } from './battle.js';
 import { titleOf, MAX_SHARE, RAID_LEVELS } from './military.js';
 import { money } from './economy.js';
+import { STANCE_LABEL } from './diplomacy.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const SAVE_EVERY = 1; // seconds between battle snapshots written into the save
@@ -586,6 +587,7 @@ export class MilitaryScreen {
     if (ds.defend != null) return this.startBattle();
     if (ds.auto != null) return this.autoBattle();
     if (ds.attackPlan) return this.planAttack(ds.attackPlan);
+    if (ds.diplomacy) return this.d.openDiplomacy?.(ds.diplomacy);
     if (ds.attackGo) return this.launch(ds.attackGo, false);
     if (ds.attackAuto) return this.launch(ds.attackAuto, true);
     if (ds.cancel != null) return this.hideCard();
@@ -872,12 +874,13 @@ export class MilitaryScreen {
     const rows = intel.neighbours
       .map((n) => {
         const err = this.war.attackError(this.war.byId(n.id));
-        return `<li><span class="mil-item-text"><b>${esc(n.name)}</b><small>About ${n.soldiers} soldiers (${n.guards} on guard), ${n.defences} defences${n.recovering > 0 ? ` · recovering for ${forDays(n.recovering)}` : ''}</small></span>
-          <button type="button" class="pill" data-attack-plan="${esc(n.id)}" ${err ? `title="${esc(err)}"` : ''}>Attack…</button></li>`;
+        const atWar = n.stance === 'war';
+        return `<li><span class="mil-item-text"><b>${esc(n.name)}</b> <span class="wt-stance wt-${n.stance}">${esc(STANCE_LABEL[n.stance])}</span><small>About ${n.soldiers} soldiers (${n.guards} on guard), ${n.defences} defences${n.recovering > 0 ? ` · recovering for ${forDays(n.recovering)}` : ''}</small></span>
+          <span class="mil-row">${atWar ? `<button type="button" class="pill" data-attack-plan="${esc(n.id)}" ${err ? `title="${esc(err)}"` : ''}>Attack…</button>` : ''}<button type="button" class="pill" data-diplomacy="${esc(n.id)}">Diplomacy…</button></span></li>`;
       })
       .join('');
     return `<p class="mil-small">Send your reserve against a neighbour's base. You command the attacking squads; they defend with their guards, reserve and defences. Winning carries off part of their military budget. After any battle a base is left alone for a few days.</p>
-      <p class="mil-small"><b>For now every neighbour is hostile</b>: they raid you and you may attack them without declaring war. Diplomacy (peace, declared war, treaties) comes in a later update.</p>
+      <p class="mil-small">Raids and attacks only happen in a declared war. Declare war, or make peace, in <b>Diplomacy</b>.</p>
       <ul class="mil-repairs">${rows}</ul>
       <p class="mil-small">Your reserve: ${party} ready soldiers.${intel.attackReadyIn > 0 ? ` Your troops rest for another ${forDays(intel.attackReadyIn)}.` : ''}</p>
       ${intel.coming ? `<p class="mil-warn">⚔ ${esc(intel.coming.from)} attacks ${inDays(intel.coming.in)}.</p>` : ''}`;

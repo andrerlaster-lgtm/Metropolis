@@ -323,6 +323,8 @@ export class Military {
     const u = UNITS[type];
     if (!u) return 'Pick who to recruit';
     if (this.state.soldiers.length >= this.armyCap) return `The base holds ${this.armyCap} soldiers. Upgrade the command post for more`;
+    const limit = this.limit?.(); // a treaty's cap on this army (diplomacy.js), if any
+    if (limit && this.state.soldiers.length >= limit.soldiers) return `The treaty with ${limit.with} keeps your army to ${limit.soldiers} soldiers for now`;
     const c = this.recruitCost(type, { emergency });
     if (!this.canPay(c)) return `Needs ${c} in the military budget`;
     return null;

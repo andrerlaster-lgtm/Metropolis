@@ -3179,7 +3179,7 @@ button:focus-visible {
 #btn-base.is-alert svg {
   color: #ef6461;
 }
-#app.mode-military > :not(#military):not(#toast) {
+#app.mode-military > :not(#military):not(#toast):not(#diplo-card) {
   display: none !important;
 }
 .military {
@@ -3766,4 +3766,202 @@ button.mil-sq {
     padding: 0;
     justify-content: center;
   }
+}
+
+/* Diplomacy (diplomacy.js, diplomacyUI.js) */
+.diplo-card {
+  z-index: 25;
+}
+.diplo-card h2 {
+  margin: 0;
+  font: 600 19px/1.2 var(--font-display);
+}
+.diplo-card p {
+  margin: 0;
+  font: 700 13.5px/1.45 var(--font-body);
+}
+.diplomacy-sheet {
+  width: min(620px, calc(100vw - 24px));
+}
+.dp-intro,
+.dp-small {
+  margin: 0;
+  color: var(--ink-soft);
+  font: 700 12.5px/1.45 var(--font-body);
+}
+.dp-card {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border-left: 5px solid #b9b3bd;
+  --stance: #8b84a6;
+}
+.dp-war,
+.wt-war {
+  --stance: #ef6461;
+}
+.dp-peace,
+.wt-peace {
+  --stance: #5cbf88;
+}
+.dp-pact,
+.wt-pact {
+  --stance: #6f8fd8;
+}
+.dp-alliance,
+.wt-alliance {
+  --stance: #8a6cc4;
+}
+.dp-card {
+  border-left-color: var(--stance);
+}
+.dp-card header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dp-card h3 {
+  margin: 0;
+  font: 600 17px/1.2 var(--font-display);
+}
+.dp-stance,
+.wt-stance {
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: var(--stance, #8b84a6);
+  color: #fff;
+  font: 800 11.5px/1.2 var(--font-body);
+  white-space: nowrap;
+}
+.wt-stance {
+  margin-left: 4px;
+}
+.dp-leader,
+.dp-war,
+.dp-trust {
+  margin: 0;
+  font: 700 13px/1.45 var(--font-body);
+}
+.dp-war {
+  color: #c94a47;
+}
+.dp-trust {
+  display: grid;
+  gap: 4px;
+}
+.dp-meter {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f6a3a3, #e7e2ee 50%, #a9dcbc);
+  position: relative;
+}
+.dp-meter span {
+  position: absolute;
+  top: -3px;
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--ink);
+  transform: translateX(-1px);
+  left: 0;
+}
+.dp-treaties,
+.dp-log ul {
+  margin: 0;
+  padding-left: 18px;
+  font: 700 12.5px/1.45 var(--font-body);
+}
+.dp-log summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font: 800 12.5px var(--font-body);
+}
+.dp-log small {
+  color: var(--ink-soft);
+}
+.dp-offer,
+.dp-draft {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+}
+.dp-offer p {
+  margin: 0;
+  font: 700 13px/1.45 var(--font-body);
+}
+.dp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.dp-row .pill,
+.dp-terms .pill {
+  height: 34px;
+  padding: 0 12px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+  font: 800 13px/1 var(--font-body);
+  color: var(--ink);
+  white-space: nowrap;
+  width: auto;
+}
+.dp-row .pill.danger {
+  background: #fde1de;
+  color: #a33a33;
+}
+.dp-row .primary-btn {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 14px;
+}
+.dp-terms {
+  display: grid;
+  gap: 6px;
+}
+.dp-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 13px var(--font-body);
+}
+.dp-step > span:first-child {
+  flex: 1;
+  color: var(--ink-soft);
+}
+.dp-step b {
+  min-width: 74px;
+  text-align: center;
+}
+.dp-terms .pill.icon {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}
+.dp-draft .seg button[aria-pressed='true'],
+.dp-terms .seg button[aria-pressed='true'] {
+  background: var(--focus);
+  color: #fff;
+}
+.dp-reply {
+  margin: 0;
+  font: 700 13px/1.45 var(--font-body);
+}
+.dp-reply.dp-accepted {
+  color: #3a8f60;
+}
+.dp-reply.dp-rejected,
+.dp-reply.dp-closed,
+.dp-reply.dp-invalid {
+  color: #c94a47;
+}
+.mil-item-text .wt-stance {
+  justify-self: start;
+  margin-left: 0;
 }

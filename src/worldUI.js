@@ -5,6 +5,7 @@
 import { STRUCTURES, MILESTONES } from './config.js';
 import { ERAS } from './eras.js';
 import { money } from './economy.js';
+import { STANCE_LABEL } from './diplomacy.js';
 
 export const OWNER = {
   player: { label: 'You', long: 'Run by you', color: '#8a6cc4' },
@@ -77,6 +78,9 @@ export class WorldPanel {
       } else if (b.dataset.view3d) {
         this.toggle(false);
         this.h.on3D(b.dataset.view3d);
+      } else if (b.dataset.diplo) {
+        this.toggle(false);
+        this.h.onDiplomacy?.(b.dataset.diplo);
       }
     });
     this.banner.addEventListener('click', (e) => {
@@ -127,19 +131,21 @@ export class WorldPanel {
   render() {
     const towns = this.world.cities.map((c) => ({ c, s: townSummary(c) }));
     const viewing = this.h.viewing();
-    const key = towns.map(({ c, s }) => `${c.id}${s.population}${Math.round(s.money)}${s.buildings}${s.log[0]?.day}${s.log.length}`).join('|') + viewing.id;
+    const stance = (c) => (c.owner !== 'player' && this.h.stance ? this.h.stance(c.id) : null);
+    const key = towns.map(({ c, s }) => `${c.id}${s.population}${Math.round(s.money)}${s.buildings}${s.log[0]?.day}${s.log.length}${stance(c)}`).join('|') + viewing.id;
     if (key === this._key) return;
     this._key = key;
     const cards = towns
       .map(
         ({ c, s }) => `
       <article class="wt-card${c === viewing ? ' is-here' : ''}" style="--owner:${s.owner.color}">
-        <header><span class="wt-owner">${esc(s.owner.label)}</span><h3>${esc(s.name)}</h3>${c === viewing ? '<span class="wt-here">On screen</span>' : ''}</header>
+        <header><span class="wt-owner">${esc(s.owner.label)}</span><h3>${esc(s.name)}</h3>${stance(c) ? `<span class="wt-stance wt-${stance(c)}">${esc(STANCE_LABEL[stance(c)])}</span>` : ''}${c === viewing ? '<span class="wt-here">On screen</span>' : ''}</header>
         <p class="wt-stats">${s.population.toLocaleString()} people · ${s.buildings} buildings · ${s.happiness == null ? 'no one yet' : `${s.happiness}% happy`}<br>${esc(s.era)}${s.tier ? ` · ${esc(s.tier)}` : ''} · ${s.sandbox ? 'Sandbox' : money(s.money)}</p>
         ${c.owner !== 'player' && s.log.length ? `<ul class="wt-log">${s.log.slice(0, 3).map((b) => `<li>${esc(describeBuild(c.city, b))} <small>(day ${b.day})</small></li>`).join('')}</ul>` : ''}
         <div class="wt-actions">
           <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : 'Watch'}</button>
           <button type="button" class="pill" data-view3d="${esc(c.id)}">See in 3D</button>
+          ${c.owner !== 'player' && this.h.onDiplomacy ? `<button type="button" class="pill" data-diplo="${esc(c.id)}">Diplomacy</button>` : ''}
         </div>
       </article>`
       )

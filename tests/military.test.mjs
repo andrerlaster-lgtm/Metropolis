@@ -415,6 +415,9 @@ test('you attack a computer base: your squads from their edge, and the result fo
   cm.place('mg', ...spot(cm, 'mg', 5, 9));
   const theirs = cm.state.soldiers.length;
   const m = war.military;
+  // No war, no attack (diplomacy.js).
+  assert.match(war.attackError(cpu), /not at war/);
+  war.diplomacy.declareWar(cpu.id, 'you');
   // Not enough soldiers yet: only the starter guards, and they stay home unless asked.
   assert.match(war.attackError(cpu), /at least two/);
   m.state.funds = 5000;
@@ -466,6 +469,7 @@ test('destroying the command post never wins a battle by itself: only defeating 
   const am = war.military;
   am.state.funds = 3000;
   for (let i = 0; i < 4; i++) am.recruit('rifleman', { emergency: true });
+  war.diplomacy.declareWar(cpu.id, 'you');
   const { attack } = war.launchAttack(cpu);
   const b = war.fight(attack);
   b.step();

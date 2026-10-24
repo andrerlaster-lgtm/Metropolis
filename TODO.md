@@ -148,7 +148,15 @@ Next slices:
 
 - [ ] More troop types and specialist abilities with manual triggers; elite units and temporary hires; research and military building upgrades (barracks, hospital, depot); modern-to-futuristic tiers
 - [ ] Supply: production, purchase, depots, battlefield resupply, convoys (play or auto-resolve)
-- [ ] Diplomacy: until this exists every computer town is automatically hostile (raids and attacks need no declaration of war); this replaces that with stances (peace, war declared), personalities that change with events, negotiations with counteroffers, treaties and alliances, trust and reputation, peace terms and recovery protection
+Phase 2a (done): diplomacy.
+
+- [x] Stances (war, no treaty, peace protection, non-aggression pact, alliance); raids and attacks only in a declared war (replaces the temporary automatic hostility)
+- [x] Mayors with personalities (aggression, greed, honour, caution) that change with battles, betrayals, gifts, lost wars and long peace or war
+- [x] Trust per mayor and your reputation; betrayal when a war breaks a treaty
+- [x] Negotiation with counteroffers and patience; terms: money now, daily tribute, army caps, duration
+- [x] Mayors act by themselves: declare war, sue for peace (paying when losing), demand surrender when winning, offer pacts and alliances
+- [x] Peace ends the war, turns back raids on the way, protects both bases; terms are kept (tribute, army caps)
+- [ ] Next for diplomacy: relations between computer towns (once there are several), alliance effects (shared intelligence, mutual defence), trade agreements
 - [ ] Trade: visible deliveries, dynamic prices, raids on shipments only during declared wars, trade suspended in war
 - [ ] Espionage: fog of war and reconnaissance, last-known positions, intelligence funding from the military budget, counterintelligence, captured spies, then playable rescue missions
 

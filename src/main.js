@@ -37,6 +37,8 @@ import { World } from './world.js';
 import { WorldPanel } from './worldUI.js';
 import { WarRoom } from './warRoom.js';
 import { MilitaryScreen, inDays } from './militaryUI.js';
+import { DiplomacySheet } from './diplomacyUI.js';
+import { KIND_LABEL } from './diplomacy.js';
 import { crosswalkMask, footArms } from './sidewalks.js';
 import { hash2 } from './utils.js';
 import { mixHex } from './color.js';
@@ -1154,10 +1156,13 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       showTown(world.byId(id), { immediate: true });
       open3D();
     },
+    onDiplomacy: (id) => diplomacySheet.toggle(true, id),
+    stance: (id) => warRoom.diplomacy.stance(id),
     onOpen: () => {
       ui.toggleMore(false);
       cityPanel.toggle(false);
       lifeUI.toggle(false);
+      diplomacySheet.toggle(false);
       ui.closeTray();
     },
   });
@@ -1184,10 +1189,40 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       worldPanel.toggle(false);
+      diplomacySheet.toggle(false);
       ui.closeTray();
       stopFollow();
     },
+    openDiplomacy: (id) => {
+      militaryScreen.close();
+      diplomacySheet.toggle(true, id);
+    },
   });
+  // Diplomacy (diplomacy.js, diplomacyUI.js): war, peace and treaties with the computer's mayors.
+  const diplomacySheet = new DiplomacySheet({
+    diplomacy: () => warRoom.diplomacy,
+    toast: (msg, ms) => ui.toast(msg, ms),
+    sound: (name) => audio.play(SOUND_FOR[name] || 'click'),
+    onOpen: () => {
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      worldPanel.toggle(false);
+      ui.closeTray();
+      if (militaryScreen.open && !warRoom.busy) militaryScreen.close();
+    },
+    openBase: () => militaryScreen.show(),
+  });
+  warRoom.diplomacy.onEvent = (ev) => {
+    if ((ev.kind === 'war' && ev.by === 'them') || ev.kind === 'offer') {
+      diplomacySheet.showEvent(ev);
+      audio.play(ev.kind === 'war' ? 'warning' : 'chime');
+    } else if (ev.kind === 'expired') {
+      const c = world.byId(ev.id);
+      ui.toast(`The ${KIND_LABEL[ev.treaty.kind].toLowerCase()} with ${c?.entry.name || 'your neighbour'} has come to an end`, 4000);
+    }
+    diplomacySheet.tick();
+  };
   function syncBaseButton() {
     const coming = warRoom.coming();
     const badge = baseBtn.querySelector('.badge');
@@ -1368,6 +1403,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       worldPanel.tick();
       decisionCard.tick();
       syncBaseButton();
+      diplomacySheet.tick();
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -1422,7 +1458,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

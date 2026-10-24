@@ -3190,7 +3190,7 @@ button:focus-visible {
 #btn-base.is-alert svg {
   color: #ef6461;
 }
-#app.mode-military > :not(#military):not(#toast) {
+#app.mode-military > :not(#military):not(#toast):not(#diplo-card) {
   display: none !important;
 }
 .military {
@@ -3779,6 +3779,204 @@ button.mil-sq {
   }
 }
 
+/* Diplomacy (diplomacy.js, diplomacyUI.js) */
+.diplo-card {
+  z-index: 25;
+}
+.diplo-card h2 {
+  margin: 0;
+  font: 600 19px/1.2 var(--font-display);
+}
+.diplo-card p {
+  margin: 0;
+  font: 700 13.5px/1.45 var(--font-body);
+}
+.diplomacy-sheet {
+  width: min(620px, calc(100vw - 24px));
+}
+.dp-intro,
+.dp-small {
+  margin: 0;
+  color: var(--ink-soft);
+  font: 700 12.5px/1.45 var(--font-body);
+}
+.dp-card {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border-left: 5px solid #b9b3bd;
+  --stance: #8b84a6;
+}
+.dp-war,
+.wt-war {
+  --stance: #ef6461;
+}
+.dp-peace,
+.wt-peace {
+  --stance: #5cbf88;
+}
+.dp-pact,
+.wt-pact {
+  --stance: #6f8fd8;
+}
+.dp-alliance,
+.wt-alliance {
+  --stance: #8a6cc4;
+}
+.dp-card {
+  border-left-color: var(--stance);
+}
+.dp-card header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dp-card h3 {
+  margin: 0;
+  font: 600 17px/1.2 var(--font-display);
+}
+.dp-stance,
+.wt-stance {
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: var(--stance, #8b84a6);
+  color: #fff;
+  font: 800 11.5px/1.2 var(--font-body);
+  white-space: nowrap;
+}
+.wt-stance {
+  margin-left: 4px;
+}
+.dp-leader,
+.dp-war,
+.dp-trust {
+  margin: 0;
+  font: 700 13px/1.45 var(--font-body);
+}
+.dp-war {
+  color: #c94a47;
+}
+.dp-trust {
+  display: grid;
+  gap: 4px;
+}
+.dp-meter {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f6a3a3, #e7e2ee 50%, #a9dcbc);
+  position: relative;
+}
+.dp-meter span {
+  position: absolute;
+  top: -3px;
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--ink);
+  transform: translateX(-1px);
+  left: 0;
+}
+.dp-treaties,
+.dp-log ul {
+  margin: 0;
+  padding-left: 18px;
+  font: 700 12.5px/1.45 var(--font-body);
+}
+.dp-log summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font: 800 12.5px var(--font-body);
+}
+.dp-log small {
+  color: var(--ink-soft);
+}
+.dp-offer,
+.dp-draft {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+}
+.dp-offer p {
+  margin: 0;
+  font: 700 13px/1.45 var(--font-body);
+}
+.dp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.dp-row .pill,
+.dp-terms .pill {
+  height: 34px;
+  padding: 0 12px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+  font: 800 13px/1 var(--font-body);
+  color: var(--ink);
+  white-space: nowrap;
+  width: auto;
+}
+.dp-row .pill.danger {
+  background: #fde1de;
+  color: #a33a33;
+}
+.dp-row .primary-btn {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 14px;
+}
+.dp-terms {
+  display: grid;
+  gap: 6px;
+}
+.dp-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 13px var(--font-body);
+}
+.dp-step > span:first-child {
+  flex: 1;
+  color: var(--ink-soft);
+}
+.dp-step b {
+  min-width: 74px;
+  text-align: center;
+}
+.dp-terms .pill.icon {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}
+.dp-draft .seg button[aria-pressed='true'],
+.dp-terms .seg button[aria-pressed='true'] {
+  background: var(--focus);
+  color: #fff;
+}
+.dp-reply {
+  margin: 0;
+  font: 700 13px/1.45 var(--font-body);
+}
+.dp-reply.dp-accepted {
+  color: #3a8f60;
+}
+.dp-reply.dp-rejected,
+.dp-reply.dp-closed,
+.dp-reply.dp-invalid {
+  color: #c94a47;
+}
+.mil-item-text .wt-stance {
+  justify-self: start;
+  margin-left: 0;
+}
+
 </style>
 </head>
 <body>
@@ -3870,6 +4068,8 @@ button.mil-sq {
       </div>
       <nav class="toolbar glass" id="toolbar" aria-label="Build tools"></nav>
       <section class="military" id="military" aria-label="Military base" hidden></section>
+      <section class="more-sheet glass diplomacy-sheet" id="diplomacy-sheet" role="dialog" aria-label="Diplomacy" hidden></section>
+      <section class="decision-card glass diplo-card" id="diplo-card" role="dialog" aria-label="A message from a neighbouring mayor" hidden></section>
       <div class="toast glass" id="toast" role="status"></div>
     </main>
 <script>
@@ -19694,6 +19894,631 @@ class World {
 return { WORLD_VERSION, NEIGHBOUR_SIZE, townName, World };
 })();
 
+// ---- diplomacy.js ----
+const __mod_diplomacy = (() => {
+// Diplomacy: how your town and each computer town stand with one another, and the leaders who
+// decide it. War is no longer automatic: raids and attacks need a declared war (warRoom.js checks).
+//
+//   Stances: at war, no treaty, at peace (the protection after a peace treaty), a non-aggression
+//   pact, or allies. Declaring war while a pact, an alliance or a peace's protection holds is a
+//   betrayal: every leader trusts you less and your reputation suffers.
+//   Leaders: each computer town has a mayor with a personality (aggression, greed, honour,
+//   caution) that changes with what happens: battles won and lost, betrayals, gifts, long wars and
+//   long peace. Personality, trust in you and your reputation decide how they answer you.
+//   Negotiation: you propose a treaty with terms (money now, daily tribute, an army limit for a
+//   while, how long it lasts). They accept, counter with what it would take, or refuse; their
+//   patience runs out after a few rounds. They make their own proposals too: peace when the war
+//   wears them down, a surrender demand when they're winning, a pact or an alliance when they trust
+//   you. Peace ends the war, calls off raids on the way and protects both bases for a few days.
+//
+// Saved in your town's city.systems.diplomacy = { v, reputation, count, relations: { [townId]:
+// { trust, war, weariness, grievance, treaties, patience, closedUntil, offer, counter, nextOffer,
+// log } } }; each computer town's leader in its own city.systems.leader.
+
+const { addChronicle } = __mod_chronicle;
+const { mulberry32 } = __mod_utils;
+const DIPLOMACY_VERSION = 1;
+const STANCE_LABEL = { war: 'At war', neutral: 'No treaty', peace: 'At peace', pact: 'Non-aggression pact', alliance: 'Allies' };
+const KIND_LABEL = { peace: 'Peace treaty', pact: 'Non-aggression pact', alliance: 'Alliance' };
+const DEFAULT_DAYS = { peace: 4, pact: 7 };
+const LOOK_DAYS = 0.25;
+const OFFER_GAP = 1.5; // days between the computer's own proposals
+const OFFER_LIFE = 1; // days one of their proposals waits for your answer
+const PATIENCE = 3; // proposals they'll hear before they stop talking for a day
+const LOG_KEEP = 16;
+const FIRST_DAYS = 3; // nobody declares war on you in your base's first days
+const CALM_DAYS = 12; // after a peace, the urge to fight again comes back slowly over this many days
+const REFUSED_GAP = 3; // days before they repeat a demand you turned down
+
+const FIRST_NAMES = ['Odette', 'Tomasz', 'Amara', 'Hugo', 'Ines', 'Kwame', 'Lena', 'Rafael', 'Saoirse', 'Yusuf', 'Mei', 'Bruno', 'Aurelie', 'Dario', 'Freya', 'Idris', 'Noor', 'Matteo', 'Ingrid', 'Tariq', 'Zofia', 'Emeka', 'Clara', 'Joaquin'];
+const LAST_NAMES = ['Varga', 'Lindqvist', 'Okafor', 'Moreau', 'Castillo', 'Haddad', 'Novak', 'Brennan', 'Sato', 'Mensah', 'Ferreira', 'Kowalski', 'Andersen', 'Delgado', 'Rossi', 'Quinn'];
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const round50 = (n) => Math.ceil(n / 50) * 50;
+const nowOf = (city) => city.day + city.clock;
+
+// A new mayor with a personality between 0.2 and 0.8 on each trait.
+function makeLeader(seed) {
+  const rand = mulberry32(seed >>> 0 || 1);
+  const trait = () => Math.round((0.2 + rand() * 0.6) * 100) / 100;
+  const traits = { aggression: trait(), greed: trait(), honour: trait(), caution: trait() };
+  return { v: 1, title: 'Mayor', name: `${FIRST_NAMES[Math.floor(rand() * FIRST_NAMES.length)]} ${LAST_NAMES[Math.floor(rand() * LAST_NAMES.length)]}`, traits, born: { ...traits } };
+}
+
+// The personality in words, the strongest traits first.
+function traitWords(t) {
+  const words = [];
+  const add = (v, hi, lo) => {
+    if (v >= 0.62) words.push([v, hi]);
+    else if (v <= 0.34) words.push([1 - v, lo]);
+  };
+  add(t.aggression, 'warlike', 'peaceable');
+  add(t.greed, 'greedy', 'generous');
+  add(t.honour, 'honourable', 'two-faced');
+  add(t.caution, 'cautious', 'bold');
+  return words.sort((a, b) => b[0] - a[0]).map((w) => w[1]);
+}
+
+class Diplomacy {
+  // world: World; war: WarRoom (strength, raids, bases).
+  constructor(world, war, { rand = Math.random } = {}) {
+    this.world = world;
+    this.war = war;
+    this.rand = rand;
+    this.onEvent = null; // ({ kind: 'war'|'offer'|'signed'|'expired'|'closed', id, ... }) → the screens
+    this.look = 0;
+  }
+
+  get home() {
+    return this.world.cities[0];
+  }
+  now() {
+    return nowOf(this.home.city);
+  }
+  town(id) {
+    return this.world.byId(id);
+  }
+
+  get state() {
+    const s = this.home.city.systems;
+    if (!s.diplomacy || typeof s.diplomacy !== 'object' || s.diplomacy.v !== DIPLOMACY_VERSION || !s.diplomacy.relations) s.diplomacy = { v: DIPLOMACY_VERSION, reputation: 60, count: 0, relations: {} };
+    return s.diplomacy;
+  }
+
+  get reputation() {
+    return this.state.reputation;
+  }
+
+  leader(c) {
+    const sys = c.city.systems;
+    if (!sys.leader || !sys.leader.traits) sys.leader = makeLeader(c.entry.seed ^ 0x1eade5);
+    return sys.leader;
+  }
+
+  // How you stand with a town. A save from before diplomacy starts at war with a town that was
+  // already raiding or fighting you (that's how the game played then), and with no treaty otherwise.
+  rel(id) {
+    const st = this.state;
+    if (!st.relations[id]) {
+      const c = this.town(id);
+      const fought = this.war.state.raids.some((r) => r.from === id || r.target === id) || (this.war.military.state.log || []).some((l) => l.from === c?.entry.name || l.target === c?.entry.name);
+      st.relations[id] = { trust: fought ? -20 : 0, war: null, weariness: 0, grievance: 0, treaties: [], patience: PATIENCE, closedUntil: 0, offer: null, counter: null, nextOffer: this.now() + 1, log: [] };
+      if (fought) st.relations[id].war = this.newWar('them');
+    }
+    return st.relations[id];
+  }
+
+  newWar(by) {
+    return { since: this.now(), by, battles: { you: 0, them: 0 }, lost: { you: 0, them: 0 }, loot: { you: 0, them: 0 } };
+  }
+
+  attach() {
+    for (const c of this.world.neighbours) {
+      this.rel(c.id);
+      this.leader(c);
+    }
+  }
+
+  // ---- Where things stand ---------------------------------------------------------------------
+
+  treaties(id) {
+    const t = this.now();
+    return this.rel(id).treaties.filter((x) => x.until == null || x.until > t);
+  }
+
+  stance(id) {
+    const r = this.rel(id);
+    if (r.war) return 'war';
+    const kinds = this.treaties(id).map((x) => x.kind);
+    if (kinds.includes('alliance')) return 'alliance';
+    if (kinds.includes('pact')) return 'pact';
+    if (kinds.includes('peace')) return 'peace';
+    return 'neutral';
+  }
+
+  atWar(id) {
+    return !!this.rel(id).war;
+  }
+
+  // The treaty that declaring war would break, if any.
+  betrayalIn(id) {
+    return this.treaties(id).find((x) => x.kind === 'alliance' || x.kind === 'pact' || x.kind === 'peace') || null;
+  }
+
+  // The army limit a treaty puts on a town ('home' for yours), the tightest one if several.
+  armyLimit(id) {
+    const t = this.now();
+    let best = null;
+    for (const c of this.world.neighbours) {
+      for (const x of this.rel(c.id).treaties) {
+        const l = x.limit;
+        if (!l || l.until <= t) continue;
+        const on = l.on === 'you' ? 'home' : c.id;
+        if (on !== id) continue;
+        if (!best || l.soldiers < best.soldiers) best = { soldiers: l.soldiers, until: l.until, with: c.entry.name };
+      }
+    }
+    return best;
+  }
+
+  // How the war is going: points for battles won, enemies downed and money carried off.
+  score(id) {
+    const w = this.rel(id).war;
+    if (!w) return { you: 0, them: 0 };
+    return { you: w.battles.you * 10 + w.lost.them * 2 + w.loot.you / 100, them: w.battles.them * 10 + w.lost.you * 2 + w.loot.them / 100 };
+  }
+
+  // From their side: −1 (they're losing badly) to 1 (winning easily).
+  advantage(id) {
+    const s = this.score(id);
+    return (s.them - s.you) / (s.them + s.you + 20);
+  }
+
+  // ---- Declaring war ----------------------------------------------------------------------------
+
+  warError(id) {
+    if (this.war.busy) return 'Finish the battle at hand first';
+    if (this.atWar(id)) return 'You are already at war';
+    return null;
+  }
+
+  declareWar(id, by = 'you') {
+    const r = this.rel(id);
+    if (r.war) return { error: 'Already at war' };
+    const c = this.town(id);
+    const L = this.leader(c).traits;
+    const broken = this.betrayalIn(id);
+    r.war = this.newWar(by);
+    r.weariness = 0;
+    r.treaties = [];
+    r.offer = null;
+    r.counter = null;
+    const t = this.now();
+    if (by === 'you') {
+      r.trust = clamp(r.trust - (broken ? 60 : 25), -100, 100);
+      r.grievance += broken ? 40 : 15;
+      L.aggression = clamp(L.aggression + 0.05, 0.05, 0.95);
+      L.caution = clamp(L.caution + (broken ? 0.1 : 0.03), 0.05, 0.95);
+      if (broken) {
+        // Every leader hears of it.
+        this.state.reputation = clamp(this.state.reputation - 25, 0, 100);
+        for (const o of this.world.neighbours) if (o.id !== id) this.rel(o.id).trust = clamp(this.rel(o.id).trust - 15, -100, 100);
+      }
+      // They answer soon.
+      c.military.state.nextRaidAt = Math.min(c.military.state.nextRaidAt || Infinity, t + 0.3);
+    } else {
+      // Your base gets half a day before their first raid.
+      c.military.state.nextRaidAt = Math.max(c.military.state.nextRaidAt || 0, t + 0.5);
+      if (broken) L.honour = clamp(L.honour - 0.05, 0.05, 0.95);
+    }
+    const who = by === 'you' ? `You declared war on ${c.entry.name}` : `${c.entry.name} declared war on you`;
+    this.note(id, `${who}${broken ? `, breaking the ${KIND_LABEL[broken.kind].toLowerCase()}` : ''}.`);
+    addChronicle(this.home.city, `${who}${broken ? `, breaking the ${KIND_LABEL[broken.kind].toLowerCase()}` : ''}.`);
+    this.onEvent?.({ kind: 'war', id, by, broken: !!broken });
+    return { ok: true, broken: !!broken };
+  }
+
+  // A battle between you and them (warRoom.js calls this after every raid or attack).
+  recordBattle(id, { winner, lost, loot, by }) {
+    const r = this.rel(id);
+    if (!r.war) return;
+    const L = this.leader(this.town(id)).traits;
+    r.war.battles[winner]++;
+    r.war.lost.you += lost.you;
+    r.war.lost.them += lost.them;
+    r.war.loot.you += loot.you || 0;
+    r.war.loot.them += loot.them || 0;
+    r.weariness = clamp(r.weariness + lost.them * 6 + (winner === 'you' ? 12 : -8), 0, 100);
+    if (winner === 'them') {
+      L.aggression = clamp(L.aggression + 0.03, 0.05, 0.95);
+      L.caution = clamp(L.caution - 0.01, 0.05, 0.95);
+    } else {
+      L.caution = clamp(L.caution + 0.04, 0.05, 0.95);
+      L.aggression = clamp(L.aggression - 0.02, 0.05, 0.95);
+    }
+    if (by === 'you') r.trust = clamp(r.trust - 5, -100, 100);
+  }
+
+  // ---- What a proposal is worth to them, in dollars --------------------------------------------
+
+  // offer: { kind: 'peace'|'pact'|'alliance', pay (+ you pay them, − they pay you), tribute: { perDay
+  // (+ you pay them), days } | null, limit: { on: 'you'|'them', soldiers, days } | null, days }
+  value(id, offer) {
+    const c = this.town(id);
+    const r = this.rel(id);
+    const L = this.leader(c).traits;
+    const rep = this.state.reputation;
+    let base;
+    if (offer.kind === 'peace') base = r.war ? 40 * r.weariness - 1500 * L.aggression - 1200 * this.advantage(id) + 10 * r.trust - 10 * r.grievance : -Infinity;
+    else if (offer.kind === 'pact') base = r.war ? -Infinity : 300 + 20 * r.trust + 600 * L.caution - 800 * L.aggression - 10 * r.grievance;
+    else if (offer.kind === 'alliance') base = r.war || r.trust < 40 ? -Infinity : 200 + 30 * (r.trust - 50) + 400 * L.caution - 600 * L.aggression - 10 * r.grievance;
+    else base = -Infinity;
+    if (offer.kind !== 'peace' && rep < 50) base -= (50 - rep) * 30; // they doubt you'll keep your word
+    const inMult = 0.7 + 0.6 * L.greed;
+    const outMult = 1 + 0.4 * L.greed;
+    const money = (n) => (n >= 0 ? n * inMult : n * outMult);
+    let terms = money(offer.pay || 0);
+    if (offer.tribute) terms += money(offer.tribute.perDay * offer.tribute.days) * 0.9;
+    if (offer.limit) {
+      const l = offer.limit;
+      if (l.on === 'them') terms -= l.days * 80 * (0.5 + L.aggression) + Math.max(0, c.military.state.soldiers.length - l.soldiers) * 40;
+      else terms += l.days * 40 * (0.3 + L.aggression) + Math.max(0, this.war.military.state.soldiers.length - l.soldiers) * 15;
+    }
+    const days = offer.days ?? DEFAULT_DAYS[offer.kind] ?? 0;
+    if (offer.kind === 'pact') terms += days * 10 * (L.caution - L.aggression);
+    if (offer.kind === 'peace') terms += days * (10 * L.caution - 20 * L.aggression);
+    return { base, terms, total: base + terms, inMult, outMult };
+  }
+
+  // Why an offer can't be made at all (wrong for the stance, or money nobody has).
+  offerError(id, offer) {
+    const r = this.rel(id);
+    if (!['peace', 'pact', 'alliance'].includes(offer.kind)) return 'Pick a kind of treaty';
+    if (offer.kind === 'peace' && !r.war) return 'You are not at war';
+    if (offer.kind !== 'peace' && r.war) return 'Make peace first';
+    if (offer.kind === 'alliance' && this.stance(id) === 'alliance') return 'You are already allies';
+    const yours = this.home.sim.economy.money;
+    const theirs = this.town(id).sim.economy.money;
+    if ((offer.pay || 0) > yours) return 'Your town can’t pay that much';
+    if ((offer.pay || 0) < 0 && -offer.pay > theirs) return `${this.town(id).entry.name} doesn’t have that much`;
+    return null;
+  }
+
+  // You propose; they accept, counter or refuse.
+  propose(id, offer) {
+    const r = this.rel(id);
+    const c = this.town(id);
+    const t = this.now();
+    if (this.war.busy) return { outcome: 'closed', line: 'Not while the guns are firing.' };
+    if (t < r.closedUntil) return { outcome: 'closed', line: this.say(c, 'closed') };
+    const err = this.offerError(id, offer);
+    if (err) return { outcome: 'invalid', line: err };
+    const v = this.value(id, offer);
+    if (v.total >= 0) {
+      this.sign(id, offer, 'you');
+      return { outcome: 'accepted', line: this.say(c, 'yes') };
+    }
+    r.patience -= 1;
+    if (r.patience <= 0) {
+      r.patience = PATIENCE;
+      r.closedUntil = t + 1;
+      r.counter = null;
+      this.onEvent?.({ kind: 'closed', id });
+      return { outcome: 'closed', line: this.say(c, 'enough') };
+    }
+    const counter = Number.isFinite(v.total) ? this.counterOffer(id, offer, -v.total, v) : null;
+    r.counter = counter;
+    if (counter) return { outcome: 'countered', counter, line: this.say(c, 'counter') };
+    return { outcome: 'rejected', line: this.say(c, offer.kind === 'alliance' && r.trust < 40 ? 'distrust' : 'no') };
+  }
+
+  // What it would take: drop a limit on them, then ask for less of their money, then for some of yours.
+  counterOffer(id, offer, deficit, v) {
+    const c = this.town(id);
+    const L = this.leader(c).traits;
+    const r = this.rel(id);
+    const stretch = 1500 + 30 * r.weariness + 1500 * L.greed;
+    if (deficit > stretch) return null;
+    const out = { ...offer, tribute: offer.tribute ? { ...offer.tribute } : null, limit: offer.limit ? { ...offer.limit } : null, pay: offer.pay || 0 };
+    let need = deficit;
+    if (out.limit?.on === 'them') {
+      const back = this.value(id, { ...out, limit: null }).total - this.value(id, out).total;
+      out.limit = null;
+      need -= back;
+    }
+    if (need > 0 && out.tribute && out.tribute.perDay < 0) {
+      const back = -out.tribute.perDay * out.tribute.days * v.outMult * 0.9;
+      out.tribute = null;
+      need -= back;
+    }
+    if (need > 0 && out.pay < 0) {
+      const back = Math.min(-out.pay, need / v.outMult);
+      out.pay = Math.min(0, out.pay + round50(back));
+      need -= back * v.outMult;
+    }
+    if (need > 0) out.pay = Math.max(0, out.pay) + round50(need / v.inMult);
+    if (out.pay > this.home.sim.economy.money) return null;
+    out.fromThem = true;
+    return out;
+  }
+
+  acceptCounter(id) {
+    const r = this.rel(id);
+    const c = r.counter;
+    if (!c) return { error: 'There is no counteroffer' };
+    const err = this.offerError(id, c);
+    if (err) return { error: err };
+    r.counter = null;
+    this.sign(id, c, 'them');
+    return { ok: true };
+  }
+
+  // Your answer to one of their proposals.
+  respond(id, yes) {
+    const r = this.rel(id);
+    const o = r.offer;
+    if (!o) return { error: 'Nothing to answer' };
+    r.offer = null;
+    if (!yes) {
+      r.trust = clamp(r.trust - (o.kind === 'alliance' ? 4 : 2), -100, 100);
+      if (o.surrender) r.grievance += 5;
+      r.nextOffer = Math.max(r.nextOffer, this.now() + REFUSED_GAP);
+      this.note(id, `You turned down their ${o.surrender ? 'surrender demand' : KIND_LABEL[o.kind].toLowerCase()}.`);
+      return { ok: true };
+    }
+    const err = this.offerError(id, o);
+    if (err) return { error: err };
+    this.sign(id, o, 'them');
+    return { ok: true };
+  }
+
+  // Make it so: money changes hands, the treaty starts, and peace ends the war.
+  sign(id, offer, by) {
+    const st = this.state;
+    const r = this.rel(id);
+    const c = this.town(id);
+    const t = this.now();
+    const days = offer.days ?? DEFAULT_DAYS[offer.kind];
+    this.transfer(c, offer.pay || 0);
+    const treaty = { id: `t${++st.count}`, kind: offer.kind, since: t, until: offer.kind === 'alliance' ? null : t + days, by, surrender: !!offer.surrender, terms: { pay: offer.pay || 0 } };
+    if (offer.tribute && offer.tribute.perDay && offer.tribute.days > 0) treaty.tribute = { perDay: offer.tribute.perDay, until: t + offer.tribute.days };
+    if (offer.limit && offer.limit.days > 0) treaty.limit = { on: offer.limit.on, soldiers: Math.max(0, Math.round(offer.limit.soldiers)), until: t + offer.limit.days };
+    // A treaty that runs for a while but whose tribute or limit runs longer stays until those end.
+    const lasts = Math.max(treaty.until ?? 0, treaty.tribute?.until ?? 0, treaty.limit?.until ?? 0);
+    if (treaty.until != null) treaty.until = lasts;
+    if (offer.kind === 'peace') {
+      // A war they were losing teaches them caution.
+      if (this.advantage(id) < 0) {
+        const L = this.leader(c).traits;
+        L.caution = clamp(L.caution + 0.08, 0.05, 0.95);
+        L.aggression = clamp(L.aggression - 0.05, 0.05, 0.95);
+      }
+      r.war = null;
+      r.weariness = 0;
+      r.lastPeace = t;
+      this.war.cancelRaids(id);
+      // Both bases recover in peace for the protection days.
+      for (const m of [this.war.military, c.military]) m.state.protectedUntil = Math.max(m.state.protectedUntil || 0, t + days);
+    }
+    r.treaties = r.treaties.filter((x) => x.kind !== offer.kind && !(offer.kind === 'alliance' && x.kind === 'pact'));
+    r.treaties.push(treaty);
+    r.trust = clamp(r.trust + { peace: 3, pact: 5, alliance: 10 }[offer.kind], -100, 100);
+    r.offer = null;
+    r.counter = null;
+    const what = offer.surrender ? 'You accepted their surrender terms' : `${KIND_LABEL[offer.kind]} signed with ${c.entry.name}`;
+    this.note(id, `${what}${this.termsText(offer, c.entry.name) ? `: ${this.termsText(offer, c.entry.name)}` : ''}.`);
+    addChronicle(this.home.city, `${what}.`);
+    this.onEvent?.({ kind: 'signed', id, treaty });
+    return treaty;
+  }
+
+  // Money between your town's budget and theirs (+ from you to them).
+  transfer(c, amount) {
+    if (!amount) return 0;
+    const yours = this.home.sim.economy.state;
+    const theirs = c.sim.economy.state;
+    const from = amount > 0 ? yours : theirs;
+    const to = amount > 0 ? theirs : yours;
+    const n = Math.min(Math.abs(amount), Math.max(0, from.money));
+    from.money -= n;
+    from.today.expenses += n;
+    to.money += n;
+    to.today.income += n;
+    return n;
+  }
+
+  // A gift of money from your town's budget.
+  gift(id, amount) {
+    const c = this.town(id);
+    const r = this.rel(id);
+    const L = this.leader(c).traits;
+    const n = this.transfer(c, Math.min(amount, this.home.sim.economy.money));
+    if (!n) return { error: 'Your town has no money to give' };
+    const gain = Math.min(25, (n / 50) * (0.6 + 0.8 * L.greed));
+    r.trust = clamp(r.trust + gain, -100, 100);
+    r.grievance = Math.max(0, r.grievance - n / 100);
+    r.patience = PATIENCE;
+    L.greed = clamp(L.greed + 0.01 * (n / 1000), 0.05, 0.95);
+    this.note(id, `You sent ${c.entry.name} a gift of $${Math.round(n).toLocaleString()}.`);
+    return { ok: true, trust: gain };
+  }
+
+  // Leave an alliance without a war (no betrayal, but they're disappointed).
+  endAlliance(id) {
+    const r = this.rel(id);
+    const before = r.treaties.length;
+    r.treaties = r.treaties.filter((x) => x.kind !== 'alliance');
+    if (r.treaties.length === before) return { error: 'You are not allies' };
+    r.trust = clamp(r.trust - 10, -100, 100);
+    this.note(id, 'You ended the alliance.');
+    return { ok: true };
+  }
+
+  // ---- Time passing ----------------------------------------------------------------------------
+
+  update(dayFraction) {
+    if (dayFraction <= 0) return;
+    const t = this.now();
+    for (const c of this.world.neighbours) {
+      const r = this.rel(c.id);
+      const L = this.leader(c).traits;
+      const stance = this.stance(c.id);
+      // Tribute flows a little at a time.
+      for (const x of r.treaties) {
+        if (!x.tribute || x.tribute.until <= t) continue;
+        const want = x.tribute.perDay * dayFraction;
+        const paid = this.transfer(c, want);
+        if (paid < Math.abs(want) - 1e-6) r.trust = clamp(r.trust + (want > 0 ? -1 : 0) * dayFraction, -100, 100);
+      }
+      // Trust drifts with how things stand; grievances fade.
+      const drift = { war: -0.5, neutral: r.trust > 0 ? -0.5 : 0.5, peace: 0.8, pact: 0.8, alliance: 1.2 }[stance];
+      r.trust = clamp(r.trust + drift * dayFraction, stance === 'war' ? -80 : -100, stance === 'neutral' && r.trust <= 0 ? 0 : 100);
+      r.grievance = Math.max(0, r.grievance - 3 * dayFraction);
+      r.weariness = stance === 'war' ? clamp(r.weariness + 8 * dayFraction, 0, 100) : Math.max(0, r.weariness - 10 * dayFraction);
+      // Long wars make leaders harder; long peace softens them.
+      L.aggression = clamp(L.aggression + (stance === 'war' ? 0.006 : -0.004) * dayFraction, 0.05, 0.95);
+      r.patience = Math.min(PATIENCE, r.patience + dayFraction);
+      // Treaties that have run their course.
+      const ended = r.treaties.filter((x) => x.until != null && x.until <= t);
+      if (ended.length) {
+        r.treaties = r.treaties.filter((x) => !ended.includes(x));
+        for (const x of ended) {
+          this.note(c.id, `The ${KIND_LABEL[x.kind].toLowerCase()} came to an end.`);
+          this.onEvent?.({ kind: 'expired', id: c.id, treaty: x });
+        }
+      }
+      if (r.offer && t > r.offer.until) {
+        this.note(c.id, `Their ${r.offer.surrender ? 'surrender demand' : KIND_LABEL[r.offer.kind].toLowerCase()} lapsed unanswered.`);
+        if (r.offer.surrender) r.grievance += 5;
+        r.nextOffer = Math.max(r.nextOffer, t + REFUSED_GAP);
+        r.offer = null;
+      }
+    }
+    this.look -= dayFraction;
+    if (this.look <= 0) {
+      this.look = LOOK_DAYS;
+      for (const c of this.world.neighbours) this.think(c);
+    }
+  }
+
+  // A leader's slow look at how things stand: declare war, sue for peace, demand surrender, or
+  // offer friendship.
+  think(c) {
+    const id = c.id;
+    const r = this.rel(id);
+    const L = this.leader(c).traits;
+    const t = this.now();
+    const ms = this.war.military.state;
+    const peaceful = ms.raids === 'off' || t < (ms.since || 0) + FIRST_DAYS;
+    if (!r.war) {
+      if (!peaceful && !this.war.busy) {
+        const yours = Math.max(1, this.war.military.strength());
+        const theirs = c.military.strength();
+        const wealth = Math.min(2, this.home.sim.economy.money / Math.max(1000, c.sim.economy.money));
+        const calm = r.lastPeace != null ? 40 * Math.max(0, 1 - (t - r.lastPeace) / CALM_DAYS) : 0;
+        const hostility = 60 * L.aggression + 20 * L.greed * wealth - 0.5 * r.trust - 30 * L.caution * Math.min(3, yours / Math.max(1, theirs)) + r.grievance - calm;
+        const broken = this.betrayalIn(id);
+        const threshold = broken ? 70 + 60 * L.honour : 40;
+        if (hostility > threshold && theirs >= 0.6 * yours && this.rand() < 0.15) return this.declareWar(id, 'them');
+      }
+      if (r.offer || t < r.nextOffer) return;
+      const stance = this.stance(id);
+      if (stance === 'neutral' && r.trust >= 20 && this.value(id, { kind: 'pact', days: 7 }).total >= 300) return this.offer(id, { kind: 'pact', days: 7 });
+      if ((stance === 'pact' || stance === 'peace') && r.trust >= 60 && this.value(id, { kind: 'alliance' }).total >= 0) return this.offer(id, { kind: 'alliance' });
+      return;
+    }
+    if (r.offer || t < r.nextOffer || this.war.busy) return;
+    const a = this.advantage(id);
+    // Winning (two battles or more) and greedy: they demand you give in.
+    if (r.war.battles.them >= 2 && a > 0.4 && L.greed > 0.45 && r.weariness < 70) {
+      const soldiers = this.war.military.state.soldiers.length;
+      const pay = round50(Math.min(3000, Math.max(250, this.home.sim.economy.money * 0.1)));
+      return this.offer(id, { kind: 'peace', surrender: true, pay, limit: { on: 'you', soldiers: Math.max(3, soldiers - 3), days: 5 }, days: 4 });
+    }
+    const v = this.value(id, { kind: 'peace', days: 4 });
+    if (v.total >= 0) {
+      // Worn down: they ask for peace, and pay for it when they're the ones losing.
+      const pay = a < 0 ? -Math.min(round50(v.total * 0.4), Math.floor(c.sim.economy.money * 0.25 / 50) * 50) : 0;
+      return this.offer(id, { kind: 'peace', pay, days: 4 });
+    }
+  }
+
+  offer(id, o) {
+    const r = this.rel(id);
+    const t = this.now();
+    if (this.offerError(id, { ...o, pay: Math.min(o.pay || 0, this.home.sim.economy.money) })) return null;
+    r.offer = { ...o, pay: Math.min(o.pay || 0, Math.floor(this.home.sim.economy.money / 50) * 50), by: 'them', at: t, until: t + OFFER_LIFE };
+    r.nextOffer = t + OFFER_GAP;
+    this.note(id, `${this.town(id).entry.name} proposed ${o.surrender ? 'that you surrender' : `a ${KIND_LABEL[o.kind].toLowerCase()}`}.`);
+    this.onEvent?.({ kind: 'offer', id, offer: r.offer });
+    return r.offer;
+  }
+
+  // ---- Words ----------------------------------------------------------------------------------
+
+  termsText(o, name) {
+    const parts = [];
+    if (o.pay > 0) parts.push(`you pay $${o.pay.toLocaleString()}`);
+    if (o.pay < 0) parts.push(`${name} pays you $${(-o.pay).toLocaleString()}`);
+    if (o.tribute?.perDay > 0) parts.push(`you pay $${o.tribute.perDay} a day for ${o.tribute.days} days`);
+    if (o.tribute?.perDay < 0) parts.push(`${name} pays you $${-o.tribute.perDay} a day for ${o.tribute.days} days`);
+    if (o.limit) parts.push(`${o.limit.on === 'you' ? 'your' : `${name}'s`} army is kept to ${o.limit.soldiers} soldiers for ${o.limit.days} days`);
+    const days = o.days ?? DEFAULT_DAYS[o.kind];
+    if (o.kind === 'peace') parts.push(`neither side may start a war for ${days} days`);
+    if (o.kind === 'pact') parts.push(`for ${days} days`);
+    return parts.join('; ');
+  }
+
+  say(c, what) {
+    const L = this.leader(c).traits;
+    const blunt = L.aggression > 0.55;
+    return (
+      {
+        yes: blunt ? 'Fine. We have a deal.' : 'Agreed. May it hold.',
+        counter: L.greed > 0.55 ? 'Not for that. Here is what it would take.' : 'Almost. We could agree to this.',
+        no: blunt ? 'You waste my time.' : 'We cannot accept that.',
+        distrust: 'We don’t know you well enough for that.',
+        enough: blunt ? 'Enough talk. Come back tomorrow.' : 'Let us leave it for today.',
+        closed: 'They won’t talk again until tomorrow.',
+      }[what] || ''
+    );
+  }
+
+  note(id, text) {
+    const r = this.rel(id);
+    r.log.unshift({ day: this.home.city.day, text });
+    if (r.log.length > LOG_KEEP) r.log.length = LOG_KEEP;
+  }
+
+  // Everything the diplomacy screen shows about one town.
+  view(id) {
+    const c = this.town(id);
+    const r = this.rel(id);
+    const L = this.leader(c);
+    const t = this.now();
+    return {
+      id,
+      town: c.entry.name,
+      leader: L,
+      words: traitWords(L.traits),
+      stance: this.stance(id),
+      trust: Math.round(r.trust),
+      reputation: Math.round(this.state.reputation),
+      war: r.war ? { ...r.war, days: t - r.war.since, score: this.score(id) } : null,
+      treaties: this.treaties(id).map((x) => ({ ...x, left: x.until == null ? null : x.until - t })),
+      offer: r.offer,
+      counter: r.counter,
+      closedFor: Math.max(0, r.closedUntil - t),
+      patience: Math.floor(r.patience),
+      betrayal: this.betrayalIn(id),
+      log: r.log,
+    };
+  }
+}
+
+return { DIPLOMACY_VERSION, STANCE_LABEL, KIND_LABEL, DEFAULT_DAYS, makeLeader, traitWords, Diplomacy };
+})();
+
 // ---- worldUI.js ----
 const __mod_worldUI = (() => {
 // The world on screen: the World button, the World sheet (a map of every town with who runs it, its
@@ -19703,6 +20528,7 @@ const __mod_worldUI = (() => {
 const { STRUCTURES, MILESTONES } = __mod_config;
 const { ERAS } = __mod_eras;
 const { money } = __mod_economy;
+const { STANCE_LABEL } = __mod_diplomacy;
 const OWNER = {
   player: { label: 'You', long: 'Run by you', color: '#8a6cc4' },
   cpu: { label: 'Computer', long: 'Run by the computer', color: '#e9846f' },
@@ -19774,6 +20600,9 @@ class WorldPanel {
       } else if (b.dataset.view3d) {
         this.toggle(false);
         this.h.on3D(b.dataset.view3d);
+      } else if (b.dataset.diplo) {
+        this.toggle(false);
+        this.h.onDiplomacy?.(b.dataset.diplo);
       }
     });
     this.banner.addEventListener('click', (e) => {
@@ -19824,19 +20653,21 @@ class WorldPanel {
   render() {
     const towns = this.world.cities.map((c) => ({ c, s: townSummary(c) }));
     const viewing = this.h.viewing();
-    const key = towns.map(({ c, s }) => `${c.id}${s.population}${Math.round(s.money)}${s.buildings}${s.log[0]?.day}${s.log.length}`).join('|') + viewing.id;
+    const stance = (c) => (c.owner !== 'player' && this.h.stance ? this.h.stance(c.id) : null);
+    const key = towns.map(({ c, s }) => `${c.id}${s.population}${Math.round(s.money)}${s.buildings}${s.log[0]?.day}${s.log.length}${stance(c)}`).join('|') + viewing.id;
     if (key === this._key) return;
     this._key = key;
     const cards = towns
       .map(
         ({ c, s }) => `
       <article class="wt-card${c === viewing ? ' is-here' : ''}" style="--owner:${s.owner.color}">
-        <header><span class="wt-owner">${esc(s.owner.label)}</span><h3>${esc(s.name)}</h3>${c === viewing ? '<span class="wt-here">On screen</span>' : ''}</header>
+        <header><span class="wt-owner">${esc(s.owner.label)}</span><h3>${esc(s.name)}</h3>${stance(c) ? `<span class="wt-stance wt-${stance(c)}">${esc(STANCE_LABEL[stance(c)])}</span>` : ''}${c === viewing ? '<span class="wt-here">On screen</span>' : ''}</header>
         <p class="wt-stats">${s.population.toLocaleString()} people · ${s.buildings} buildings · ${s.happiness == null ? 'no one yet' : `${s.happiness}% happy`}<br>${esc(s.era)}${s.tier ? ` · ${esc(s.tier)}` : ''} · ${s.sandbox ? 'Sandbox' : money(s.money)}</p>
         ${c.owner !== 'player' && s.log.length ? `<ul class="wt-log">${s.log.slice(0, 3).map((b) => `<li>${esc(describeBuild(c.city, b))} <small>(day ${b.day})</small></li>`).join('')}</ul>` : ''}
         <div class="wt-actions">
           <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : 'Watch'}</button>
           <button type="button" class="pill" data-view3d="${esc(c.id)}">See in 3D</button>
+          ${c.owner !== 'player' && this.h.onDiplomacy ? `<button type="button" class="pill" data-diplo="${esc(c.id)}">Diplomacy</button>` : ''}
         </div>
       </article>`
       )
@@ -20520,6 +21351,8 @@ class Military {
     const u = UNITS[type];
     if (!u) return 'Pick who to recruit';
     if (this.state.soldiers.length >= this.armyCap) return `The base holds ${this.armyCap} soldiers. Upgrade the command post for more`;
+    const limit = this.limit?.(); // a treaty's cap on this army (diplomacy.js), if any
+    if (limit && this.state.soldiers.length >= limit.soldiers) return `The treaty with ${limit.with} keeps your army to ${limit.soldiers} soldiers for now`;
     const c = this.recruitCost(type, { emergency });
     if (!this.canPay(c)) return `Needs ${c} in the military budget`;
     return null;
@@ -21742,10 +22575,9 @@ const __mod_warRoom = (() => {
 // The computer plays by your rules: its troops come out of its own military budget (a share of its
 // income, like yours), they train for the same time, and the same battle rules decide the fight.
 //
-// TEMPORARY, until diplomacy exists (Phase 2): every computer town is hostile to you automatically.
-// It raids your base, and you may attack it, without any declaration of war. Diplomacy will add
-// stances (peace, declared war), treaties and peace terms, and raids and attacks will then need a
-// declared war (planRaid and attackError are where that check goes).
+// War has to be declared (diplomacy.js): a computer town only raids you, and you may only attack
+// it, while the two of you are at war. Every battle counts towards that war's score, peace calls
+// off raids on the way, and a treaty can cap a town's army for a while.
 // Time only passes while the game runs, so nothing is planned or fought while you're away.
 //
 // Saved in your town's city.systems.war = { v, count, raids: [...] } where each entry is a raid on
@@ -21759,6 +22591,7 @@ const { DEFENCES, UNITS, RANKS, rankOf, INJURY_DAYS, BASE_W, BASE_H, ENTRY_ROWS 
 const { buildField, nextTile } = __mod_flowfield;
 const { Battle } = __mod_battle;
 const { addChronicle } = __mod_chronicle;
+const { Diplomacy } = __mod_diplomacy;
 const WAR_VERSION = 1;
 const WARN_DAYS = 0.2; // how far ahead a raid is announced (a fifth of a day: about five hours)
 const LOOK_DAYS = 0.25; // how often the computer looks at its army
@@ -21782,6 +22615,7 @@ class WarRoom {
     this.onWarn = null; // (raid) → a raid has been announced
     this.onArrive = null; // (raid) → a raid has reached your base
     this.look = 0;
+    this.diplomacy = new Diplomacy(world, this, { rand });
     this.attach();
   }
 
@@ -21810,9 +22644,19 @@ class WarRoom {
         st.funds = CPU_FUNDS;
       }
     }
+    // A treaty may cap a town's army for a while.
+    for (const c of this.world.cities) c.military.limit = () => this.diplomacy.armyLimit(c.owner === 'player' ? 'home' : c.id);
     // A raid from a town that no longer exists is called off.
     const ids = new Set(this.world.cities.map((c) => c.id));
     this.state.raids = this.state.raids.filter((r) => ids.has(r.kind === 'attack' ? r.target : r.from));
+    this.diplomacy.attach();
+  }
+
+  // Peace: raids from that town that are still on the way turn back.
+  cancelRaids(id) {
+    const c = this.byId(id);
+    this.state.raids = this.state.raids.filter((r) => !(r.from === id && r.status === 'coming'));
+    if (c) for (const s of c.military.state.soldiers) if (s.status === 'raiding') s.status = 'ready';
   }
 
   byId(id) {
@@ -21835,6 +22679,7 @@ class WarRoom {
   update(dayFraction) {
     if (dayFraction <= 0 || this.busy) return;
     for (const c of this.world.cities) c.military?.update(dayFraction);
+    this.diplomacy.update(dayFraction);
     this.look -= dayFraction;
     if (this.look <= 0) {
       this.look = LOOK_DAYS;
@@ -21864,6 +22709,8 @@ class WarRoom {
     // Once it has a fair army for its defences, it saves for defences instead (see fortify).
     const armed = st.structures.filter((s) => s.type !== 'hq' && DEFENCES[s.type].attack).length;
     if (st.soldiers.length >= 6 + armed * 2 && armed < 8) return;
+    const limit = this.diplomacy.armyLimit(c.id);
+    if (limit && st.soldiers.length >= limit.soldiers) return; // a treaty caps its army
     for (let i = 0; i < 2; i++) {
       if (st.soldiers.length >= m.armyCap) return;
       const medics = st.soldiers.filter((s) => s.type === 'medic').length;
@@ -21992,6 +22839,7 @@ class WarRoom {
   attackError(c, opts = {}) {
     if (this.busy) return 'Finish the battle at hand first';
     if (!c || c.owner === 'player') return 'Pick a town to attack';
+    if (!this.diplomacy.atWar(c.id)) return `You are not at war with ${c.entry.name}. Declare war in Diplomacy first`;
     const t = nowOf(this.home.city);
     const st = this.military.state;
     if (t < (st.attackReadyAt || 0)) return `Your troops are resting after the last attack: ready ${Math.max(1, Math.round((st.attackReadyAt - t) * 24))} h from now`;
@@ -22017,6 +22865,7 @@ class WarRoom {
     const yours = this.military.state;
     const R = RAID_RULES[yours.raids];
     if (!R) return null;
+    if (!this.diplomacy.atWar(c.id)) return null; // only in a declared war
     if (this.state.raids.length) return null;
     const t = nowOf(this.home.city);
     if (t < yours.since + R.first || t < (yours.protectedUntil || 0)) return null;
@@ -22145,6 +22994,7 @@ class WarRoom {
       eco.state.today.expenses += loot - fromFunds;
       if (from) from.sim.economy.state.money += loot;
     }
+    this.diplomacy.recordBattle(raid.from, { winner: res.winner === 'def' ? 'you' : 'them', lost: { you: res.defender.lost, them: res.attacker.lost }, loot: { them: loot }, by: 'them' });
     const R = RAID_RULES[mst.raids] || RAID_RULES.gentle;
     mst.protectedUntil = t + R.protect;
     mst.battle = null;
@@ -22215,6 +23065,7 @@ class WarRoom {
       tm.state.protectedUntil = t + R.protect;
       tm.state.nextRaidAt = Math.max(tm.state.nextRaidAt || 0, t + 1); // they lick their wounds before raiding
     }
+    this.diplomacy.recordBattle(entry.target, { winner: res.winner === 'att' ? 'you' : 'them', lost: { you: res.attacker.lost, them: res.defender.lost }, loot: { you: loot }, by: 'you' });
     mst.attackReadyAt = t + ATTACK_REST;
     mst.battle = null;
     this.state.raids = this.state.raids.filter((r) => r !== entry);
@@ -22267,6 +23118,7 @@ class WarRoom {
         soldiers: c.military.state.soldiers.length,
         ready: c.military.fit().length,
         guards: c.military.garrison().length,
+        stance: this.diplomacy.stance(c.id),
         defences: c.military.state.structures.filter((s) => s.type !== 'hq' && s.hp > 0).length,
         strength: c.military.strength(),
         recovering: Math.max(0, (c.military.state.protectedUntil || 0) - t),
@@ -22296,6 +23148,7 @@ const { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, upgradeCost, ARTILLER
 const { TIME_LIMIT } = __mod_battle;
 const { titleOf, MAX_SHARE, RAID_LEVELS } = __mod_military;
 const { money } = __mod_economy;
+const { STANCE_LABEL } = __mod_diplomacy;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const SAVE_EVERY = 1; // seconds between battle snapshots written into the save
 const ICON = {
@@ -22868,6 +23721,7 @@ class MilitaryScreen {
     if (ds.defend != null) return this.startBattle();
     if (ds.auto != null) return this.autoBattle();
     if (ds.attackPlan) return this.planAttack(ds.attackPlan);
+    if (ds.diplomacy) return this.d.openDiplomacy?.(ds.diplomacy);
     if (ds.attackGo) return this.launch(ds.attackGo, false);
     if (ds.attackAuto) return this.launch(ds.attackAuto, true);
     if (ds.cancel != null) return this.hideCard();
@@ -23154,12 +24008,13 @@ class MilitaryScreen {
     const rows = intel.neighbours
       .map((n) => {
         const err = this.war.attackError(this.war.byId(n.id));
-        return `<li><span class="mil-item-text"><b>${esc(n.name)}</b><small>About ${n.soldiers} soldiers (${n.guards} on guard), ${n.defences} defences${n.recovering > 0 ? ` · recovering for ${forDays(n.recovering)}` : ''}</small></span>
-          <button type="button" class="pill" data-attack-plan="${esc(n.id)}" ${err ? `title="${esc(err)}"` : ''}>Attack…</button></li>`;
+        const atWar = n.stance === 'war';
+        return `<li><span class="mil-item-text"><b>${esc(n.name)}</b> <span class="wt-stance wt-${n.stance}">${esc(STANCE_LABEL[n.stance])}</span><small>About ${n.soldiers} soldiers (${n.guards} on guard), ${n.defences} defences${n.recovering > 0 ? ` · recovering for ${forDays(n.recovering)}` : ''}</small></span>
+          <span class="mil-row">${atWar ? `<button type="button" class="pill" data-attack-plan="${esc(n.id)}" ${err ? `title="${esc(err)}"` : ''}>Attack…</button>` : ''}<button type="button" class="pill" data-diplomacy="${esc(n.id)}">Diplomacy…</button></span></li>`;
       })
       .join('');
     return `<p class="mil-small">Send your reserve against a neighbour's base. You command the attacking squads; they defend with their guards, reserve and defences. Winning carries off part of their military budget. After any battle a base is left alone for a few days.</p>
-      <p class="mil-small"><b>For now every neighbour is hostile</b>: they raid you and you may attack them without declaring war. Diplomacy (peace, declared war, treaties) comes in a later update.</p>
+      <p class="mil-small">Raids and attacks only happen in a declared war. Declare war, or make peace, in <b>Diplomacy</b>.</p>
       <ul class="mil-repairs">${rows}</ul>
       <p class="mil-small">Your reserve: ${party} ready soldiers.${intel.attackReadyIn > 0 ? ` Your troops rest for another ${forDays(intel.attackReadyIn)}.` : ''}</p>
       ${intel.coming ? `<p class="mil-warn">⚔ ${esc(intel.coming.from)} attacks ${inDays(intel.coming.in)}.</p>` : ''}`;
@@ -23307,6 +24162,365 @@ function orderLabel(o) {
 return { inDays, MilitaryScreen };
 })();
 
+// ---- diplomacyUI.js ----
+const __mod_diplomacyUI = (() => {
+// The diplomacy sheet and the proposal card. The sheet shows each computer town's mayor (their
+// personality, how much they trust you, your reputation), the treaties between you, the war if
+// there is one, and lets you propose a treaty with terms, answer their proposals, send gifts or
+// declare war. The card pops up when a mayor proposes something or declares war on you.
+// The rules live in diplomacy.js; this file only shows them.
+
+const { STANCE_LABEL, KIND_LABEL, DEFAULT_DAYS } = __mod_diplomacy;
+const { money } = __mod_economy;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+const days = (d) => (d == null ? 'no end date' : d * 24 < 36 ? `${Math.max(1, Math.round(d * 24))} h left` : `${(Math.round(d * 2) / 2).toLocaleString()} days left`);
+
+function trustWord(t) {
+  return t <= -60 ? 'Hostile' : t <= -20 ? 'Wary' : t < 20 ? 'Neutral' : t < 60 ? 'Friendly' : 'Close';
+}
+function reputationWord(r) {
+  return r < 30 ? 'Faithless' : r < 50 ? 'Doubted' : r < 75 ? 'Respected' : 'Honoured';
+}
+
+// A blank proposal for the stance you're in.
+function freshDraft(stance) {
+  const kind = stance === 'war' ? 'peace' : stance === 'pact' || stance === 'peace' ? 'alliance' : 'pact';
+  return { kind, payYou: 0, payThem: 0, tributeYou: 0, tributeThem: 0, tributeDays: 5, limitOn: null, limitSoldiers: 6, limitDays: 5, days: DEFAULT_DAYS[kind] ?? 7 };
+}
+
+// The draft as diplomacy.js wants it (+ pay means you pay them).
+function toOffer(d) {
+  const perDay = d.tributeYou - d.tributeThem;
+  return {
+    kind: d.kind,
+    pay: d.payYou - d.payThem,
+    tribute: perDay ? { perDay, days: d.tributeDays } : null,
+    limit: d.limitOn ? { on: d.limitOn, soldiers: d.limitSoldiers, days: d.limitDays } : null,
+    days: d.kind === 'alliance' ? undefined : d.days,
+  };
+}
+
+// And back, to edit their proposal or counteroffer.
+function fromOffer(o) {
+  const d = freshDraft(o.kind === 'peace' ? 'war' : 'neutral');
+  d.kind = o.kind;
+  d.payYou = Math.max(0, o.pay || 0);
+  d.payThem = Math.max(0, -(o.pay || 0));
+  if (o.tribute) {
+    d.tributeYou = Math.max(0, o.tribute.perDay);
+    d.tributeThem = Math.max(0, -o.tribute.perDay);
+    d.tributeDays = o.tribute.days;
+  }
+  if (o.limit) {
+    d.limitOn = o.limit.on;
+    d.limitSoldiers = o.limit.soldiers;
+    d.limitDays = o.limit.days;
+  }
+  d.days = o.days ?? DEFAULT_DAYS[o.kind] ?? 7;
+  return d;
+}
+
+class DiplomacySheet {
+  // deps: { diplomacy: () → Diplomacy, toast, sound(name), onOpen(), openBase(id) }
+  constructor(deps) {
+    this.d = deps;
+    this.el = document.getElementById('diplomacy-sheet');
+    this.card = document.getElementById('diplo-card');
+    this.open = false;
+    this.draft = null; // { id, ...freshDraft }
+    this.reply = null; // { id, outcome, line, counter }
+    this.sureWar = null;
+    this._key = '';
+    this.el.addEventListener('click', (e) => this.onClick(e));
+    this.card.addEventListener('click', (e) => this.onCardClick(e));
+  }
+
+  get dip() {
+    return this.d.diplomacy();
+  }
+
+  toggle(force = !this.open, id = null) {
+    this.open = force;
+    this.el.hidden = !force;
+    if (force) {
+      this.d.onOpen?.();
+      this.focus = id;
+      this.render(true);
+    } else {
+      this.draft = null;
+      this.reply = null;
+    }
+  }
+
+  tick() {
+    if (this.open) this.render(false);
+  }
+
+  // ---- The sheet ----------------------------------------------------------------------------
+
+  render(force) {
+    const dip = this.dip;
+    const views = dip.world.neighbours.map((c) => dip.view(c.id));
+    const key = JSON.stringify([views.map((v) => [v.stance, v.trust, v.treaties.length, v.offer?.at, v.closedFor > 0, v.war?.battles, v.log[0]?.text]), this.draft, this.reply, this.sureWar, dip.reputation]);
+    if (!force && key === this._key) return;
+    this._key = key;
+    const rep = dip.reputation;
+    this.el.innerHTML = `
+      <header><h2>Diplomacy</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>
+      <p class="dp-intro">Your reputation: <b>${reputationWord(rep)}</b> (${Math.round(rep)}). Keeping treaties earns it; breaking one costs it with every mayor. Raids and attacks only happen in a declared war.</p>
+      ${views.map((v) => this.townHtml(v)).join('')}`;
+  }
+
+  townHtml(v) {
+    const L = v.leader;
+    const war = v.war;
+    const treaties = v.treaties
+      .map((x) => {
+        const bits = [];
+        if (x.tribute && x.tribute.until > this.dip.now()) bits.push(x.tribute.perDay > 0 ? `you pay ${money(x.tribute.perDay)} a day` : `they pay you ${money(-x.tribute.perDay)} a day`);
+        if (x.limit && x.limit.until > this.dip.now()) bits.push(`${x.limit.on === 'you' ? 'your' : 'their'} army capped at ${x.limit.soldiers}`);
+        return `<li><b>${esc(KIND_LABEL[x.kind])}</b>${x.surrender ? ' (your surrender)' : ''} · ${days(x.left)}${bits.length ? ` · ${esc(bits.join(', '))}` : ''}</li>`;
+      })
+      .join('');
+    const offer = v.offer
+      ? `<div class="dp-offer">
+          <p><b>${esc(L.name)} proposes ${v.offer.surrender ? 'that you surrender' : `a ${esc(KIND_LABEL[v.offer.kind].toLowerCase())}`}</b>${this.dip.termsText(v.offer, v.town) ? `: ${esc(this.dip.termsText(v.offer, v.town))}` : ''}.</p>
+          <div class="dp-row"><button type="button" class="primary-btn" data-accept="${esc(v.id)}">Accept</button><button type="button" class="pill" data-counter-their="${esc(v.id)}">Counter…</button><button type="button" class="pill" data-refuse="${esc(v.id)}">Turn down</button></div>
+        </div>`
+      : '';
+    const draft = this.draft?.id === v.id ? this.draftHtml(v) : '';
+    const sure = this.sureWar === v.id;
+    const canWar = !war && !this.dip.warError(v.id);
+    const actions = `<div class="dp-row">
+        ${!draft ? `<button type="button" class="pill" data-propose="${esc(v.id)}" ${v.closedFor > 0 ? 'disabled' : ''}>${v.closedFor > 0 ? `Not talking for ${days(v.closedFor).replace(' left', '')}` : 'Propose a treaty…'}</button>` : ''}
+        <button type="button" class="pill" data-gift="${esc(v.id)}" data-amount="250">Gift ${money(250)}</button>
+        <button type="button" class="pill" data-gift="${esc(v.id)}" data-amount="1000">Gift ${money(1000)}</button>
+        ${v.stance === 'alliance' ? `<button type="button" class="pill" data-endalliance="${esc(v.id)}">End the alliance</button>` : ''}
+        ${canWar ? `<button type="button" class="pill danger" data-war="${esc(v.id)}">${sure ? (v.betrayal ? `Break the ${esc(KIND_LABEL[v.betrayal.kind].toLowerCase())} and declare war?` : 'Tap again to declare war') : 'Declare war'}</button>` : ''}
+        <button type="button" class="pill" data-base="${esc(v.id)}">Base</button>
+      </div>`;
+    const trustPct = Math.round((v.trust + 100) / 2);
+    return `<article class="dp-card dp-${v.stance}">
+      <header><span class="dp-stance">${esc(STANCE_LABEL[v.stance])}</span><h3>${esc(v.town)}</h3></header>
+      <p class="dp-leader">${esc(L.title)} <b>${esc(L.name)}</b>${v.words.length ? ` · ${esc(v.words.join(', '))}` : ''}</p>
+      <div class="dp-trust"><span>Trust in you: <b>${trustWord(v.trust)}</b> (${v.trust})</span><span class="dp-meter" role="img" aria-label="Trust ${v.trust} from −100 to 100"><span style="left:${trustPct}%"></span></span></div>
+      ${war ? `<p class="dp-war">At war for ${Math.max(1, Math.round(war.days))} day${Math.max(1, Math.round(war.days)) === 1 ? '' : 's'} (${war.by === 'you' ? 'you declared it' : 'they declared it'}). Battles won: you ${war.battles.you}, them ${war.battles.them}. Soldiers lost: you ${war.lost.you}, them ${war.lost.them}.</p>` : ''}
+      ${treaties ? `<ul class="dp-treaties">${treaties}</ul>` : ''}
+      ${offer}
+      ${draft}
+      ${actions}
+      ${v.log.length ? `<details class="dp-log"><summary>What has happened</summary><ul>${v.log.map((l) => `<li><small>Day ${l.day}</small> ${esc(l.text)}</li>`).join('')}</ul></details>` : ''}
+    </article>`;
+  }
+
+  draftHtml(v) {
+    const d = this.draft;
+    const at = v.stance === 'war';
+    const kinds = at ? ['peace'] : ['pact', 'alliance'];
+    const step = (field, by, label, value, unit = '') => `<span class="dp-step"><span>${label}</span><button type="button" class="pill icon" data-step="${field}" data-by="${-by}" aria-label="Less">−</button><b>${unit === '$' ? money(value) : `${value}${unit}`}</b><button type="button" class="pill icon" data-step="${field}" data-by="${by}" aria-label="More">+</button></span>`;
+    const reply = this.reply?.id === v.id ? this.reply : null;
+    const counter = reply?.counter;
+    return `<div class="dp-draft">
+      <div class="seg" role="group">${kinds.map((k) => `<button type="button" data-kind="${k}" aria-pressed="${d.kind === k}">${esc(KIND_LABEL[k])}</button>`).join('')}</div>
+      <div class="dp-terms">
+        ${d.kind !== 'alliance' ? step('days', 1, d.kind === 'peace' ? 'No war for' : 'Lasts', d.days, ' days') : ''}
+        ${step('payYou', 250, 'You pay now', d.payYou, '$')}
+        ${step('payThem', 250, 'They pay now', d.payThem, '$')}
+        ${step('tributeYou', 50, 'You pay daily', d.tributeYou, '$')}
+        ${step('tributeThem', 50, 'They pay daily', d.tributeThem, '$')}
+        ${d.tributeYou || d.tributeThem ? step('tributeDays', 1, 'Daily payments for', d.tributeDays, ' days') : ''}
+        <span class="dp-step"><span>Army cap</span><span class="seg" role="group">${[
+          [null, 'None'],
+          ['them', 'Theirs'],
+          ['you', 'Yours'],
+        ]
+          .map(([k, l]) => `<button type="button" data-limit="${k ?? ''}" aria-pressed="${d.limitOn === k}">${l}</button>`)
+          .join('')}</span></span>
+        ${d.limitOn ? `${step('limitSoldiers', 1, 'At most', d.limitSoldiers, ' soldiers')}${step('limitDays', 1, 'For', d.limitDays, ' days')}` : ''}
+      </div>
+      ${reply ? `<p class="dp-reply dp-${reply.outcome}">“${esc(reply.line)}”${counter ? ` They'd sign this: ${esc(this.dip.termsText(counter, v.town) || 'no extra terms')}.` : ''}</p>` : ''}
+      <div class="dp-row">
+        ${counter ? `<button type="button" class="primary-btn" data-takecounter="${esc(v.id)}">Accept their terms</button><button type="button" class="pill" data-editcounter="${esc(v.id)}">Change them</button>` : `<button type="button" class="primary-btn" data-send="${esc(v.id)}">Propose</button>`}
+        <button type="button" class="pill" data-cancel>Walk away</button>
+      </div>
+    </div>`;
+  }
+
+  onClick(e) {
+    const b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    const ds = b.dataset;
+    const dip = this.dip;
+    const done = (r, ok) => {
+      if (r?.error) {
+        this.d.toast(r.error, 3000);
+        this.d.sound?.('nope');
+      } else if (ok) {
+        this.d.toast(ok, 3200);
+        this.d.sound?.('click');
+      }
+      this.render(true);
+    };
+    if (ds.close != null) return this.toggle(false);
+    if (ds.base) {
+      this.toggle(false);
+      return this.d.openBase?.(ds.base);
+    }
+    if (ds.propose) {
+      this.draft = { id: ds.propose, ...freshDraft(dip.stance(ds.propose)) };
+      this.reply = null;
+      return this.render(true);
+    }
+    if (ds.cancel != null) {
+      this.draft = null;
+      this.reply = null;
+      return this.render(true);
+    }
+    if (ds.kind && this.draft) {
+      this.draft.kind = ds.kind;
+      this.draft.days = DEFAULT_DAYS[ds.kind] ?? this.draft.days;
+      this.reply = null;
+      return this.render(true);
+    }
+    if (ds.step && this.draft) {
+      const lim = { days: [2, 30], payYou: [0, 20000], payThem: [0, 20000], tributeYou: [0, 1000], tributeThem: [0, 1000], tributeDays: [1, 20], limitSoldiers: [0, 24], limitDays: [1, 20] }[ds.step];
+      this.draft[ds.step] = Math.max(lim[0], Math.min(lim[1], this.draft[ds.step] + Number(ds.by)));
+      this.reply = null;
+      return this.render(true);
+    }
+    if (ds.limit != null && this.draft) {
+      this.draft.limitOn = ds.limit || null;
+      this.reply = null;
+      return this.render(true);
+    }
+    if (ds.send) {
+      const kind = this.draft.kind;
+      const r = dip.propose(ds.send, toOffer(this.draft));
+      this.reply = { id: ds.send, ...r };
+      if (r.outcome === 'accepted') {
+        this.draft = null;
+        this.reply = null;
+        this.d.sound?.('cheer');
+        return done(null, `“${r.line}” ${KIND_LABEL[kind]} signed`);
+      }
+      if (r.outcome === 'closed') this.draft = null;
+      this.d.sound?.(r.outcome === 'countered' ? 'click' : 'nope');
+      return this.render(true);
+    }
+    if (ds.takecounter) {
+      const r = dip.acceptCounter(ds.takecounter);
+      this.draft = null;
+      this.reply = null;
+      return done(r, r.ok ? 'Signed on their terms' : null);
+    }
+    if (ds.editcounter) {
+      const counter = this.reply?.counter;
+      if (counter) this.draft = { id: ds.editcounter, ...fromOffer(counter) };
+      this.reply = null;
+      return this.render(true);
+    }
+    if (ds.accept) {
+      const r = dip.respond(ds.accept, true);
+      this.hideCard();
+      return done(r, r.ok ? 'Agreed and signed' : null);
+    }
+    if (ds.refuse) {
+      const r = dip.respond(ds.refuse, false);
+      this.hideCard();
+      return done(r, r.ok ? 'You turned it down' : null);
+    }
+    if (ds.counterTheir) {
+      const o = dip.rel(ds.counterTheir).offer;
+      if (o) this.draft = { id: ds.counterTheir, ...fromOffer(o) };
+      this.reply = null;
+      return this.render(true);
+    }
+    if (ds.gift) {
+      const r = dip.gift(ds.gift, Number(ds.amount));
+      return done(r, r.ok ? 'Gift sent. They think better of you' : null);
+    }
+    if (ds.endalliance) return done(dip.endAlliance(ds.endalliance), 'The alliance is over');
+    if (ds.war) {
+      if (this.sureWar !== ds.war) {
+        this.sureWar = ds.war;
+        setTimeout(() => {
+          if (this.sureWar === ds.war) {
+            this.sureWar = null;
+            this.render(true);
+          }
+        }, 4000);
+        return this.render(true);
+      }
+      this.sureWar = null;
+      const r = dip.declareWar(ds.war, 'you');
+      this.d.sound?.('warning');
+      return done(r, r.ok ? (r.broken ? 'War declared. Breaking your word has cost you trust everywhere' : 'War declared. Their raids may come soon') : null);
+    }
+  }
+
+  // ---- The card: their proposal, or their declaration of war -------------------------------
+
+  showEvent(ev) {
+    const dip = this.dip;
+    const c = dip.town(ev.id);
+    if (!c) return;
+    const L = dip.leader(c);
+    let html = '';
+    if (ev.kind === 'war' && ev.by === 'them') {
+      html = `<h2>⚔ ${esc(c.entry.name)} declares war</h2>
+        <p>${esc(L.title)} ${esc(L.name)} has declared war on your town${ev.broken ? ', breaking your treaty' : ''}. Their raids may come in a few hours. Get your base ready, or try to talk them round.</p>
+        <div class="dp-row"><button type="button" class="primary-btn" data-card-base="${esc(ev.id)}">Open the base</button><button type="button" class="pill" data-card-talk="${esc(ev.id)}">Diplomacy</button><button type="button" class="pill" data-card-close>Later</button></div>`;
+    } else if (ev.kind === 'offer') {
+      const o = ev.offer;
+      const terms = dip.termsText(o, c.entry.name);
+      html = `<h2>${o.surrender ? '⚑ ' : '✉ '}${esc(c.entry.name)} ${o.surrender ? 'demands your surrender' : `proposes a ${esc(KIND_LABEL[o.kind].toLowerCase())}`}</h2>
+        <p>${esc(L.title)} ${esc(L.name)}: ${terms ? esc(terms[0].toUpperCase() + terms.slice(1)) + '.' : 'no other terms.'}</p>
+        <p class="dp-small">The proposal stands for a day.</p>
+        <div class="dp-row"><button type="button" class="primary-btn" data-card-accept="${esc(ev.id)}">Accept</button><button type="button" class="pill" data-card-talk="${esc(ev.id)}">Counter…</button><button type="button" class="pill" data-card-refuse="${esc(ev.id)}">Turn down</button><button type="button" class="pill" data-card-close>Later</button></div>`;
+    } else return;
+    this.card.innerHTML = html;
+    this.card.hidden = false;
+  }
+
+  hideCard() {
+    this.card.hidden = true;
+  }
+
+  onCardClick(e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const ds = b.dataset;
+    const dip = this.dip;
+    if (ds.cardClose != null) return this.hideCard();
+    if (ds.cardBase) {
+      this.hideCard();
+      return this.d.openBase?.(ds.cardBase);
+    }
+    if (ds.cardTalk) {
+      this.hideCard();
+      const o = dip.rel(ds.cardTalk).offer;
+      this.toggle(true, ds.cardTalk);
+      if (o) {
+        this.draft = { id: ds.cardTalk, ...fromOffer(o) };
+        this.render(true);
+      }
+      return;
+    }
+    if (ds.cardAccept || ds.cardRefuse) {
+      const id = ds.cardAccept || ds.cardRefuse;
+      const r = dip.respond(id, !!ds.cardAccept);
+      this.hideCard();
+      if (r.error) this.d.toast(r.error, 3000);
+      else this.d.toast(ds.cardAccept ? 'Agreed and signed' : 'You turned it down', 2600);
+      if (this.open) this.render(true);
+    }
+  }
+}
+
+return { trustWord, reputationWord, DiplomacySheet };
+})();
+
 // ---- main.js ----
 const __mod_main = (() => {
 // Wiring: creates each system, connects input to state, and runs the frame loop.
@@ -23348,6 +24562,8 @@ const { World } = __mod_world;
 const { WorldPanel } = __mod_worldUI;
 const { WarRoom } = __mod_warRoom;
 const { MilitaryScreen, inDays } = __mod_militaryUI;
+const { DiplomacySheet } = __mod_diplomacyUI;
+const { KIND_LABEL } = __mod_diplomacy;
 const { crosswalkMask, footArms } = __mod_sidewalks;
 const { hash2 } = __mod_utils;
 const { mixHex } = __mod_color;
@@ -24464,10 +25680,13 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       showTown(world.byId(id), { immediate: true });
       open3D();
     },
+    onDiplomacy: (id) => diplomacySheet.toggle(true, id),
+    stance: (id) => warRoom.diplomacy.stance(id),
     onOpen: () => {
       ui.toggleMore(false);
       cityPanel.toggle(false);
       lifeUI.toggle(false);
+      diplomacySheet.toggle(false);
       ui.closeTray();
     },
   });
@@ -24494,10 +25713,40 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       worldPanel.toggle(false);
+      diplomacySheet.toggle(false);
       ui.closeTray();
       stopFollow();
     },
+    openDiplomacy: (id) => {
+      militaryScreen.close();
+      diplomacySheet.toggle(true, id);
+    },
   });
+  // Diplomacy (diplomacy.js, diplomacyUI.js): war, peace and treaties with the computer's mayors.
+  const diplomacySheet = new DiplomacySheet({
+    diplomacy: () => warRoom.diplomacy,
+    toast: (msg, ms) => ui.toast(msg, ms),
+    sound: (name) => audio.play(SOUND_FOR[name] || 'click'),
+    onOpen: () => {
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      worldPanel.toggle(false);
+      ui.closeTray();
+      if (militaryScreen.open && !warRoom.busy) militaryScreen.close();
+    },
+    openBase: () => militaryScreen.show(),
+  });
+  warRoom.diplomacy.onEvent = (ev) => {
+    if ((ev.kind === 'war' && ev.by === 'them') || ev.kind === 'offer') {
+      diplomacySheet.showEvent(ev);
+      audio.play(ev.kind === 'war' ? 'warning' : 'chime');
+    } else if (ev.kind === 'expired') {
+      const c = world.byId(ev.id);
+      ui.toast(`The ${KIND_LABEL[ev.treaty.kind].toLowerCase()} with ${c?.entry.name || 'your neighbour'} has come to an end`, 4000);
+    }
+    diplomacySheet.tick();
+  };
   function syncBaseButton() {
     const coming = warRoom.coming();
     const badge = baseBtn.querySelector('.badge');
@@ -24678,6 +25927,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       worldPanel.tick();
       decisionCard.tick();
       syncBaseButton();
+      diplomacySheet.tick();
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -24732,7 +25982,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.
