@@ -852,6 +852,14 @@ class View3D {
   bindInput() {
     const c = this.canvas;
     c.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Phones can take the GPU away from a page in the background. Keep the context restorable, and
+    // rebuild the town's meshes when it comes back.
+    c.addEventListener('webglcontextlost', (e) => e.preventDefault());
+    c.addEventListener('webglcontextrestored', () => {
+      for (const [key, ch] of this.chunks) this.dropChunk(key, ch);
+      this.signs.key = '';
+      this.syncTimer = 0;
+    });
     c.addEventListener('pointerdown', (e) => {
       c.setPointerCapture?.(e.pointerId);
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t0: performance.now(), button: e.button, shift: e.shiftKey || e.ctrlKey || e.metaKey });
@@ -898,6 +906,8 @@ class View3D {
       'wheel',
       (e) => {
         e.preventDefault();
+        // A sideways swipe on a trackpad turns the view; scrolling and pinching zoom.
+        if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY)) return this.rig.rotate(-e.deltaX * 0.004, 0);
         const k = e.ctrlKey ? 0.012 : e.deltaMode === 1 ? 0.05 : 0.0015;
         this.rig.zoom(Math.exp(Math.max(-0.6, Math.min(0.6, e.deltaY * k))));
       },

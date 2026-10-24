@@ -11,10 +11,18 @@ const MAX_CARS = 90;
 const WHITE = new THREE.Color(1, 1, 1);
 const MOOD = { good: '#7fc4ad', caution: '#ffcf6e', bad: '#ff8f7e' };
 
-// A unit box whose top is at the origin, so it hangs from a hip or shoulder and swings from there.
+// A rounded limb whose top is at the origin, so it hangs from a hip or shoulder and swings from there.
 function hanging(w, h, d) {
-  const g = new THREE.BoxGeometry(w, h, d);
+  const g = new THREE.CylinderGeometry(w / 2, (w / 2) * 0.85, h, 6);
   g.translate(0, -h / 2, 0);
+  g.scale(1, 1, d / w);
+  return g;
+}
+
+// A torso: wider at the shoulders than the waist, flattened front to back (people face +x).
+function torsoGeometry() {
+  const g = new THREE.CylinderGeometry(0.024, 0.019, 0.05, 8);
+  g.scale(0.68, 1, 1);
   return g;
 }
 
@@ -31,7 +39,7 @@ export class People3D {
       scene.add(m);
       return m;
     };
-    this.torso = make(new THREE.BoxGeometry(0.03, 0.05, 0.044));
+    this.torso = make(torsoGeometry());
     this.head = make(new THREE.IcosahedronGeometry(0.02, 1));
     this.hair = make(new THREE.SphereGeometry(0.0215, 8, 4, 0, Math.PI * 2, 0, Math.PI * 0.55));
     this.hat = make(hatGeometry());

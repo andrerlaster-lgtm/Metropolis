@@ -41,6 +41,22 @@ export function faceQuad(md, face, b, u0, u1, v0, v1, e, color) {
 
 const faceWidth = (b, face) => (face % 2 === 0 ? b.x1 - b.x0 : b.z1 - b.z0);
 
+// A point on a wall, in the building's frame: u across the face (0..1), height y, `out` in front of it.
+function onFace(b, face, u, y, out) {
+  const L = (a, c) => a + (c - a) * u;
+  if (face === 0) return [L(b.x0, b.x1), y, b.z1 + out];
+  if (face === 2) return [L(b.x1, b.x0), y, b.z0 - out];
+  if (face === 1) return [b.x1 + out, y, L(b.z1, b.z0)];
+  return [b.x0 - out, y, L(b.z0, b.z1)];
+}
+
+// A window sill: a ledge under the window that stands out from the wall.
+function sill(md, b, face, u0, u1, y, color) {
+  const e = 0.016;
+  md.quad(onFace(b, face, u0, y, e), onFace(b, face, u1, y, e), onFace(b, face, u1, y, 0), onFace(b, face, u0, y, 0), color);
+  md.quad(onFace(b, face, u0, y - 0.01, e), onFace(b, face, u1, y - 0.01, e), onFace(b, face, u1, y, e), onFace(b, face, u0, y, e), color);
+}
+
 // Rows of framed windows on the given faces, one row per storey from y0. Some windows light up at
 // night, more of them the fuller the building is.
 function windows(o, b, faces, y0, floors, ctx, { floorH = FLOOR, spacing = 0.15, w = 0.5, h = 0.48, frame, skipDoor = false, seed = 0, band = false }) {
@@ -63,6 +79,7 @@ function windows(o, b, faces, y0, floors, ctx, { floorH = FLOOR, spacing = 0.15,
         const cu = (c + 0.5) / cols;
         const hw = (w / cols) * 0.5;
         faceQuad(o.solid, face, b, cu - hw - 0.012 / width, cu + hw + 0.012 / width, yb - 0.012, yt + 0.012, 0.002, trim);
+        sill(o.solid, b, face, cu - hw - 0.02 / width, cu + hw + 0.02 / width, yb - 0.012, trim);
         const litW = ctx.hash(seed * 13 + c, f * 7 + face, 5) < ctx.occupancy;
         faceQuad(litW ? o.lit : o.glass, face, b, cu - hw, cu + hw, yb, yt, 0.004, linear(GLASS));
       }
@@ -161,6 +178,12 @@ function house(o, t, s, ctx) {
     o.solid.gable(e.x0, e.z0, e.x1, e.z1, 0.22, 0.12, linear(roof), linear(wall), { alongZ: true, o: 0.02 });
     windows(o, e, [0], 0.03, 1, ctx, { frame: v.trim, w: 0.5, seed: 4, floorH: 0.19 });
   }
+  if ((s.shape || 0) % 2 === 1) {
+    // A porch over the front door: two posts and a little roof.
+    const pc = linear(v.trim);
+    for (const x of [-0.1, 0.1]) o.solid.box(x - 0.008, 0, b.z1 + 0.075, x + 0.008, 0.19, b.z1 + 0.091, pc);
+    o.solid.box(-0.13, 0.19, b.z1, 0.13, 0.205, b.z1 + 0.1, linear(roof));
+  }
   frontPath(o, b, ctx);
 }
 
@@ -201,8 +224,14 @@ function apartments(o, t, s, ctx) {
       o.solid.box(u - 0.08, y + 0.012, b.z1 + 0.052, u + 0.08, y + 0.06, b.z1 + 0.06, linear(v.roof), { top: false });
     }
   }
-  flatRoof(o, b, top, ctx, { color: v.trim });
-  o.solid.box(-0.18, top, -0.12, 0.02, top + 0.1, 0.05, linear(v.wall));
+  if ((s.shape || 0) >= 2) {
+    // Some blocks have a hipped roof instead of a flat one.
+    o.solid.box(b.x0 - 0.012, top, b.z0 - 0.012, b.x1 + 0.012, top + 0.02, b.z1 + 0.012, linear(v.trim), { ao: 1 });
+    o.solid.hip(b.x0, b.z0, b.x1, b.z1, top + 0.02, 0.16, linear(ctx.roofHex(v.roof)), { o: 0.02 });
+  } else {
+    flatRoof(o, b, top, ctx, { color: v.trim });
+    o.solid.box(-0.18, top, -0.12, 0.02, top + 0.1, 0.05, linear(v.wall));
+  }
   // Entrance canopy.
   o.solid.box(-0.12, 0.19, b.z1, 0.12, 0.21, b.z1 + 0.08, linear(v.roof));
 }

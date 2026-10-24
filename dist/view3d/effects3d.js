@@ -77,6 +77,7 @@ export class Effects3D {
     if (this.floodSrc !== a.flooded) {
       if (this.flood) {
         this.scene.remove(this.flood);
+        this.flood.geometry.dispose();
         this.flood.dispose();
       }
       const geo = new THREE.PlaneGeometry(0.98, 0.98).rotateX(-Math.PI / 2);
