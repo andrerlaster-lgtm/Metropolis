@@ -2,7 +2,7 @@
 // Each module keeps its own scope; imports become destructured reads of the module's exports.
 // Usage: node build.mjs (or npm run build)
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -79,4 +79,16 @@ ${page}</body>
 </html>
 `;
 writeFileSync(join(root, 'dist', 'index.html'), standalone);
+
+// The 3D view and Three.js load on demand from dist/view3d/, only when someone opens the 3D view.
+// They are real ES modules, copied as they are (Three.js is vendored unmodified, MIT licence alongside).
+const view3dSrc = join(src, 'view3d');
+const view3dOut = join(root, 'dist', 'view3d');
+rmSync(view3dOut, { recursive: true, force: true });
+cpSync(view3dSrc, view3dOut, { recursive: true });
+const view3dKB = readdirSync(view3dOut, { recursive: true })
+  .map((f) => join(view3dOut, f))
+  .filter((f) => statSync(f).isFile())
+  .reduce((n, f) => n + statSync(f).size, 0) / 1024;
 console.log(`Bundled ${order.length} modules: ${order.join(' → ')} (${(out.length / 1024).toFixed(1)} KB)`);
+console.log(`3D view: dist/view3d/ (${view3dKB.toFixed(1)} KB, loaded only when opened)`);

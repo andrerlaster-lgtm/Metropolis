@@ -1,9 +1,9 @@
 // Wiring: creates each system, connects input to state, and runs the frame loop.
 
-import { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES } from './config.js';
+import { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES, PALETTE } from './config.js';
 import { CityState } from './state.js';
 import { Simulation } from './simulation.js';
-import { Renderer } from './renderer.js';
+import { Renderer, growthOf } from './renderer.js';
 import { Camera } from './camera.js';
 import { InputController, typingTarget } from './input.js';
 import { AutoSaver, readSlot, saveCity, activeSlot, setActiveSlot, deleteSlot, isLocked, firstEmptySlot, isVisiting, saveVisit, loadVisit, endVisit, rescueLegacyBackup } from './persistence.js';
@@ -23,7 +23,7 @@ import { summaryOf } from './life.js';
 import { money } from './economy.js';
 import { fullName } from './notables.js';
 import { notableBadge } from './notablesUI.js';
-import { addressOf } from './streets.js';
+import { addressOf, shortName } from './streets.js';
 import { CityPanel } from './cityUI.js';
 import { unlockTier } from './milestones.js';
 import { computeCoverage } from './coverage.js';
@@ -31,7 +31,11 @@ import { recomputeDesirability } from './desirability.js';
 import { worldToGrid, mapBounds, tileRectBounds, gridToWorld } from './iso.js';
 import { History, lPath, tileLine } from './history.js';
 import { Audio } from './audio.js';
-import { daylightAt } from './time.js';
+import { daylightAt, sunHeight } from './time.js';
+import { lightingAt } from './lighting.js';
+import { crosswalkMask, footArms } from './sidewalks.js';
+import { hash2 } from './utils.js';
+import { mixHex } from './color.js';
 
 const MAX_STROKE = 160;
 
@@ -1066,27 +1070,117 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     return { hover: { ...hover, tool, valid }, ghost, overlay, selected, plan, issues };
   }
 
+  // ---- 3D view ----------------------------------------------------------------------
+  // The same town in 3D (src/view3d/), loaded the first time it's opened. It only reads the game:
+  // the simulation keeps running and saving, and the builder is just as it was on the way back.
+  let view3d = null;
+  let loading3d = null;
+  const app = document.getElementById('app');
+  const btn3d = document.getElementById('btn-3d');
+  const in3D = () => !!view3d?.active;
+  // Relative to this page in the built game (dist/view3d/), and to src/ when run from source.
+  let module3d = null;
+  const load3d = () => (module3d ||= import('./view3d/view3d.js').catch((err) => ((module3d = null), Promise.reject(err))));
+  async function open3D() {
+    if (in3D()) return;
+    if (!loading3d) {
+      ui.toast('Opening the 3D view…', 1400);
+      loading3d = load3d()
+        .then((m) =>
+          m.createView3D({
+            city,
+            agents: sim.agents,
+            renderer,
+            STRUCTURES,
+            PALETTE,
+            growthOf,
+            lightingAt,
+            sunHeight,
+            crosswalkMask,
+            footArms,
+            shortName,
+            hash2,
+            mixHex,
+            lifeChar: () => sim.life.char,
+            isPaused: () => sim.speed === 0,
+            nameOf: (w) => (w.townId ? sim.townsfolk.byId(w.townId)?.first : null),
+            isTyping: typingTarget,
+            toast: (msg, ms) => ui.toast(msg, ms),
+            mount: (el) => canvas.after(el),
+            mountHud: (...els) => app.append(...els),
+            onExit: () => close3D(),
+            onPick: (x, y) => {
+              selected = { x, y };
+              ui.inspect(city, selected);
+              audio.play('click');
+            },
+          })
+        )
+        .catch((err) => {
+          console.warn('3D view failed to load', err);
+          return null;
+        });
+    }
+    const v = await loading3d;
+    if (!v) {
+      loading3d = null;
+      return ui.toast('The 3D view can’t run in this browser', 3000);
+    }
+    view3d = v;
+    ui.closeTray();
+    const g = worldToGrid(camera.x, camera.y);
+    const followHero = following;
+    if (following) stopFollow();
+    app.classList.add('mode-3d');
+    canvas.style.visibility = 'hidden';
+    btn3d.setAttribute('aria-pressed', 'true');
+    view3d.enter({ x: g.gx, z: g.gy, dist: Math.min(22, Math.max(3, 15 / camera.zoom)), follow: followHero ? 'hero' : null });
+  }
+  function close3D() {
+    if (!in3D()) return;
+    const f = view3d.exit();
+    app.classList.remove('mode-3d');
+    canvas.style.visibility = '';
+    btn3d.setAttribute('aria-pressed', 'false');
+    const w = gridToWorld(f.x, f.z);
+    camera.tx = w.x;
+    camera.ty = w.y;
+    camera.tzoom = Math.min(camera.maxZoom, Math.max(camera.minZoom, 15 / f.dist));
+    camera.clampTarget();
+  }
+  btn3d.addEventListener('click', () => (in3D() ? close3D() : open3D()));
+  // Start fetching the 3D code as soon as the pointer heads for the button.
+  for (const ev of ['pointerenter', 'focus', 'touchstart']) btn3d.addEventListener(ev, () => load3d().catch(() => {}), { passive: true });
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyG' || in3D() || e.metaKey || e.ctrlKey || e.altKey || typingTarget(e.target)) return;
+    e.preventDefault();
+    open3D();
+  });
+
   let last = performance.now();
   let uiTimer = 0;
   function frame(now) {
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // the first frame can be stamped before `last`
     last = now;
     sim.update(dt);
-    input.edgeScroll(dt);
-    input.keyPan(dt);
-    if (following) {
-      const f = followTarget();
-      if (f) {
-        const w = gridToWorld(f.gx, f.gy);
-        camera.tx = w.x;
-        camera.ty = w.y - 10;
-        camera.clampTarget();
+    if (in3D()) view3d.frame(dt);
+    else {
+      input.edgeScroll(dt);
+      input.keyPan(dt);
+      if (following) {
+        const f = followTarget();
+        if (f) {
+          const w = gridToWorld(f.gx, f.gy);
+          camera.tx = w.x;
+          camera.ty = w.y - 10;
+          camera.clampTarget();
+        }
       }
+      camera.update(dt);
+      renderer.render(dt, viewState());
+      minimap.render();
     }
-    camera.update(dt);
     audio.ambient(dt, { daylight: daylightAt(city.clock), rain: city.derived.weather?.rain || 0 });
-    renderer.render(dt, viewState());
-    minimap.render();
     saver.tick(dt);
     uiTimer -= dt;
     if (uiTimer <= 0) {
@@ -1149,7 +1243,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

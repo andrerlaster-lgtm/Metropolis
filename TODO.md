@@ -114,3 +114,16 @@ From [isometric-city](https://github.com/uxcaleb/isometric-city) (originally ami
 - [ ] Move the code to `andrerlaster-lgtm/Metropolis` and link it to Vercel so every push redeploys (until then each deploy is started by hand)
 - [ ] Test pinch and long-press on a real phone
 - [x] Run `npm test` and the build on every pull request with GitHub Actions (`.github/workflows/ci.yml`)
+
+## 3D view and living streets: what's next
+
+Done: the 3D view (orbit, street level, follow, quality settings, touch controls), models for every structure, sidewalks and zebra crossings in both views, destination-based walkers, cars and people giving way at crossings, weather, smoke and disasters in 3D.
+
+Not verified yet: frame rates on real devices. The headless browser used for testing has no graphics card, so only the JavaScript side was measured (about 4 ms a frame on a 40×40 town while the software renderer shares the CPU; chunk rebuilds ~1.4 ms in Node). Try it on a Mac and a phone with Quality on Auto.
+
+Ideas, roughly in order:
+- Street-name signs at junctions in 3D (the overhead view already names streets).
+- Bus stops and benches along long streets, out of the walking line.
+- Free CC0 models (Kenney city kits, Open Source 3D Assets) for street furniture or vehicles, shrunk with glTF-Transform the way Bellemorne did (Studio technique T7). The procedural models match the overhead view's style, so only where a model is clearly better.
+- Building from the 3D view (place and bulldoze with the street-level camera).
+- Level of detail for very large maps: simpler far chunks, fewer windows far away.
