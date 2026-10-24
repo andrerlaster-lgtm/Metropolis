@@ -12,6 +12,7 @@ import { buildStructure } from './models.js';
 import { buildGround, WATER_Y } from './ground.js';
 import { CameraRig, DIST_MIN, DIST_MAX } from './rig.js';
 import { People3D, Cars3D } from './agents3d.js';
+import { Effects3D } from './effects3d.js';
 
 const CHUNK = 8;
 const QUALITY = {
@@ -98,6 +99,7 @@ class View3D {
     this.people = new People3D(scene);
     this.cars = new Cars3D(scene);
     this.weather = this.makeWeather();
+    this.effects = new Effects3D(scene);
 
     this.rig = new CameraRig();
     this.rig.blocked = (x, z) => this.blocked(x, z);
@@ -728,6 +730,7 @@ class View3D {
     this.people.update(agents.walkers, this.time, { wet: Math.max(w.rain || 0, w.snow || 0), softShadows: !QUALITY[this.level].shadows, paused: this.deps.isPaused() });
     this.updateSmoke(focus);
     this.updateClouds(w, L);
+    this.effects.update(this.city, this, cam, this.time);
     this.cars.update(agents, { night: L.lamps });
     for (const c of this.chunks.values()) for (const m of c.meshes) if (m.material === this.mats.water) m.position.y = Math.sin(this.time * 1.3) * 0.004;
     this.updateWeather(w, focus, span);

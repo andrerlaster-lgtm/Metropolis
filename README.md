@@ -6,6 +6,8 @@ A relaxing isometric tiny-city builder. You plan the city; residents decide for 
 
 - **Grow from a seed:** a new town can start as a little crossroads with a few cottages in 1850 and grow by itself (see *Growing through the eras* below). The first visit starts this way
 - **Main person and generations:** you start by creating your main person. Follow them on the map, and when they die the story carries on with their child (or a niece or nephew), generation after generation
+- **3D view:** the 3D button (or G) shows the same town in 3D. Orbit around it, walk the streets at eye level, or follow your main person or any resident you tap. Lighting follows the clock and weather, with shadows, lit windows, smoke, rain, snow and disasters. The game keeps running and saving underneath, and the builder is just as you left it when you go back (see *3D view* below)
+- **Living streets:** people walk on the sidewalks, cross at zebra crossings (cars wait for them, and they wait for cars), cut through parks, and go in and out of buildings by the door. They head somewhere that suits the hour: work, school, the shops, a café, the park or a friend's house. Everyone looks a little different: height, clothes, hair, the odd hat, umbrellas in the rain
 - **Town decisions** every couple of in-game days, with good and bad effects on how the town grows
 - **Three save slots** (☰ → Save slots…): keep three towns, start a new town with a new main person in an empty slot, copy or delete, **export** a town as a file and **import** one back (to keep a copy, or move a town to another device; a file from a newer version or that isn't a town is turned away, and replacing a town asks twice). Opening Save slots also asks the browser to keep saves when space runs low. If a save fails (browser storage full or blocked), the game says so straight away, again every couple of minutes while it lasts, and once it works again; Save slots shows the warning too, and exporting the town you're playing takes it straight from memory, so the file has everything. A save that can't be read (damaged, or written by a newer version of the game) is never saved over: the game starts in an empty slot, says what happened and keeps a recovery copy. Only deleting the slot, starting a new town there or saving a copy over it replaces it. With the game open in two tabs, only one plays and saves; the other is paused with a **Play here instead** button, which has the first tab save and step aside, so tabs never save over each other
 
@@ -146,6 +148,22 @@ Events are plain data in `src/lifeEvents.js` and `src/lifeEventsMore.js` (78 in 
 | Jump around the map | Click or drag on the minimap | Tap or drag on the minimap |
 | New town (sandbox, map size, empty land) | New town button | ☰ → New town… |
 | Milestones and resident wishes | Click the stats bubble, or a thought bubble | Tap the stats bubble, or a thought bubble |
+| 3D view on / off | G, or the 3D button; G or Esc (from Orbit) goes back to the builder | 3D button; ‹ Builder to go back |
+| 3D: look around | Drag (Orbit: rotate; Street: look) · Q / E turn · R / F tilt | Drag with one finger; twist two fingers to turn |
+| 3D: move | WASD or arrow keys (Shift for faster), right-drag to slide the view | Two fingers to slide and pinch to zoom; at street level, the pad bottom right walks |
+| 3D: zoom | Scroll wheel, pinch on a trackpad, + / − | Pinch |
+| 3D: camera | 1 Orbit · 2 Street · 3 Follow (your main person, or someone nearby). Click someone to follow them, click a building to inspect it. WASD while following steps off and walks yourself | Buttons at the bottom; tap someone to follow them |
+
+## 3D view
+
+The 3D button opens the same town in 3D. It only reads the game: the simulation, autosave, Life Story and everything else keep running, and going back to the builder puts its camera where you were looking. You can't build in 3D; it's for looking around.
+
+- **Orbit** circles a point on the ground. **Street** puts you at eye height on the nearest sidewalk; you can walk anywhere except into buildings. **Follow** rides along behind your main person (or, without one, someone nearby). Tap anyone to follow them instead; when they go indoors, the camera picks up someone else walking nearby.
+- Everything is built from the town's own data in the overhead view's colours: every building type has a model (with the same growth stages, storeys and colourways), roads have raised sidewalks, kerbs, lane markings and the same zebra crossings and street lamps the overhead view draws, and the older eras get dirt lanes, cobbles, gas lamps and horse carts.
+- Light follows the clock and weather: the sun crosses the sky and casts shadows, windows light up at night and street lamps glow (the nearest few cast real light), and there's fog, rain, snow, clouds and chimney smoke. Floods, fires and tornadoes show up as they do in the builder.
+- **Quality** (the button by the camera modes): Auto starts at High on computers and Medium on phones and drops a level if frames stay slow; Low turns shadows and lamp lights off. The choice is remembered on this device (`pocket-metropolis:view3d` in localStorage, apart from saves).
+
+How it's built: `src/view3d/` holds the 3D code and a copy of Three.js. The build copies it to `dist/view3d/`, and the page loads it only when the 3D view is first opened (it starts fetching when the pointer reaches the 3D button), so the game itself loads no slower. The town is cut into 8×8-tile chunks; each chunk is a few merged meshes rebuilt only when something in it changes (at most one per frame). People and cars are instanced, so a whole crowd costs a handful of draw calls. If the browser can't do WebGL, the game says so and stays in the builder.
 
 ## Townsfolk
 
@@ -170,6 +188,8 @@ Each system lives in its own module under `src/` and talks to the others only th
 | Life Story | `life.js`, `lifeEngine.js`, `lifeEvents.js`, `lifeEventsMore.js`, `lifeActivities.js`, `lifeAchievements.js`, `lifeData.js`, `lifeUI.js` | One resident's life: aging, yearly stats, home and job tied to real tiles, the event engine and content, and the panel and event card. Saved in `city.systems.life`. |
 | Simulation | `simulation.js`, `desirability.js`, `labor.js`, `coverage.js`, `agents.js`, `time.js` | Fixed-step ticks: time of day, service coverage and quality (`coverage.js`; derived, in `city.derived.serviceRatings` and `serviceStats`), the labor market and road congestion, desirability, residents moving in and out, stats. Agents (commuters, cruising cars, pedestrians) read the city and move through it. |
 | Renderer | `renderer.js`, `lighting.js`, `color.js`, `iso.js` | Reads state and draws the diorama. The ground layer is cached offscreen and redrawn only when the map changes; buildings and agents are depth-sorted and drawn each frame for on-screen tiles only. Also draws the data overlays. |
+| Sidewalks | `sidewalks.js` | The pedestrian network: sidewalks along road edges, zebra crossings (at junctions and every few tiles along long streets), parks and open ground. Buildings are only ever a start or an end. Routes (Dijkstra) for every walker; rebuilt when the map changes. Both views draw its crossings. |
+| 3D view | `view3d/view3d.js`, `view3d/models.js`, `view3d/ground.js`, `view3d/mesh.js`, `view3d/rig.js`, `view3d/agents3d.js`, `view3d/effects3d.js`, `view3d/vendor/` | Loaded on demand. Scene, lighting, chunks and controls; a model for every structure; ground, roads and sidewalks; the geometry builder; the orbit, street and follow cameras; instanced people and cars; disasters. `models.js`, `ground.js`, `mesh.js` and `rig.js` don't use Three.js and are tested in Node. |
 | Input/Camera | `input.js`, `camera.js` | Pointer, wheel, trackpad and pinch gestures; keyboard camera (arrows/WASD); smooth pan and zoom; fitting to the screen. |
 | Persistence | `persistence.js` | Versioned localStorage saves with a migration table; autosave. |
 | Weather | `weather.js` | Seasons from the day count; weather spells with seasonal odds; smoothed rain, snow, fog and snow cover for the renderer and agents. |
@@ -196,7 +216,9 @@ npm test   # node --test, no dependencies
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the tests and the build on every pull request, on Node 24.
 
-The tests cover the seed, calendar and eras (people and years, hurrying, older towns), growth (a seed becoming a town, era limits, kept street gaps, off means off), decisions (effects, lapsing), heirs and family over a life, three save slots, townsfolk (the cast following the population, the daily schedule, friendships and news, unmet needs as resident wishes, notables and bulldozed homes, saving), the budget (costs, taxes, upkeep, undo refunds, no debt), notable people, the new buildings, share links, trends, colour-blind colours, street names and addresses, the labor market, road reachability, service and play coverage, service quality (load, sharing, gradual drift, not saved, the advisor and growth responding), town reputation (greenery, care, services, gradual drift, saving, old saves, its effects), milestones and unlocks, resident thoughts, save migration, town generation, pausing, and Life Story (aging, events, jobs and homes from the city, bulldozed homes, activities, buying a home, neighbours, achievements and ribbons, the character's walker, whole lives start to finish, saving).
+The tests cover the seed, calendar and eras (people and years, hurrying, older towns), growth (a seed becoming a town, era limits, kept street gaps, off means off), decisions (effects, lapsing), heirs and family over a life, three save slots, townsfolk (the cast following the population, the daily schedule, friendships and news, unmet needs as resident wishes, notables and bulldozed homes, saving), the budget (costs, taxes, upkeep, undo refunds, no debt), notable people, the new buildings, share links, trends, colour-blind colours, street names and addresses, the labor market, road reachability, service and play coverage, service quality (load, sharing, gradual drift, not saved, the advisor and growth responding), town reputation (greenery, care, services, gradual drift, saving, old saves, its effects), milestones and unlocks, resident thoughts, save migration, town generation, pausing, and Life Story (aging, events, jobs and homes from the city, bulldozed homes, activities, buying a home, neighbours, achievements and ribbons, the character's walker, whole lives start to finish, saving), sidewalks (routes never pass through a building or leave the sidewalk except at a crossing, most crossings are zebras, the network follows map changes, walkers stay on it all day and never change the town), and the 3D view (a model for every structure type, finite geometry that stays on its tile, outward-facing shapes in every rotation, the ground with sidewalks and lamps, and a camera that never goes NaN, can't walk into buildings and finishes its moves).
+
+The 3D view itself needs a browser: `.claude/skills/run-metropolis` drives the game in headless Chromium.
 
 ### Extending it
 
@@ -207,6 +229,8 @@ The tests cover the seed, calendar and eras (people and years, hurrying, older t
 - **New saved data**: store it under `city.systems.<name>`, bump `SAVE_VERSION` and add a `MIGRATIONS[n]` step.
 
 ## Credits
+
+The 3D view draws with [Three.js](https://threejs.org) r169 by the three.js authors (MIT). `src/view3d/vendor/three.module.min.js` is the unmodified `three@0.169.0` build from npm, with its licence in `src/view3d/vendor/LICENSE`. The approach (an optional 3D view that reads the same game state, falls back when WebGL is missing, instances crowds and gives only the nearest lamps real light) follows Bellemorne's 3D view from the LasterLab Studio toolbox; no code was copied.
 
 Sound effects use a sample generator adapted from [ZzFX](https://github.com/KilledByAPixel/ZzFX) by Frank Force (MIT).
 
