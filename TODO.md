@@ -137,9 +137,15 @@ Phase 1 (done): a playable base and battle, integrated with the two-town world.
 - [x] Computer raids (`warRoom.js`): its own funded army, counters to your defences, warning ahead, world pauses, consequences for both towns (casualties, damage, loot, protection), town history
 - [x] The base and battle screens with the 3D field (`militaryUI.js`, `view3d/battle3d.js`), phone layout
 
+Phase 1b (done): attacking the computer.
+
+- [x] The computer builds its own base from its military budget (nests, bunkers and mortars beside the attackers' way, sandbags on it) and posts guards beside its defences, keeping the rest free to raid
+- [x] Attack a neighbour's base from Base → War: you command the attacking squads (left, centre or right of their edge), they defend with guards, reserve, defences and artillery; play it or leave it to your officers
+- [x] Two forward positions on every base, captured by standing on them unopposed; the holder may reinforce there
+- [x] Victory by beating their soldiers and armed defences, routing them, or destroying the command post; withdrawal on broken morale or after five minutes; spoils, protection and rest afterwards
+
 Next slices:
 
-- [ ] Attack the computer's base: its own laid-out base (built by its planner), deployment zones, capturable forward positions, victory by defeating or routing its army
 - [ ] More troop types and specialist abilities with manual triggers; elite units and temporary hires; research and military building upgrades (barracks, hospital, depot); modern-to-futuristic tiers
 - [ ] Supply: production, purchase, depots, battlefield resupply, convoys (play or auto-resolve)
 - [ ] Diplomacy: stances (peace, war declared), personalities that change with events, negotiations with counteroffers, treaties and alliances, trust and reputation, peace terms and recovery protection

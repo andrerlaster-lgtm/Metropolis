@@ -10,9 +10,15 @@
 // multipliers by target tag minus armour, lobbed shells that land where they were aimed, and the
 // computer's waves pulling back to regroup when they've lost most of their number.
 //
+// Either side can be the one you command (`player`): defending your base against the computer's
+// waves, or attacking the computer's base with your squads (it defends itself). The other side, and
+// both sides in auto-resolve, are commanded by the computer.
+//
 // Who wins: the attacker by destroying the command post, or by defeating the defending army (every
-// soldier down and no reserve left) or making it break and run. The defender by holding until every
-// wave is beaten or has withdrawn (morale breaks, or the attack runs out of time and supplies).
+// soldier down, no reserve left and every armed defence fallen) or making it break and run. The
+// defender by holding until every attacker is beaten or has withdrawn (morale breaks, or the attack
+// runs out of time and supplies). Two forward positions in the middle of the field can be captured
+// by standing on them unopposed: the side holding one may send its reinforcements in there.
 
 import { DEFENCES, UNITS, ARTILLERY, SQUAD_SIZE, REINFORCE_COOLDOWN, rankBonus, levelDmg, SURVIVE, SURVIVE_MEDIC } from './militaryData.js';
 import { buildField, nextTile, distanceAt } from './flowfield.js';
@@ -30,14 +36,19 @@ const FX_KEEP = 2.5; // seconds of effects kept for the screen
 const ACCURACY = 0.8;
 const COVER = 0.6; // damage taken next to sandbags, a nest or a bunker
 const THINK = 0.5; // how often the computer commanders think, in seconds
+const CAPTURE_TIME = 6; // seconds standing unopposed on a forward position to take it
+const CAPTURE_R = 1.4;
+const ZONE_CLEAR = 2.5; // no enemy this close for a forward position to be used to reinforce
+const other = (side) => (side === 'att' ? 'def' : 'att');
 
 const dist2 = (ax, ay, bx, by) => (ax - bx) ** 2 + (ay - by) ** 2;
 
 export class Battle {
-  // spec: { seed, name, attacker: { name, morale, waves: [{ at, units: [{ id, type, xp }] }] },
+  // spec: { seed, name, player: 'def' (default) or 'att',
+  //   attacker: { name, morale, budget, waves: [{ at, units: [{ id, type, xp }] }], reserve: [{ id, type, xp }] },
   //   defender: { name, morale, budget, garrison: [{ id, type, xp, x, y }], reserve: [{ id, type, xp }] },
   //   map: { w, h, entryRows, deployRows, rocks: [{ x, y }], structures: [{ id, type, x, y, level, hp, maxHp }] },
-  //   auto: true when the computer commands the defenders too }
+  //   auto: true when the computer commands your side too }
   constructor(spec, restore = null) {
     if (restore) return this.restore(restore);
     this.v = BATTLE_VERSION;
@@ -48,6 +59,7 @@ export class Battle {
     this.result = null;
     this.paused = false;
     this.auto = !!spec.auto;
+    this.player = spec.player === 'att' ? 'att' : 'def';
     this.acc = 0;
     this.nextId = 1;
     this.fxId = 0;
@@ -61,14 +73,16 @@ export class Battle {
     this.morale = { att: clampM(spec.attacker.morale ?? 100), def: clampM(spec.defender.morale ?? 100) };
     this.withdrawing = false;
     this.routing = false;
-    this.budget = spec.defender.budget ?? 0;
-    this.spent = 0;
-    this.artilleryAt = 0; // when the next strike may be called
-    this.reinforceAt = 0;
-    this.waves = spec.attacker.waves.map((w, i) => ({ i, at: w.at, units: w.units.map((u) => ({ ...u })), spawned: false, launch: 0, pulled: false }));
-    this.attTotal = this.waves.reduce((n, w) => n + w.units.length, 0);
+    // Each side's artillery budget, what it has spent, and when it may next strike or send a squad.
+    this.budget = { att: spec.attacker.budget ?? 0, def: spec.defender.budget ?? 0 };
+    this.spent = { att: 0, def: 0 };
+    this.artilleryAt = { att: 0, def: 0 };
+    this.reinforceAt = { att: 0, def: 0 };
+    this.waves = (spec.attacker.waves || []).map((w, i) => ({ i, at: w.at, units: w.units.map((u) => ({ ...u })), spawned: false, launch: 0, pulled: false }));
+    const attReserve = (spec.attacker.reserve || []).slice();
+    this.attTotal = this.waves.reduce((n, w) => n + w.units.length, 0) + attReserve.length;
     // Defenders: the garrison is on the field from the start; the reserve waits in squads.
-    this.squads = [{ id: 'guard', name: 'Garrison', units: [], deployed: true, order: { kind: 'hold' } }];
+    this.squads = [{ id: 'guard', side: 'def', name: 'Garrison', units: [], deployed: true, order: { kind: 'hold' } }];
     for (const g of spec.defender.garrison) {
       const u = this.addUnit('def', g, g.x, g.y);
       u.squad = 'guard';
@@ -78,16 +92,30 @@ export class Battle {
     const reserve = spec.defender.reserve.slice();
     for (let i = 0; i < reserve.length; i += SQUAD_SIZE) {
       const n = this.squads.length;
-      this.squads.push({ id: `s${n}`, name: `Squad ${n}`, deployed: false, order: { kind: 'rally' }, members: reserve.slice(i, i + SQUAD_SIZE), units: [] });
+      this.squads.push({ id: `s${n}`, side: 'def', name: `Squad ${n}`, deployed: false, order: { kind: 'rally' }, members: reserve.slice(i, i + SQUAD_SIZE), units: [] });
+    }
+    // Attackers you command come as squads too, sent in from the enemy's edge.
+    for (let i = 0, k = 1; i < attReserve.length; i += SQUAD_SIZE, k++) {
+      this.squads.push({ id: `a${k}`, side: 'att', name: `Squad ${k}`, deployed: false, order: { kind: 'advance' }, members: attReserve.slice(i, i + SQUAD_SIZE), units: [] });
     }
     this.defTotal = spec.defender.garrison.length + reserve.length;
     this.hadDefenders = this.defTotal > 0;
-    this.medic = { att: this.waves.some((w) => w.units.some((u) => UNITS[u.type]?.heal)), def: [...spec.defender.garrison, ...reserve].some((u) => UNITS[u.type]?.heal) };
+    this.medic = { att: [...this.waves.flatMap((w) => w.units), ...attReserve].some((u) => UNITS[u.type]?.heal), def: [...spec.defender.garrison, ...reserve].some((u) => UNITS[u.type]?.heal) };
     this.lost = { att: 0, def: 0 };
     this.think = 0;
     this.fields = new Map();
     this.blockRev = 0;
     this.selected = null;
+    this.points = this.makePoints();
+  }
+
+  // Two forward positions across the middle of the field, held by the defender at the start.
+  makePoints() {
+    const { w, h } = this.map;
+    return [0.25, 0.75].map((fx, i) => {
+      const t = this.openNear(Math.floor(w * fx), Math.floor(h * 0.42));
+      return { id: `p${i + 1}`, name: i ? 'East post' : 'West post', x: t.x + 0.5, y: t.y + 0.5, owner: 'def', progress: 0, by: null };
+    });
   }
 
   // ---- Random numbers (mulberry32, with the state kept so a saved battle resumes exactly) ----
@@ -189,38 +217,75 @@ export class Battle {
     return this.units.find((u) => u.id === id) || null;
   }
 
+  // Where a side may send reinforcements in: its own edge (the defender behind the command post; the
+  // attacker at the left, middle or right of the enemy's edge), and any forward position it holds
+  // with no enemy close by.
+  zones(side) {
+    const { w, h } = this.map;
+    const list =
+      side === 'def'
+        ? [{ id: 'base', label: 'Behind the command post', x: this.hq ? this.hq.x + this.hq.w / 2 : w / 2, y: h - 0.8 }]
+        : [
+            { id: 'left', label: 'Left', x: w * 0.2, y: 0.8 },
+            { id: 'centre', label: 'Centre', x: w * 0.5, y: 0.8 },
+            { id: 'right', label: 'Right', x: w * 0.8, y: 0.8 },
+          ];
+    for (const p of this.points) {
+      if (p.owner !== side) continue;
+      const near = this.units.some((u) => u.side !== side && u.alive && !u.gone && dist2(u.x, u.y, p.x, p.y) < ZONE_CLEAR * ZONE_CLEAR);
+      list.push({ id: p.id, label: p.name, x: p.x, y: p.y, forward: true, contested: near });
+    }
+    return list;
+  }
+
   // Why a squad can't be sent in right now, or null.
-  deployError(id) {
+  deployError(id, zone = null) {
     if (this.over) return 'The battle is over';
     const sq = this.squad(id);
     if (!sq) return 'Pick a squad';
     if (sq.deployed) return 'Already in the fight';
-    if (this.routing) return 'Your troops are falling back';
-    const wait = this.reinforceAt - this.t;
+    const side = sq.side || 'def';
+    if (side === 'def' && this.routing) return 'Your troops are falling back';
+    if (side === 'att' && this.withdrawing) return 'The attack is withdrawing';
+    const wait = this.reinforceAt[side] - this.t;
     if (wait > 0) return `Next squad in ${Math.ceil(wait)} s`;
+    if (zone) {
+      const z = this.zones(side).find((q) => q.id === zone);
+      if (!z) return 'You don’t hold that position';
+      if (z.contested) return 'The enemy is too close to that position';
+    }
     return null;
   }
 
-  // Send a reserve squad in from the reinforcement rows.
-  deploy(id) {
-    const err = this.deployError(id);
+  // Send a reserve squad in, at one of its side's zones (see zones()).
+  deploy(id, zone = null) {
+    const err = this.deployError(id, zone);
     if (err) return { error: err };
     const sq = this.squad(id);
+    const side = sq.side || 'def';
     const { w, h } = this.map;
+    const zs = this.zones(side);
+    const sent = this.squads.filter((s) => s.side === side && s.deployed).length;
+    const z = (zone && zs.find((q) => q.id === zone)) || (side === 'def' ? zs[0] : zs[1]);
     const n = sq.members.length;
-    const cx = (this.hq ? this.hq.x + this.hq.w / 2 : w / 2) + (this.squads.filter((s) => s.deployed).length % 2 ? 2.5 : -2.5);
+    const cx = z.id === 'base' ? z.x + (sent % 2 ? 2.5 : -2.5) : z.x;
     sq.members.forEach((m, i) => {
-      const x = Math.max(0.5, Math.min(w - 0.5, cx + (i - (n - 1) / 2) * 0.7 + (this.rand() - 0.5) * 0.2));
-      const y = h - 0.6 - (i % 2) * 0.5;
-      const u = this.addUnit('def', m, x, y);
+      let x = clampTo(cx + (i - (n - 1) / 2) * 0.7 + (this.rand() - 0.5) * 0.2, 0.5, w - 0.5);
+      let y = z.forward ? z.y + ((i % 2) - 0.5) * 0.6 : side === 'def' ? h - 0.6 - (i % 2) * 0.5 : 0.6 + (i % 2) * 0.5;
+      if (this.blocked(Math.floor(x), Math.floor(y))) {
+        const o = this.openNear(Math.floor(x), Math.floor(y));
+        x = o.x + 0.5;
+        y = o.y + 0.5;
+      }
+      const u = this.addUnit(side, m, x, y);
       u.squad = sq.id;
       sq.units.push(u.id);
     });
     sq.deployed = true;
     delete sq.members;
-    this.reinforceAt = this.t + REINFORCE_COOLDOWN;
+    this.reinforceAt[side] = this.t + REINFORCE_COOLDOWN;
     this.setOrder(sq, sq.order);
-    this.addFx({ kind: 'deploy', x: cx, y: h - 1 });
+    this.addFx({ kind: 'deploy', x: cx, y: z.y, side });
     return { ok: true };
   }
 
@@ -249,10 +314,12 @@ export class Battle {
       } else if (order.kind === 'hold') {
         u.mode = 'hold';
         u.anchor = { x: u.x, y: u.y };
+      } else if (order.kind === 'advance') {
+        u.mode = 'advance';
       } else if (order.kind === 'rally') {
         // Fresh squads form a line in front of the command post and hold it.
         const q = this.hq;
-        const k = this.squads.filter((s) => s.deployed).length;
+        const k = this.squads.filter((s) => s.deployed && s.side === 'def').length;
         const cx = (q ? q.x + q.w / 2 : this.map.w / 2) + ((k % 3) - 1) * 3;
         u.mode = 'move';
         u.dest = { x: clampTo(cx + (i - (n - 1) / 2) * 0.7, 0.5, this.map.w - 0.5), y: (q ? q.y : this.map.h - 4) - 2 - (i % 2) * 0.5 };
@@ -261,7 +328,8 @@ export class Battle {
         const q = this.hq;
         const off = (i - (n - 1) / 2) * 0.6;
         u.mode = 'move';
-        u.dest = { x: (q ? q.x + q.w / 2 : this.map.w / 2) + off, y: q ? q.y - 0.6 : this.map.h - 3 };
+        // Defenders regroup by the command post; attackers back by their own edge.
+        u.dest = u.side === 'att' ? { x: clampTo(u.x + off * 0.5, 0.5, this.map.w - 0.5), y: 1.3 + (i % 2) * 0.4 } : { x: (q ? q.x + q.w / 2 : this.map.w / 2) + off, y: q ? q.y - 0.6 : this.map.h - 3 };
         u.then = 'hold';
       } else {
         u.mode = 'charge';
@@ -269,30 +337,30 @@ export class Battle {
     });
   }
 
-  strikeError(x, y) {
+  strikeError(x, y, side = this.player) {
     if (this.over) return 'The battle is over';
     if (!(Number.isFinite(x) && Number.isFinite(y))) return 'Pick a spot';
-    const wait = this.artilleryAt - this.t;
+    const wait = this.artilleryAt[side] - this.t;
     if (wait > 0) return `Artillery is reloading: ${Math.ceil(wait)} s`;
-    if (this.budget - this.spent < ARTILLERY.cost) return `Needs ${ARTILLERY.cost} in the military budget`;
+    if (this.budget[side] - this.spent[side] < ARTILLERY.cost) return `Needs ${ARTILLERY.cost} in the military budget`;
     return null;
   }
 
   // The commander calls in an artillery strike: a few shells land on the spot after a short delay.
-  strike(x, y) {
-    const err = this.strikeError(x, y);
+  strike(x, y, side = this.player) {
+    const err = this.strikeError(x, y, side);
     if (err) return { error: err };
-    this.spent += ARTILLERY.cost;
-    this.artilleryAt = this.t + ARTILLERY.cooldown;
-    this.strikes.push({ x, y, at: this.t + ARTILLERY.delay, left: ARTILLERY.shells });
-    this.addFx({ kind: 'mark', x, y, r: ARTILLERY.radius, life: ARTILLERY.delay + 0.6 });
+    this.spent[side] += ARTILLERY.cost;
+    this.artilleryAt[side] = this.t + ARTILLERY.cooldown;
+    this.strikes.push({ x, y, side, at: this.t + ARTILLERY.delay, left: ARTILLERY.shells });
+    this.addFx({ kind: 'mark', x, y, r: ARTILLERY.radius, life: ARTILLERY.delay + 0.6, side });
     return { ok: true };
   }
 
   // The commander pulls everyone out. The battle is lost, but nobody else falls.
-  retreat() {
+  retreat(side = this.player) {
     if (this.over) return;
-    this.finish('att', 'retreat');
+    this.finish(other(side), 'retreat');
   }
 
   // ---- Time -------------------------------------------------------------------------------
@@ -315,9 +383,11 @@ export class Battle {
     if (this.think <= 0) {
       this.think = THINK;
       this.attackerMind();
-      if (this.auto) this.defenderMind();
+      if (this.auto || this.player !== 'def') this.commanderMind('def');
+      if (this.auto || this.player !== 'att') this.commanderMind('att');
     }
     for (const u of this.units) if (u.alive && !u.gone) this.act(u, dt);
+    this.updatePoints(dt);
     this.separate();
     for (const s of this.structs) if (s.hp > 0 && DEFENCES[s.type].attack) this.turret(s, dt);
     this.flyShells(dt);
@@ -361,26 +431,68 @@ export class Battle {
         for (const u of alive) u.mode = 'retreat';
       }
     }
+    // Squads (yours when you attack) fall back too once the attack has broken.
+    if (this.withdrawing) for (const u of this.units) if (u.side === 'att' && u.alive && !u.gone && u.wave == null) u.mode = 'retreat';
   }
 
-  // The computer commanding the defence (auto-resolve): send squads in as soon as there are
-  // attackers to fight, and call artillery on a crowd.
-  defenderMind() {
-    const foes = this.units.filter((u) => u.side === 'att' && u.alive && !u.gone && u.mode !== 'mass');
-    if (!foes.length) return;
-    const next = this.squads.find((s) => !s.deployed);
-    if (next && !this.deployError(next.id)) this.deploy(next.id);
-    if (!this.strikeError(0, 0)) {
-      let best = null;
-      let most = 2;
-      for (const f of foes) {
-        const n = foes.filter((g) => dist2(f.x, f.y, g.x, g.y) <= ARTILLERY.radius ** 2).length;
-        if (n > most) {
-          most = n;
-          best = f;
-        }
+  // The computer commanding a side's squads: the defence sends squads in as soon as there are
+  // attackers to fight, an attack sends its squads in one after another (spread along the edge, or
+  // at a forward position it holds), and both call artillery on a crowd.
+  commanderMind(side) {
+    const foes = this.units.filter((u) => u.side !== side && u.alive && !u.gone && u.mode !== 'mass');
+    const next = this.squads.find((s) => s.side === side && !s.deployed);
+    if (next && (side === 'att' || foes.length)) {
+      const zs = this.zones(side).filter((z) => !z.contested);
+      const ahead = zs.filter((z) => z.forward);
+      const sent = this.squads.filter((s) => s.side === side && s.deployed).length;
+      const zone = ahead.length ? ahead[sent % ahead.length].id : side === 'att' ? ['centre', 'left', 'right'][sent % 3] : 'base';
+      if (!this.deployError(next.id, zone)) this.deploy(next.id, zone);
+    }
+    if (this.strikeError(0, 0, side)) return;
+    let best = null;
+    let most = 2;
+    for (const f of foes) {
+      const n = foes.filter((g) => dist2(f.x, f.y, g.x, g.y) <= ARTILLERY.radius ** 2).length;
+      if (n > most) {
+        most = n;
+        best = f;
       }
-      if (best) this.strike(best.x, best.y);
+    }
+    // An attack with no crowd to shell goes for the defence that's firing at its troops.
+    if (!best && side === 'att' && this.units.some((u) => u.side === 'att' && u.alive && !u.gone)) {
+      const armed = this.structs.filter((st) => st.hp > 0 && st.type !== 'hq' && DEFENCES[st.type].attack && st.tgt != null);
+      armed.sort((a, b) => b.hp - a.hp);
+      if (armed[0]) best = { x: armed[0].x + armed[0].w / 2, y: armed[0].y + armed[0].h / 2 };
+    }
+    if (best) this.strike(best.x, best.y, side);
+  }
+
+  // Forward positions change hands when one side stands on them unopposed for a few seconds.
+  updatePoints(dt) {
+    for (const p of this.points) {
+      let att = 0;
+      let def = 0;
+      for (const u of this.units) {
+        if (!u.alive || u.gone || dist2(u.x, u.y, p.x, p.y) > CAPTURE_R * CAPTURE_R) continue;
+        if (u.side === 'att') att++;
+        else def++;
+      }
+      const only = att && !def ? 'att' : def && !att ? 'def' : null;
+      if (!only || only === p.owner) {
+        if (only === p.owner) p.progress = Math.max(0, p.progress - dt / CAPTURE_TIME);
+        continue;
+      }
+      if (p.by !== only) p.progress = 0;
+      p.by = only;
+      p.progress += dt / CAPTURE_TIME;
+      if (p.progress >= 1) {
+        p.owner = only;
+        p.progress = 0;
+        p.by = null;
+        this.morale[only] = clampM(this.morale[only] + 4);
+        this.morale[other(only)] = clampM(this.morale[other(only)] - 6);
+        this.addFx({ kind: 'captured', x: p.x, y: p.y, side: only, life: 1.5, name: p.name });
+      }
     }
   }
 
@@ -612,7 +724,8 @@ export class Battle {
       k.at = this.t + 0.35;
       const x = k.x + (this.rand() - 0.5) * ARTILLERY.spread * 2;
       const y = k.y + (this.rand() - 0.5) * ARTILLERY.spread * 2;
-      this.explode(x, y, ARTILLERY.radius, ARTILLERY.dmg, { structure: 0.3 }, 'def', null, true);
+      const side = k.side || 'def';
+      this.explode(x, y, ARTILLERY.radius, ARTILLERY.dmg, { structure: side === 'att' ? 0.6 : 0.3 }, side, null, true);
     }
     this.strikes = this.strikes.filter((k) => k.left > 0);
   }
@@ -758,7 +871,7 @@ export class Battle {
     // The defending army is beaten when no soldier is left, none wait in reserve, and every armed defence has fallen.
     const armed = this.structs.some((s) => s.hp > 0 && s.type !== 'hq' && DEFENCES[s.type].attack);
     if (this.hadDefenders && !defs.length && (this.routing || (!waiting && !armed))) return this.finish('att', this.routing ? 'routed' : 'army');
-    const pending = this.waves.some((w) => !w.spawned) && !this.withdrawing;
+    const pending = (this.waves.some((w) => !w.spawned) || this.squads.some((s) => s.side === 'att' && !s.deployed)) && !this.withdrawing;
     const atts = this.units.some((u) => u.side === 'att' && u.alive && !u.gone);
     if (!pending && !atts) return this.finish('def', this.withdrawing || this.units.some((u) => u.side === 'att' && u.gone) ? 'withdrew' : 'repelled');
   }
@@ -779,8 +892,9 @@ export class Battle {
       winner,
       reason,
       time: Math.round(this.t),
-      attacker: { soldiers: sides.att, lost: this.lost.att, total: this.attTotal, unsent: this.waves.filter((w) => !w.spawned).reduce((n, w) => n + w.units.length, 0) },
-      defender: { soldiers: sides.def, lost: this.lost.def, total: this.defTotal, spent: this.spent, structures: this.structs.map((s) => ({ id: s.id, type: s.type, hp: Math.round(s.hp), maxHp: s.maxHp, wrecked: s.hp <= 0 })) },
+      player: this.player,
+      attacker: { soldiers: sides.att, lost: this.lost.att, total: this.attTotal, spent: this.spent.att, unsent: this.waves.filter((w) => !w.spawned).reduce((n, w) => n + w.units.length, 0) + this.squads.filter((s) => s.side === 'att' && !s.deployed).reduce((n, s) => n + s.members.length, 0) },
+      defender: { soldiers: sides.def, lost: this.lost.def, total: this.defTotal, spent: this.spent.def, structures: this.structs.map((s) => ({ id: s.id, type: s.type, hp: Math.round(s.hp), maxHp: s.maxHp, wrecked: s.hp <= 0 })) },
     };
     this.addFx({ kind: 'end', winner });
   }
@@ -806,7 +920,10 @@ export class Battle {
   status() {
     const spawned = this.waves.filter((w) => w.spawned).length;
     const nextWave = this.waves.find((w) => !w.spawned);
+    const me = this.player;
     return {
+      player: me,
+      points: this.points.map((p) => ({ ...p })),
       t: this.t,
       wave: spawned,
       waves: this.waves.length,
@@ -814,9 +931,9 @@ export class Battle {
       morale: { ...this.morale },
       attackers: this.units.filter((u) => u.side === 'att' && u.alive && !u.gone).length,
       defenders: this.units.filter((u) => u.side === 'def' && u.alive && !u.gone).length,
-      reinforceIn: Math.max(0, this.reinforceAt - this.t),
-      artilleryIn: Math.max(0, this.artilleryAt - this.t),
-      budget: this.budget - this.spent,
+      reinforceIn: Math.max(0, this.reinforceAt[me] - this.t),
+      artilleryIn: Math.max(0, this.artilleryAt[me] - this.t),
+      budget: this.budget[me] - this.spent[me],
       withdrawing: this.withdrawing,
       routing: this.routing,
       hq: this.hq ? this.hq.hp / this.hq.maxHp : 0,
@@ -832,6 +949,15 @@ export class Battle {
 
   restore(data) {
     Object.assign(this, JSON.parse(JSON.stringify(data)));
+    // A battle saved before either side could be commanded kept these per battle, not per side.
+    const perSide = (v, d) => (typeof v === 'number' ? { att: 0, def: v } : v || { att: 0, def: d });
+    this.budget = perSide(this.budget, 0);
+    this.spent = perSide(this.spent, 0);
+    this.artilleryAt = perSide(this.artilleryAt, 0);
+    this.reinforceAt = perSide(this.reinforceAt, 0);
+    this.player ||= 'def';
+    for (const sq of this.squads) sq.side ||= 'def';
+    if (!Array.isArray(this.points)) this.points = this.makePoints();
     this.fields = new Map();
     this.acc = 0;
     this.paused = true; // a resumed battle waits for the commander

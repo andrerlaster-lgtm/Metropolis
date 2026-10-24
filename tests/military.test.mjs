@@ -261,17 +261,17 @@ test('reinforcements come one squad at a time, and orders given while paused wai
   assert.notDeepEqual(b.livingIn(sq).map((u) => [u.x, u.y]), where, 'they set off when the battle resumes');
   // Artillery: paid from the budget the battle started with, then a cooldown.
   assert.match(b.strikeError(5, 5), /Needs 120/);
-  b.budget = 500;
+  b.budget.def = 500;
   assert.ok(!b.strike(5, 5).error);
   assert.match(b.strikeError(5, 5), /reloading/);
-  assert.equal(b.spent, D.ARTILLERY.cost);
+  assert.equal(b.spent.def, D.ARTILLERY.cost);
 });
 
 test('the computer raids with troops it paid for, warns ahead, and both towns live with the result', () => {
   const { city, sim, world, war } = homeWorld(5);
   const cpu = world.neighbours[0];
   assert.ok(cpu.military, 'the neighbour has a military too');
-  assert.equal(cpu.military.state.share, 0.35);
+  assert.equal(cpu.military.state.share, 0.5);
   let warned = null;
   let arrived = null;
   war.onWarn = (r) => (warned = r);
@@ -367,4 +367,79 @@ test('balance: every troop and defence does about the same damage per dollar', (
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   assert.ok(hi / lo < 4, `damage per dollar spread too wide: ${rows.map(([k, v]) => `${k} ${v.toFixed(3)}`).join(', ')}`);
+});
+
+test('the computer builds and guards its own base with its own money, and always leaves a way in', () => {
+  const { world, war } = homeWorld(8);
+  const cpu = world.neighbours[0];
+  const m = cpu.military;
+  m.state.funds = 3000;
+  while (m.state.soldiers.length < 8) m.addSoldier('rifleman');
+  for (let i = 0; i < 12; i++) war.fortify(cpu);
+  const built = m.state.structures.filter((s) => s.type !== 'hq');
+  assert.ok(built.length >= 4, `built ${built.length}`);
+  assert.ok(built.some((s) => D.DEFENCES[s.type].attack), 'armed defences, not only sandbags');
+  assert.ok(m.funds < 3000);
+  assert.ok(m.routeOpen());
+  assert.ok(m.garrison().length >= 3, 'guards posted');
+  // Guards stand next to the defences, and some soldiers stay free to raid.
+  assert.ok(m.fit().some((s) => !s.post));
+});
+
+test('forward positions change hands when one side stands on them unopposed', () => {
+  const { m } = base(9);
+  m.state.soldiers = [];
+  const b = new Battle(spec(m, { waves: [{ at: 0, units: party(['rifleman']) }], auto: false }));
+  const p = b.points[0];
+  assert.equal(p.owner, 'def');
+  const u = b.units.find((x) => x.side === 'att') || (b.spawnWaves(), b.units.find((x) => x.side === 'att'));
+  // Freeze the attacker on the post and let time pass.
+  u.mode = 'hold';
+  u.anchor = { x: p.x, y: p.y };
+  u.x = p.x;
+  u.y = p.y;
+  const moraleBefore = b.morale.def;
+  for (let i = 0; i < 160 && p.owner === 'def'; i++) b.step();
+  assert.equal(p.owner, 'att');
+  assert.ok(b.morale.def < moraleBefore);
+  assert.ok(b.zones('att').some((z) => z.id === p.id), 'the attacker may now send squads in there');
+});
+
+test('you attack a computer base: your squads from their edge, and the result for both towns', () => {
+  const { world, war } = homeWorld(10);
+  const cpu = world.neighbours[0];
+  const cm = cpu.military;
+  cm.state.funds = 600;
+  cm.place('mg', ...spot(cm, 'mg', 5, 9));
+  const theirs = cm.state.soldiers.length;
+  const m = war.military;
+  // Not enough soldiers yet: only the starter guards, and they stay home unless asked.
+  assert.match(war.attackError(cpu), /at least two/);
+  m.state.funds = 5000;
+  for (const t of ['rifleman', 'rifleman', 'gunner', 'grenadier', 'grenadier', 'rifleman', 'medic', 'gunner']) m.recruit(t, { emergency: true });
+  const funds = m.funds;
+  const { attack } = war.launchAttack(cpu);
+  assert.ok(attack);
+  assert.equal(war.busy, true, 'the world waits during the attack');
+  const b = war.fight(attack);
+  assert.equal(b.player, 'att');
+  const mine = b.squads.filter((q) => q.side === 'att');
+  assert.equal(mine.length, 2, 'eight soldiers make two squads');
+  assert.deepEqual(b.zones('att').map((z) => z.id), ['left', 'centre', 'right']);
+  assert.ok(!b.deploy(mine[0].id, 'left').error);
+  assert.ok(b.livingIn(mine[0]).every((u) => u.y < 2 && u.x < D.BASE_W / 2), 'they come in at the left of the enemy edge');
+  assert.match(b.deployError(mine[1].id), /Next squad/);
+  // Leave the rest to your officers.
+  const report = war.autoResolve(attack, b);
+  assert.equal(report.kind, 'attack');
+  assert.ok(['won', 'lost'].includes(report.outcome));
+  assert.equal(war.busy, false);
+  assert.equal(m.state.log[0].kind, 'attack');
+  assert.ok(m.state.attackReadyAt > 0, 'your troops rest before the next attack');
+  assert.match(war.attackError(cpu), /resting|recovering/);
+  assert.ok(cm.state.protectedUntil > 0, 'their base is left alone for a while');
+  // What happened stays: their losses, their damage, your spoils.
+  assert.ok(cm.state.soldiers.length <= theirs);
+  if (report.outcome === 'won') assert.ok(m.funds >= funds - report.you.spent);
+  assert.equal(cm.state.log[0].kind, 'attacked');
 });

@@ -205,7 +205,8 @@ class BattleView {
     this.heads.clear();
     this.fires = [];
     const { w, h } = m.map;
-    g.add(this.makeGround(m.map));
+    this.mine = m.mine || 'def';
+    g.add(this.makeGround(m.map, this.mine));
     const rockMat = mat(0x8f8a86, { flatShading: true });
     for (const r of m.map.rocks) {
       const k = 0.36 + ((r.x * 7 + r.y * 13) % 5) * 0.03;
@@ -238,10 +239,34 @@ class BattleView {
       g.add(t);
     }
     for (const s of m.structs) g.add(this.makeStructure(s));
+    // Forward positions: a pole with a flag in the colour of whoever holds it, and a ring that
+    // fills as someone takes it.
+    this.pointMeshes = new Map();
+    for (const p of m.points || []) {
+      const grp = new THREE.Group();
+      grp.position.set(p.x, 0, p.y);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.1, 6), mat(0xe9e4dc));
+      pole.position.y = 0.55;
+      pole.castShadow = true;
+      const flag = new THREE.Mesh(box(0.42, 0.26, 0.02), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+      flag.position.set(0.22, 0.95, 0);
+      flag.castShadow = true;
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(1.4, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, depthWrite: false }));
+      pad.position.y = 0.015;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.4, 40, 1, 0, Math.PI * 2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+      ring.position.y = 0.025;
+      grp.add(pole, flag, pad, ring);
+      g.add(grp);
+      this.pointMeshes.set(p.id, { flag, pad, ring });
+    }
   }
 
-  makeGround(map) {
+  // The attacker's edge (top) and the defender's reinforcement rows (bottom), tinted lavender for
+  // your side and coral for theirs.
+  makeGround(map, mine = 'def') {
     const { w, h, entryRows = 2, deployRows = 2 } = map;
+    const yours = 'rgba(138, 108, 196, 0.25)';
+    const theirs = 'rgba(233, 132, 111, 0.28)';
     const pad = 14;
     const px = 24;
     const cv = document.createElement('canvas');
@@ -254,9 +279,9 @@ class BattleView {
     const oy = pad * px;
     c.fillStyle = '#a7cf8f';
     c.fillRect(ox, oy, w * px, h * px);
-    c.fillStyle = 'rgba(233, 132, 111, 0.28)';
+    c.fillStyle = mine === 'att' ? yours : theirs;
     c.fillRect(ox, oy, w * px, entryRows * px);
-    c.fillStyle = 'rgba(138, 108, 196, 0.25)';
+    c.fillStyle = mine === 'att' ? theirs : yours;
     c.fillRect(ox, oy + (h - deployRows) * px, w * px, deployRows * px);
     c.strokeStyle = 'rgba(60, 80, 50, 0.12)';
     c.lineWidth = 1;
@@ -330,7 +355,7 @@ class BattleView {
       for (const x of [-0.55, 0.55]) add(box(0.28, 0.16, 0.05), m(0x6b8db5), x, 0.5, 0.81);
       const pole = add(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), m(0xdddddd), 0.6, 1.2, -0.4);
       void pole;
-      add(box(0.36, 0.22, 0.02), mat(SIDE.def.body), 0.79, 1.5, -0.4);
+      add(box(0.36, 0.22, 0.02), mat(this.mine === 'att' ? SIDE.att.body : SIDE.def.body), 0.79, 1.5, -0.4);
       add(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 4), dark, -0.6, 1.1, -0.45);
     } else if (s.type === 'sandbags') {
       for (let row = 0; row < 2; row++) for (let i = 0; i < 3; i++) add(new THREE.CapsuleGeometry(0.075, 0.16, 2, 6), sand, -0.3 + i * 0.3 + (row ? 0.15 : 0), 0.08 + row * 0.13, 0, 0).rotation.z = Math.PI / 2;
@@ -441,7 +466,7 @@ class BattleView {
     if (!this.getModel || this.canvas.hidden) return;
     this.time += dt;
     const m = this.getModel();
-    const key = `${m.map.w}x${m.map.h}|${m.map.rocks.length}|` + m.structs.map((s) => `${s.id}:${s.type}:${s.level}:${stage(s)}`).join(',');
+    const key = `${m.mine}|${m.map.w}x${m.map.h}|${m.map.rocks.length}|${(m.points || []).map((p) => `${p.x},${p.y}`).join(';')}|` + m.structs.map((s) => `${s.id}:${s.type}:${s.level}:${stage(s)}`).join(',');
     if (key !== this.staticKey) {
       this.staticKey = key;
       this.rebuildStatics(m);
@@ -480,6 +505,7 @@ class BattleView {
     }
     this.drawUnits(m);
     this.drawEffects(m);
+    this.drawPoints(m);
     this.drawGhost();
     this.gl.render(this.scene, this.camera);
   }
@@ -519,7 +545,7 @@ class BattleView {
         if (since > DOWN_SHOW) continue;
         lying = Math.min(1, since * 4);
       }
-      const side = SIDE[u.side] || SIDE.def;
+      const side = u.side === (m.mine || 'def') ? SIDE.def : SIDE.att; // yours lavender, theirs coral
       const bob = u.moving && u.alive ? Math.abs(Math.sin(this.time * 11 + u.id)) * 0.025 : 0;
       const yaw = Math.atan2(Math.cos(u.face), Math.sin(u.face));
       e.set(-lying * Math.PI / 2, yaw, 0, 'YXZ');
@@ -670,6 +696,26 @@ class BattleView {
     if (this.puffs.instanceColor) this.puffs.instanceColor.needsUpdate = true;
     this.marks.count = mk;
     this.marks.instanceMatrix.needsUpdate = true;
+  }
+
+  drawPoints(m) {
+    if (!this.pointMeshes) return;
+    const mine = m.mine || 'def';
+    for (const p of m.points || []) {
+      const pm = this.pointMeshes.get(p.id);
+      if (!pm) continue;
+      const own = p.owner === mine ? SIDE.def.body : SIDE.att.body;
+      pm.flag.material.color.set(own);
+      pm.flag.rotation.y = Math.sin(this.time * 2 + p.x) * 0.25;
+      pm.pad.material.color.set(own);
+      const taking = p.by && p.progress > 0;
+      pm.ring.visible = !!taking;
+      if (taking) {
+        pm.ring.material.color.set(p.by === mine ? SIDE.def.body : SIDE.att.body);
+        pm.ring.geometry.dispose();
+        pm.ring.geometry = new THREE.RingGeometry(1.25, 1.4, 40, 1, Math.PI / 2, Math.PI * 2 * Math.min(1, p.progress)).rotateX(-Math.PI / 2);
+      }
+    }
   }
 
   drawGhost() {

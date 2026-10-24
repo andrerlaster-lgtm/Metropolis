@@ -4,9 +4,13 @@
 //   Battle: the raid comes in waves; your garrison holds its posts, you send in reserve squads, give
 //   them orders (tap the field to move, or hold / charge / fall back), call artillery, pause to plan
 //   (orders given while paused are carried out when it resumes), or pull out. The world waits.
+//   Attack: the War tab sends your reserve against a computer town's base. You command the attacking
+//   squads (sent in from the left, middle or right of their edge, or from a forward position you
+//   hold); they defend with their guards, reserve and defences.
 // All the rules live in military.js, battle.js and warRoom.js; this file only shows them.
 
 import { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, upgradeCost, ARTILLERY, ARMY_CAP } from './militaryData.js';
+import { TIME_LIMIT } from './battle.js';
 import { titleOf, MAX_SHARE, RAID_LEVELS } from './military.js';
 import { money } from './economy.js';
 
@@ -26,9 +30,10 @@ const STATUS = { ready: 'Ready', training: 'Training', injured: 'Recovering', ra
 const TABS = [
   ['build', 'Build'],
   ['troops', 'Troops'],
+  ['war', 'War'],
   ['repairs', 'Repairs'],
   ['budget', 'Budget'],
-  ['log', 'Reports'],
+  ['log', 'Log'],
 ];
 
 export function inDays(d) {
@@ -242,6 +247,8 @@ export class MilitaryScreen {
         shells: b.shells,
         fx: b.fx,
         t: b.t,
+        mine: b.player,
+        points: b.points,
       };
     }
     const lay = this.m.layout();
@@ -257,7 +264,7 @@ export class MilitaryScreen {
       const y = lay.h - 1.4 + Math.floor(i / 8) * 0.55;
       units.push({ id: s.id, side: 'def', type: s.type, x, y, face: -Math.PI / 2 + Math.sin(this.realT * 0.4 + i) * 0.4, alive: true, hp: 1, maxHp: 1 });
     });
-    return { map: lay, structs: lay.structures.map((s) => ({ ...s, aim: -Math.PI / 2 })), units, shells: [], fx: [], t: this.realT };
+    return { map: lay, structs: lay.structures.map((s) => ({ ...s, aim: -Math.PI / 2 })), units, shells: [], fx: [], t: this.realT, mine: 'def', points: [] };
   }
 
   // ---- Every frame -----------------------------------------------------------------------------
@@ -290,6 +297,17 @@ export class MilitaryScreen {
   alarm(raid) {
     this.raid = raid;
     this.show();
+    if (raid.kind === 'attack') {
+      this.card(`
+        <h2>⚔ Your attack on ${esc(raid.targetName)}</h2>
+        <p>${raid.status === 'fighting' ? 'The battle was left half-way. Pick it up where it stopped, or let your officers finish it.' : `${raid.size} soldiers are ready to go.`}</p>
+        <p class="mil-small">The world waits until the battle is over.</p>
+        <div class="mil-card-actions">
+          <button type="button" class="primary-btn" data-defend>${raid.status === 'fighting' ? 'Resume the attack' : 'Command the attack'}</button>
+          <button type="button" class="pill" data-auto>Leave it to your officers</button>
+        </div>`);
+      return;
+    }
     const g = this.m.garrison().filter((s) => s.status === 'ready').length;
     const r = this.m.fit().filter((s) => !s.post).length;
     const resume = raid.status === 'fighting' && this.m.state.battle;
@@ -311,6 +329,7 @@ export class MilitaryScreen {
     this.battle = this.war.fight(raid);
     this.battle.paused = false;
     this.saveTimer = 0;
+    this.zone = null;
     this.selSquad = null;
     this.targeting = false;
     this.tool = null;
@@ -339,6 +358,7 @@ export class MilitaryScreen {
   }
 
   showReport(r) {
+    if (r.kind === 'attack') return this.showAttackReport(r);
     const head = { held: 'The base held!', lost: 'The base fell', retreated: 'You pulled your troops out' }[r.outcome];
     const why =
       {
@@ -366,6 +386,74 @@ export class MilitaryScreen {
         <button type="button" class="pill" data-done="town">Back to town</button>
       </div>`);
     this.d.sound?.(r.outcome === 'held' ? 'cheer' : 'click');
+  }
+
+  showAttackReport(r) {
+    const head = { won: 'Victory!', lost: 'The attack failed', retreated: 'You pulled your troops out' }[r.outcome];
+    const why =
+      {
+        hq: 'You destroyed their command post and their defenders fled.',
+        army: 'Their defenders and their defences were beaten.',
+        routed: 'Their defenders broke and fled.',
+        withdrew: 'Your troops’ attack broke, or ran out of supplies, and they fell back.',
+        repelled: 'Every one of your squads was stopped.',
+        retreat: 'You ordered the retreat. Nobody else fell.',
+      }[r.reason] || '';
+    const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
+    const you = r.you;
+    const damage = r.them.damage.map((d) => `${d.label}: ${d.wrecked ? 'destroyed' : `${Math.round((d.hp / d.max) * 100)}% left`}`);
+    this.card(`
+      <h2 class="mil-${r.outcome === 'won' ? 'held' : r.outcome}">${head}</h2>
+      <p>${why} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
+      <div class="mil-report">
+        <section><h3>${esc(r.target)}</h3><p>${r.them.lost} of their ${r.them.total} defenders fell.</p>${damage.length ? list(damage) : '<p>Their base wasn’t damaged.</p>'}</section>
+        <section><h3>Your troops</h3><p>${you.sent} went, ${you.fought} fought. ${you.killed.length ? `${you.killed.length} fell:` : 'Nobody fell.'}</p>${list(you.killed)}${you.injured.length ? `<p>Badly hurt, recovering for a few days:</p>${list(you.injured)}` : ''}${you.hurt.length ? `<p>Lightly hurt, back in a day:</p>${list(you.hurt)}` : ''}${you.promoted.length ? `<p>Promoted:</p>${list(you.promoted)}` : ''}</section>
+        <section><h3>Cost and spoils</h3><p>${you.spent ? `Artillery: ${money(you.spent)}. ` : 'No artillery used. '}${you.loot ? `You brought back ${money(you.loot)} to the military budget.` : ''}</p></section>
+      </div>
+      <div class="mil-card-actions">
+        <button type="button" class="primary-btn" data-done="base">Back to the base</button>
+        <button type="button" class="pill" data-done="town">Back to town</button>
+      </div>`);
+    this.d.sound?.(r.outcome === 'won' ? 'cheer' : 'click');
+  }
+
+  // The briefing before an attack: what you know of their base, and who goes.
+  planAttack(id) {
+    const c = this.war.byId(id);
+    const err = this.war.attackError(c);
+    const intel = this.war.intel().neighbours.find((n) => n.id === id);
+    const party = this.war.attackParty();
+    const guards = this.m.garrison().filter((s) => s.status === 'ready').length;
+    const count = {};
+    for (const s of party) count[s.type] = (count[s.type] || 0) + 1;
+    const force = Object.entries(count)
+      .map(([k, n]) => `${n} ${n > 1 ? UNITS[k].plural.toLowerCase() : UNITS[k].label.toLowerCase()}`)
+      .join(', ');
+    this.card(`
+      <h2>Attack ${esc(c.entry.name)}</h2>
+      <p>Their base: about ${intel.soldiers} soldiers (${intel.guards} on guard) and ${intel.defences} defences.</p>
+      <p>${party.length ? `You'd send your reserve: ${force}.` : 'Nobody is in your reserve.'}</p>
+      ${guards ? `<label class="mil-check"><input type="checkbox" data-with-guards> Send your ${guards} guards too (your base keeps its defences)</label>` : ''}
+      <p class="mil-small">You win by beating their soldiers and defences, making them flee, or destroying their command post. Taking their forward positions lets your squads come in closer. The world waits while you fight.</p>
+      ${err ? `<p class="mil-warn">${esc(err)}</p>` : ''}
+      <div class="mil-card-actions">
+        <button type="button" class="primary-btn" data-attack-go="${esc(id)}">Command the attack</button>
+        <button type="button" class="pill" data-attack-auto="${esc(id)}">Leave it to your officers</button>
+        <button type="button" class="pill" data-cancel>Not now</button>
+      </div>`);
+  }
+
+  launch(id, auto) {
+    const guards = !!this.$('card').querySelector('[data-with-guards]')?.checked;
+    const r = this.war.launchAttack(this.war.byId(id), { guards });
+    if (r.error) {
+      this.d.toast(r.error, 3000);
+      this.d.sound?.('nope');
+      return;
+    }
+    this.raid = r.attack;
+    if (auto) this.autoBattle();
+    else this.startBattle();
   }
 
   card(html) {
@@ -460,7 +548,7 @@ export class MilitaryScreen {
     let best = null;
     let bd = 0.7 * 0.7;
     for (const u of b.units) {
-      if (u.side !== 'def' || !u.alive || u.gone) continue;
+      if (u.side !== b.player || !u.alive || u.gone) continue;
       const d = (u.x - x) ** 2 + (u.y - y) ** 2;
       if (d < bd) {
         bd = d;
@@ -497,6 +585,10 @@ export class MilitaryScreen {
     }
     if (ds.defend != null) return this.startBattle();
     if (ds.auto != null) return this.autoBattle();
+    if (ds.attackPlan) return this.planAttack(ds.attackPlan);
+    if (ds.attackGo) return this.launch(ds.attackGo, false);
+    if (ds.attackAuto) return this.launch(ds.attackAuto, true);
+    if (ds.cancel != null) return this.hideCard();
     if (ds.done) {
       this.battle = null;
       this.raid = null;
@@ -590,8 +682,13 @@ export class MilitaryScreen {
       this.speed = Number(ds.speed);
       return this.renderHud(true);
     }
+    if (ds.zone) {
+      this.zone = ds.zone;
+      return this.renderHud(true);
+    }
     if (ds.deploy) {
-      const r = b.deploy(ds.deploy);
+      const zone = this.zone && b.zones(b.player).some((z) => z.id === this.zone && !z.contested) ? this.zone : null;
+      const r = b.deploy(ds.deploy, zone);
       if (r.error) this.d.toast(r.error, 2200);
       else {
         this.selSquad = ds.deploy;
@@ -662,7 +759,7 @@ export class MilitaryScreen {
     const inBattle = !!this.battle;
     this.$('panel').hidden = inBattle;
     this.$('hud').hidden = !inBattle;
-    this.$('town').textContent = ` · ${this.d.townName()}`;
+    this.$('town').textContent = this.battle?.player === 'att' ? ` · attacking ${this.battle.names.def}` : ` · ${this.d.townName()}`;
     this.$('close').hidden = inBattle;
     if (inBattle) this.renderHud(true);
     else {
@@ -701,7 +798,7 @@ export class MilitaryScreen {
 
   panelHtml() {
     const tabs = `<nav class="mil-tabs" role="tablist">${TABS.map(([k, label]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${this.tab === k}">${label}${k === 'repairs' && this.m.damaged().length ? ` <span class="mil-dot">${this.m.damaged().length}</span>` : ''}</button>`).join('')}</nav>`;
-    const body = { build: () => this.buildHtml(), troops: () => this.troopsHtml(), repairs: () => this.repairsHtml(), budget: () => this.budgetHtml(), log: () => this.logHtml() }[this.tab]();
+    const body = { build: () => this.buildHtml(), troops: () => this.troopsHtml(), war: () => this.warHtml(), repairs: () => this.repairsHtml(), budget: () => this.budgetHtml(), log: () => this.logHtml() }[this.tab]();
     return `${tabs}<div class="mil-body">${body}</div>`;
   }
 
@@ -769,6 +866,22 @@ export class MilitaryScreen {
       ${st.soldiers.length >= ARMY_CAP[m.level] ? '<p class="mil-small">Upgrade the command post (Build) to hold more soldiers.</p>' : ''}`;
   }
 
+  warHtml() {
+    const intel = this.war.intel();
+    const party = this.war.attackParty().length;
+    const rows = intel.neighbours
+      .map((n) => {
+        const err = this.war.attackError(this.war.byId(n.id));
+        return `<li><span class="mil-item-text"><b>${esc(n.name)}</b><small>About ${n.soldiers} soldiers (${n.guards} on guard), ${n.defences} defences${n.recovering > 0 ? ` · recovering for ${forDays(n.recovering)}` : ''}</small></span>
+          <button type="button" class="pill" data-attack-plan="${esc(n.id)}" ${err ? `title="${esc(err)}"` : ''}>Attack…</button></li>`;
+      })
+      .join('');
+    return `<p class="mil-small">Send your reserve against a neighbour's base. You command the attacking squads; they defend with their guards, reserve and defences. Winning carries off part of their military budget. After any battle a base is left alone for a few days.</p>
+      <ul class="mil-repairs">${rows}</ul>
+      <p class="mil-small">Your reserve: ${party} ready soldiers.${intel.attackReadyIn > 0 ? ` Your troops rest for another ${forDays(intel.attackReadyIn)}.` : ''}</p>
+      ${intel.coming ? `<p class="mil-warn">⚔ ${esc(intel.coming.from)} attacks ${inDays(intel.coming.in)}.</p>` : ''}`;
+  }
+
   repairsHtml() {
     const m = this.m;
     const list = m.damaged();
@@ -805,15 +918,21 @@ export class MilitaryScreen {
 
   logHtml() {
     const st = this.m.state;
-    const outcomes = { held: 'Held', lost: 'Lost', retreated: 'Retreated' };
+    const outcomes = { held: 'Held', lost: 'Lost', retreated: 'Retreated', won: 'Won' };
     const rows = st.log
-      .filter((l) => l.kind === 'raid')
-      .map(
-        (l) => `<li><b>Day ${l.day}: ${esc(l.from)} raid · ${outcomes[l.outcome] || ''}</b><small>${l.attackers.lost} of ${l.attackers.total} attackers fell. ${l.you.killed.length ? `We lost ${l.you.killed.length}.` : 'We lost nobody.'} ${l.you.injured.length + l.you.hurt.length ? `${l.you.injured.length + l.you.hurt.length} hurt.` : ''} ${l.you.spent ? `Artillery ${money(l.you.spent)}.` : ''} ${l.you.loot ? `They took ${money(l.you.loot)}.` : ''}${l.auto ? ' (Fought by your officers.)' : ''}</small></li>`
+      .filter((l) => l.kind === 'raid' || l.kind === 'attack')
+      .map((l) =>
+        l.kind === 'attack'
+          ? `<li><b>Day ${l.day}: attack on ${esc(l.target)} · ${outcomes[l.outcome] || ''}</b><small>${l.them.lost} of ${l.them.total} defenders fell. ${l.you.killed.length ? `We lost ${l.you.killed.length}.` : 'We lost nobody.'} ${l.you.injured.length + l.you.hurt.length ? `${l.you.injured.length + l.you.hurt.length} hurt.` : ''} ${l.you.spent ? `Artillery ${money(l.you.spent)}.` : ''} ${l.you.loot ? `Brought back ${money(l.you.loot)}.` : ''}${l.auto ? ' (Fought by your officers.)' : ''}</small></li>`
+          : this.raidLine(l, outcomes)
       )
       .join('');
     const fallen = st.fallen.map((f) => `<li>${esc(f.name)} <small>${esc(UNITS[f.type]?.label || '')}, day ${f.day}</small></li>`).join('');
     return `${rows ? `<ul class="mil-log">${rows}</ul>` : '<p class="mil-small">No battles yet.</p>'}${fallen ? `<h3>Remembered</h3><ul class="mil-fallen">${fallen}</ul>` : ''}`;
+  }
+
+  raidLine(l, outcomes) {
+    return `<li><b>Day ${l.day}: ${esc(l.from)} raid · ${outcomes[l.outcome] || ''}</b><small>${l.attackers.lost} of ${l.attackers.total} attackers fell. ${l.you.killed.length ? `We lost ${l.you.killed.length}.` : 'We lost nobody.'} ${l.you.injured.length + l.you.hurt.length ? `${l.you.injured.length + l.you.hurt.length} hurt.` : ''} ${l.you.spent ? `Artillery ${money(l.you.spent)}.` : ''} ${l.you.loot ? `They took ${money(l.you.loot)}.` : ''}${l.auto ? ' (Fought by your officers.)' : ''}</small></li>`;
   }
 
   // ---- The battle screen -------------------------------------------------------------------------
@@ -828,9 +947,12 @@ export class MilitaryScreen {
     const b = this.battle;
     if (!b || (!force && this.hold)) return;
     const s = b.status();
+    const me = b.player;
+    const them = me === 'att' ? 'def' : 'att';
     const sec = (n) => `${Math.ceil(n)} s`;
     const morale = (v, cls) => `<span class="mil-morale ${cls}"><span style="width:${Math.round(v)}%"></span></span>`;
     const squads = b.squads
+      .filter((q) => (q.side || 'def') === me)
       .map((q) => {
         const alive = q.deployed ? b.livingIn(q).length : q.members.length;
         const total = q.deployed ? q.units.length : q.members.length;
@@ -843,23 +965,41 @@ export class MilitaryScreen {
         return `<button type="button" class="mil-sq${on ? ' is-on' : ''}${alive ? '' : ' is-out'}" data-squad="${q.id}" aria-pressed="${on}" ${alive ? '' : 'disabled'}><b>${esc(q.name)}</b><small>${alive}/${total} · ${esc(orderLabel(q.order))}</small></button>`;
       })
       .join('');
+    // Where the next squad comes in: your edge, or a forward position you hold.
+    const zones = b.zones(me);
+    const waiting = b.squads.some((q) => (q.side || 'def') === me && !q.deployed);
+    const zoneId = this.zone && zones.some((z) => z.id === this.zone && !z.contested) ? this.zone : me === 'att' ? 'centre' : 'base';
+    const zoneRow =
+      waiting && zones.length > 1
+        ? `<div class="mil-orders"><span class="mil-small">Send in at:</span>${zones.map((z) => `<button type="button" class="pill${z.id === zoneId ? ' is-on' : ''}" data-zone="${z.id}" ${z.contested ? 'disabled title="The enemy is too close"' : ''}>${esc(z.label)}</button>`).join('')}</div>`
+        : '';
+    const choices = me === 'att' ? [['advance', 'Advance'], ['hold', 'Hold'], ['charge', 'Charge'], ['fallback', 'Fall back']] : [['hold', 'Hold'], ['charge', 'Charge'], ['fallback', 'Fall back']];
     const orders = this.selSquad
-      ? `<div class="mil-orders"><span class="mil-small">${esc(b.squad(this.selSquad)?.name || '')}: tap the field to move, or</span>${[
-          ['hold', 'Hold'],
-          ['charge', 'Charge'],
-          ['fallback', 'Fall back'],
-        ]
-          .map(([k, l]) => `<button type="button" class="pill" data-order="${k}">${l}</button>`)
-          .join('')}</div>`
+      ? `<div class="mil-orders"><span class="mil-small">${esc(b.squad(this.selSquad)?.name || '')}: tap the field to move, or</span>${choices.map(([k, l]) => `<button type="button" class="pill" data-order="${k}">${l}</button>`).join('')}</div>`
       : '';
     const art = `<button type="button" class="pill${this.targeting ? ' is-on' : ''}" data-artillery ${s.artilleryIn > 0 || s.budget < ARTILLERY.cost ? 'disabled' : ''}>Artillery ${s.artilleryIn > 0 ? sec(s.artilleryIn) : money(ARTILLERY.cost)}</button>`;
-    const wave = s.nextWaveIn != null ? `Wave ${s.wave} of ${s.waves} · next in ${sec(s.nextWaveIn)}` : s.withdrawing ? 'They are withdrawing' : `Wave ${s.wave} of ${s.waves}`;
+    const supplies = Math.max(0, TIME_LIMIT - s.t);
+    const clock = `${Math.floor(supplies / 60)}:${String(Math.floor(supplies % 60)).padStart(2, '0')}`;
+    const head =
+      me === 'att'
+        ? `Attack on ${esc(b.names.def)} · supplies ${clock}`
+        : s.nextWaveIn != null
+          ? `Wave ${s.wave} of ${s.waves} · next in ${sec(s.nextWaveIn)}`
+          : s.withdrawing
+            ? 'They are withdrawing'
+            : `Wave ${s.wave} of ${s.waves}`;
+    const count = { att: s.attackers, def: s.defenders };
+    const posts = s.points.map((p) => {
+      const capturing = p.by && p.progress > 0 ? ` · ${p.by === me ? 'taking' : 'losing'} ${Math.round(p.progress * 100)}%` : '';
+      return `<span class="mil-chip ${p.owner === me ? 'ok' : 'warn'}">${esc(p.name)}: ${p.owner === me ? 'yours' : 'theirs'}${capturing}</span>`;
+    });
     const html = `
       <div class="mil-hud-top glass">
-        <span class="mil-chip">${wave}</span>
-        <span class="mil-side def">You ${s.defenders}${morale(s.morale.def, 'def')}</span>
-        <span class="mil-side att">${esc(b.names.att)} ${s.attackers}${morale(s.morale.att, 'att')}</span>
-        <span class="mil-chip">HQ ${Math.round(s.hq * 100)}%</span>
+        <span class="mil-chip">${head}</span>
+        <span class="mil-side def">You ${count[me]}${morale(s.morale[me], 'def')}</span>
+        <span class="mil-side att">${esc(b.names[them])} ${count[them]}${morale(s.morale[them], 'att')}</span>
+        <span class="mil-chip">${me === 'att' ? 'Their HQ' : 'HQ'} ${Math.round(s.hq * 100)}%</span>
+        ${posts.join('')}
         <span class="mil-row">
           <button type="button" class="pill" data-pause aria-pressed="${b.paused}">${b.paused ? '▶ Resume' : '❚❚ Pause'}</button>
           ${[1, 2].map((v) => `<button type="button" class="pill${this.speed === v ? ' is-on' : ''}" data-speed="${v}">${v}×</button>`).join('')}
@@ -867,7 +1007,7 @@ export class MilitaryScreen {
         </span>
       </div>
       ${b.paused ? '<div class="mil-paused glass">Paused: give orders now, they start when you resume</div>' : ''}
-      <div class="mil-hud-bottom glass"><div class="mil-squads">${squads}</div>${orders}<div class="mil-row">${art}<span class="mil-small">Budget ${money(s.budget)}</span></div></div>`;
+      <div class="mil-hud-bottom glass"><div class="mil-squads">${squads}</div>${zoneRow}${orders}<div class="mil-row">${art}<span class="mil-small">Budget ${money(s.budget)}</span></div></div>`;
     if (!force && html === this._hud) return;
     this._hud = html;
     this.$('hud').innerHTML = html;
@@ -877,6 +1017,6 @@ export class MilitaryScreen {
 }
 
 function orderLabel(o) {
-  return { move: 'moving', hold: 'holding', charge: 'charging', fallback: 'falling back', rally: 'forming up' }[o?.kind] || '';
+  return { move: 'moving', hold: 'holding', charge: 'charging', fallback: 'falling back', rally: 'forming up', advance: 'advancing' }[o?.kind] || '';
 }
 
