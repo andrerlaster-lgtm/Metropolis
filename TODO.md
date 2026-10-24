@@ -122,6 +122,15 @@ From [isometric-city](https://github.com/uxcaleb/isometric-city) (originally ami
 - [ ] Trade (caravans with activity graphs and keyframed movement, distance-based profit, shared prices)
 - [ ] Diplomacy (treaties, tribute) and calm, abstract warfare (army supply, sieges as scheduled events)
 
+## 3c. Reference for a 3D battle mode
+
+A battle mode in the spirit of GUNS UP!: defend your town from a computer town, or attack one, with battles fought over the real towns (their owners, budgets, troops and lasting damage). Notes on four open-source games (djpav/threejs-tower-defense and atxgreene/Ugh-Guys- first, then cola-runner/frostmarch and Casmo/tower-defense), their licences and asset rights, the ideas ranked, and questions to settle first are in [docs/references/battle-mode.md](docs/references/battle-mode.md). Patterns only, rewritten in our own code; no art or content from them or from GUNS UP!.
+
+- [ ] Andre decides the open questions (homes and residents, what a win takes, the default raid setting, troops by era)
+- [ ] Foundation: `systems.military` (troops, defences, barracks supply) with a save migration, and the computer planner budgeting for it
+- [ ] `battle.js`: a rules-only battle over the defender's real tiles (flow field, defence targeting, projectiles, damage written back), with Node tests and auto-resolve
+- [ ] The 3D battle view, computer attacks with a warning ahead, then attacking the computer town
+
 ## 4. Deploy and tooling
 - [ ] Move the code to `andrerlaster-lgtm/Metropolis` and link it to Vercel so every push redeploys (until then each deploy is started by hand)
 - [ ] Test pinch and long-press on a real phone
