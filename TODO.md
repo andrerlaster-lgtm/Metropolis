@@ -114,8 +114,10 @@ From [isometric-city](https://github.com/uxcaleb/isometric-city) (originally ami
 
 [SFTtech/openage](https://github.com/SFTtech/openage) (GPL-3.0-or-later): ideas only, never code or assets. Notes and the ideas ranked for civilisations, trade, diplomacy, territory and warfare are in [docs/references/openage.md](docs/references/openage.md).
 
-- [ ] Foundation: civ ids, ownership, stances, a scheduled event queue, several towns on a world map (save migration + test)
-- [ ] AI towns that grow by themselves (a governor running `growth.js` per town, seeded)
+- [x] Foundation, part 1: a world with your town and a computer-run neighbour, each a full town with its own money and simulation, saved inside your save (`world.js`)
+- [x] A computer town that grows by itself under the player's rules (`cpuPlanner.js`: growth.js with everything paid, saving up for essentials, answering decisions)
+- [ ] Foundation, part 2: a scheduled event queue and ownership/stances, once towns start to interact
+- [ ] More computer towns (`World.addNeighbour()` already places them), personalities for their planners, and naming your own town
 - [ ] Exploration and territory (line of sight, explored/visible masks, borders)
 - [ ] Trade (caravans with activity graphs and keyframed movement, distance-based profit, shared prices)
 - [ ] Diplomacy (treaties, tribute) and calm, abstract warfare (army supply, sieges as scheduled events)

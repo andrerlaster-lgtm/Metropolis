@@ -3141,3 +3141,30 @@ button:focus-visible {
     white-space: nowrap;
   }
 }
+/* Phones: the world's buttons keep their words; the corner stacks so the stats bubble has room. */
+@media (max-width: 560px) {
+  .watch-banner .pill,
+  .wt-actions .pill {
+    width: auto;
+    padding: 0 12px;
+  }
+  .watch-banner [data-world] {
+    display: none;
+  }
+  .watch-banner {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .wb-home {
+    margin-left: auto;
+  }
+  #app.mode-watch .toast {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 150px);
+  }
+  .corner {
+    flex-direction: column;
+  }
+  .stats {
+    max-width: calc(100vw - 88px);
+  }
+}
