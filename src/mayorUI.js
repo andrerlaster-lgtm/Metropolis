@@ -3,6 +3,7 @@
 // and gives the City panel its Mayor line. Changes go through Mayor.perform.
 
 import { DUTIES, SKILL_LABELS, ACTIONS_PER_DAY } from './mayor.js';
+import { MAYOR_FOCUS } from './autopilot.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
@@ -16,7 +17,7 @@ export function mayorLineHTML(m) {
 export const mayorLineKey = (m) => JSON.stringify([m.state.name, m.state.who, m.state.actions, m.relation()]);
 
 export class TownHall {
-  // deps: { mayor: () → Mayor, toast(msg, ms), sound(name), onOpen(), onChange() }
+  // deps: { mayor: () → Mayor, autopilot: () → Autopilot, toast(msg, ms), sound(name), onOpen(), onChange() }
   constructor(deps) {
     this.d = deps;
     this.el = document.getElementById('townhall-sheet');
@@ -75,7 +76,9 @@ export class TownHall {
   render(force) {
     const m = this.m;
     const st = m.state;
-    const key = JSON.stringify([st.name, st.who, st.age, st.actions, st.done, st.skills, st.log[0]?.text, DUTIES.map((d) => m.preview(d.id))]);
+    const auto = this.d.autopilot?.().state.mayor;
+    const pro = m.prospects();
+    const key = JSON.stringify([st.name, st.who, st.age, st.actions, st.done, st.skills, st.log[0]?.text, DUTIES.map((d) => m.preview(d.id)), auto, pro]);
     if (!force && key === this._key) return;
     this._key = key;
     const next = m.nextInLine();
@@ -89,8 +92,27 @@ export class TownHall {
         .map(([k, label]) => `<div><dt>${label}</dt><dd><span class="sbar"><span style="width:${st.skills[k]}%"></span></span><b>${st.skills[k]}</b></dd></div>`)
         .join('')}</dl>
       <div class="th-duties">${DUTIES.map((d) => this.dutyHTML(d)).join('')}</div>
+      ${auto ? this.autoHTML(auto) : ''}
       ${next ? `<p class="sk-intro">Who leads next: ${esc(next)}</p>` : ''}
+      ${pro ? this.prospectsHTML(pro) : ''}
       ${st.log.length ? `<h3 class="th-h">Lately</h3><ul class="th-log">${st.log.slice(0, 6).map((l) => `<li><span>Day ${l.day}</span>${esc(l.text)}</li>`).join('')}</ul>` : ''}`;
+  }
+
+  // Auto mode: the mayor picks the day's duties, with the focus you set.
+  autoHTML(auto) {
+    return `<div class="th-auto">
+      <div class="th-auto-head"><b>Auto mode</b><button type="button" class="pill small${auto.on ? ' is-on' : ''}" data-auto-mayor aria-pressed="${auto.on}">${auto.on ? 'On' : 'Off'}</button></div>
+      <div class="seg th-focus" role="group" aria-label="What the mayor does first">${MAYOR_FOCUS.map((f) => `<button type="button" data-mayor-focus="${f.id}" aria-pressed="${auto.focus === f.id}" title="${esc(f.hint)}">${esc(f.label)}</button>`).join('')}</div>
+      <p class="sk-intro">${auto.on ? 'The mayor does the day’s duties on their own, spread over the day.' : 'Turn it on and the mayor does the day’s duties on their own.'} ${esc(MAYOR_FOCUS.find((f) => f.id === auto.focus)?.hint || '')}.</p>
+    </div>`;
+  }
+
+  // What your main person would bring as mayor, from how they're growing up.
+  prospectsHTML(pro) {
+    const c = this.m.char;
+    return `<div class="th-prospects"><h3 class="th-h">If ${esc(c.first)} led today</h3>
+      <p class="th-pro">${Object.entries(SKILL_LABELS).map(([k, label]) => `<span>${label} <b>${pro[k]}</b></span>`).join('')}</p>
+      <p class="sk-intro">How ${esc(c.first)} grows up decides how good a mayor they'll be: smarts, health, happiness, looks, friends, a career and their traits all count.</p></div>`;
   }
 
   dutyHTML(d) {
@@ -108,6 +130,17 @@ export class TownHall {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.close != null) return this.toggle(false);
+    const ap = this.d.autopilot?.();
+    if (ap && b.dataset.autoMayor != null) {
+      ap.set('mayor', { on: !ap.state.mayor.on });
+      this.d.sound?.('click');
+      return this.render(true);
+    }
+    if (ap && b.dataset.mayorFocus) {
+      ap.set('mayor', { focus: b.dataset.mayorFocus });
+      this.d.sound?.('click');
+      return this.render(true);
+    }
     const id = b.dataset.duty;
     if (!id) return;
     const r = this.m.perform(id);

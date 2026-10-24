@@ -41,6 +41,7 @@ import { DiplomacySheet } from './diplomacyUI.js';
 import { SkillsSheet } from './skillsUI.js';
 import { Mayor } from './mayor.js';
 import { TownHall } from './mayorUI.js';
+import { Autopilot } from './autopilot.js';
 import { KIND_LABEL } from './diplomacy.js';
 import { crosswalkMask, footArms } from './sidewalks.js';
 import { hash2 } from './utils.js';
@@ -316,8 +317,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   });
   // The mayor (mayor.js, mayorUI.js): your main person's father leads the town, then the family does.
   const mayor = new Mayor(city, { life: () => sim.life, economy: () => sim.economy, decisions: () => sim.decisions, war: () => warRoom });
+  const autopilot = new Autopilot(city, { life: () => sim.life, mayor: () => mayor });
   const townHall = new TownHall({
     mayor: () => mayor,
+    autopilot: () => autopilot,
     toast: (msg, ms) => ui.toast(msg, ms),
     sound: (name) => audio.play(name),
     onChange: () => {
@@ -772,6 +775,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     life: sim.life,
     mayorName: () => (mayor.state.who === 'father' ? mayor.state.name : null),
     youLead: () => mayor.state.who === 'you',
+    autoKid: () => autopilot.state.kid,
+    setAutoKid: (patch) => autopilot.set('kid', patch),
     onCreate: (draft) => {
       const c = sim.life.create(draft);
       const home = c.home && city.getTile(c.home.x, c.home.y);
@@ -1475,6 +1480,13 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       diplomacySheet.tick();
       skillsSheet.tick();
       townHall.tick();
+      // Auto mode: your two people act by themselves when you've switched it on.
+      if (!warRoom.busy) {
+        for (const d of autopilot.update()) {
+          ui.toast(d.who === 'mayor' ? `🏛 ${d.text}` : `🤖 ${d.text}`, 3600);
+          if (d.who === 'mayor') city.dirty = true;
+        }
+      }
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -1529,7 +1541,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, autopilot, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

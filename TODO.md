@@ -163,6 +163,7 @@ Phase 2a (done): diplomacy.
 The mayor (done): a second person you control.
 
 - [x] Your main person's father is mayor, with skills, three actions a day and four duties (speech, fundraiser, base inspection, meeting a neighbour's mayor); the family keeps the office (acting relative until your main person is 18)
+- [x] Auto mode for the mayor's duties and your main person's activities, with a focus; upbringing decides the heir's skills as mayor
 - [ ] Ideas: more duties (open a building, call an election, set the tax rate), the mayor leading troops in battle, elections and rivals, mayor events in Life Story
 
 Town upgrades (done): a skill tree for the town.

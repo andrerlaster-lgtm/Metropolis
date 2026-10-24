@@ -4355,3 +4355,66 @@ button.mil-sq {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.th-auto,
+.th-prospects {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, #5b9be0 8%, transparent);
+}
+.th-auto-head,
+.auto-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.th-auto .pill.small,
+.auto-row .pill.small {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.th-auto .pill.is-on,
+.auto-row .pill.is-on {
+  background: #5b9be0;
+  color: #fff;
+}
+.th-focus {
+  flex-wrap: wrap;
+}
+.th-pro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font: 700 12.5px/1.4 var(--font-body);
+  color: var(--ink-soft);
+}
+.th-pro b {
+  color: var(--ink);
+}
+.auto-row {
+  margin: 4px 0 8px;
+}
+.auto-row small {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+  font: 700 11.5px/1.35 var(--font-body);
+}
+.auto-focus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 800 12px/1 var(--font-body);
+  color: var(--ink-soft);
+}
+.auto-focus select {
+  font: 700 16px/1.2 var(--font-body); /* 16px or more, or iPhones zoom the page when it's tapped */
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  color: var(--ink);
+}

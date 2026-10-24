@@ -60,16 +60,28 @@ export class Mayor {
     return { charisma: r(), business: r(), command: r(), diplomacy: r() };
   }
 
-  // Your main person's skills as mayor come from who they grew up to be.
+  // Your main person's skills as mayor come from how they grew up: looks, happiness and friends make
+  // charisma; smarts, their career and savings make business sense; health makes command; smarts,
+  // a settled mood and a partner make a diplomat. Their traits add a little. From 10 to 100.
   skillsOf(c) {
     const s = c.stats || {};
+    const has = (t) => (c.traits || []).includes(t);
+    const friends = Math.min(5, (c.friends || []).length);
+    const level = c.job ? (c.job.level || 0) + 1 : 0;
     const k = (v) => clamp(Math.round(v), 10, 100);
     return {
-      charisma: k(25 + 0.25 * (s.looks || 50) + 0.25 * (s.happiness || 50)),
-      business: k(25 + 0.5 * (s.smarts || 50) + (c.job ? 5 : 0)),
-      command: k(25 + 0.4 * (s.health || 50)),
-      diplomacy: k(25 + 0.35 * (s.smarts || 50) + 0.15 * (s.happiness || 50)),
+      charisma: k(10 + 0.4 * (s.looks ?? 50) + 0.3 * (s.happiness ?? 50) + 4 * friends + (has('outgoing') ? 8 : 0) + (has('creative') ? 4 : 0)),
+      business: k(10 + 0.55 * (s.smarts ?? 50) + 6 * level + Math.min(10, (c.money || 0) / 5000) + (has('thrifty') ? 6 : 0)),
+      command: k(10 + 0.45 * (s.health ?? 50) + 0.2 * (s.smarts ?? 50) + (has('sporty') ? 8 : 0)),
+      diplomacy: k(10 + 0.45 * (s.smarts ?? 50) + 0.25 * (s.happiness ?? 50) + (c.partner ? 4 : 0) + (has('calm') ? 8 : 0)),
     };
+  }
+
+  // The skills your main person would bring if they led today, while someone else does.
+  prospects() {
+    const c = this.char;
+    if (!c?.alive || this.state.who === 'you') return null;
+    return this.skillsOf(c);
   }
 
   fresh() {
