@@ -18565,7 +18565,7 @@ const { summaryOf } = __mod_life;
 const { money } = __mod_economy;
 const { fullName } = __mod_notables;
 const { notableBadge } = __mod_notablesUI;
-const { addressOf } = __mod_streets;
+const { addressOf, shortName } = __mod_streets;
 const { CityPanel } = __mod_cityUI;
 const { unlockTier } = __mod_milestones;
 const { computeCoverage } = __mod_coverage;
@@ -18575,7 +18575,7 @@ const { History, lPath, tileLine } = __mod_history;
 const { Audio } = __mod_audio;
 const { daylightAt, sunHeight } = __mod_time;
 const { lightingAt } = __mod_lighting;
-const { crosswalkMask } = __mod_sidewalks;
+const { crosswalkMask, footArms } = __mod_sidewalks;
 const { hash2 } = __mod_utils;
 const { mixHex } = __mod_color;
 const MAX_STROKE = 160;
@@ -19638,6 +19638,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
             lightingAt,
             sunHeight,
             crosswalkMask,
+            footArms,
+            shortName,
             hash2,
             mixHex,
             lifeChar: () => sim.life.char,

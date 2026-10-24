@@ -23,7 +23,7 @@ import { summaryOf } from './life.js';
 import { money } from './economy.js';
 import { fullName } from './notables.js';
 import { notableBadge } from './notablesUI.js';
-import { addressOf } from './streets.js';
+import { addressOf, shortName } from './streets.js';
 import { CityPanel } from './cityUI.js';
 import { unlockTier } from './milestones.js';
 import { computeCoverage } from './coverage.js';
@@ -33,7 +33,7 @@ import { History, lPath, tileLine } from './history.js';
 import { Audio } from './audio.js';
 import { daylightAt, sunHeight } from './time.js';
 import { lightingAt } from './lighting.js';
-import { crosswalkMask } from './sidewalks.js';
+import { crosswalkMask, footArms } from './sidewalks.js';
 import { hash2 } from './utils.js';
 import { mixHex } from './color.js';
 
@@ -1097,6 +1097,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
             lightingAt,
             sunHeight,
             crosswalkMask,
+            footArms,
+            shortName,
             hash2,
             mixHex,
             lifeChar: () => sim.life.char,

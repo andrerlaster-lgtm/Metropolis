@@ -13,6 +13,7 @@ import { buildGround, WATER_Y } from './ground.js';
 import { CameraRig, DIST_MIN, DIST_MAX } from './rig.js';
 import { People3D, Cars3D } from './agents3d.js';
 import { Effects3D } from './effects3d.js';
+import { Signs3D } from './signs3d.js';
 
 const CHUNK = 8;
 const QUALITY = {
@@ -100,6 +101,7 @@ class View3D {
     this.cars = new Cars3D(scene);
     this.weather = this.makeWeather();
     this.effects = new Effects3D(scene);
+    this.signs = new Signs3D(scene);
 
     this.rig = new CameraRig();
     this.rig.blocked = (x, z) => this.blocked(x, z);
@@ -228,7 +230,8 @@ class View3D {
   // Rebuild changed chunks, at most `budget` of them this frame. Returns how many still need it.
   syncChunks(budget = 2) {
     const city = this.city;
-    const r = this.deps.renderer;
+    const d = this.deps;
+    const r = d.renderer;
     const w = city.derived.weather || {};
     const era = city.systems.era?.index ?? 3;
     const snow = Math.round((w.snowCover || 0) * 10) / 10;
@@ -266,6 +269,7 @@ class View3D {
     }
     for (const [key, c] of this.chunks) if (!live.has(key)) this.dropChunk(key, c);
     this.heights = null;
+    this.signs.sync(city, { footArms: (t) => d.footArms(city, t), shortName: d.shortName, era });
     return pending;
   }
 
