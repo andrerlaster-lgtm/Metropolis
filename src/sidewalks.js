@@ -20,7 +20,7 @@ const CORNER = [
 ];
 // How much each kind of open ground costs to cross per tile: park paths are pleasant, lawns less so.
 const GROUND_COST = { park: 0.9, playground: 1, field: 1.1, tree: 1.3 };
-const OPEN_COST = 1.5;
+const OPEN_COST = 2;
 const TYPE_INDEX = new Map(Object.keys(STRUCTURES).map((k, i) => [k, i]));
 
 const popcount = (m) => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);

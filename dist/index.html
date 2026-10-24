@@ -2864,6 +2864,120 @@ button:focus-visible {
   transform: translateX(-50%);
 }
 
+/* 3D view (src/view3d/) */
+#city3d {
+  position: absolute;
+  inset: 0;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+#city3d:active {
+  cursor: grabbing;
+}
+#city3d[hidden] {
+  display: none;
+}
+#btn-3d[aria-pressed='true'] {
+  background: var(--press);
+  outline: 2px solid var(--tint-tower);
+}
+#app.mode-3d .toolbar,
+#app.mode-3d .tray,
+#app.mode-3d .history-btns,
+#app.mode-3d #legend,
+#app.mode-3d #minimap,
+#app.mode-3d #btn-view,
+#app.mode-3d #btn-fit,
+#app.mode-3d #btn-random,
+#app.mode-3d #btn-follow,
+#app.mode-3d #btn-3d {
+  display: none !important;
+}
+.v3d-hud {
+  position: absolute;
+  left: calc(env(safe-area-inset-left, 0px) + 16px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+}
+.v3d-hud[hidden],
+.v3d-hint[hidden],
+.v3d-stick[hidden] {
+  display: none;
+}
+.v3d-modes {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 21px;
+}
+.v3d-modes button {
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--ink);
+  font: 800 13.5px/1 var(--font-body);
+  cursor: pointer;
+}
+.v3d-modes button.is-on {
+  background: var(--press);
+  box-shadow: 0 0 0 2px var(--tint-tower);
+}
+.v3d-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 9px 16px;
+  border-radius: 18px;
+  color: var(--ink);
+  font: 700 13px/1.3 var(--font-body);
+  text-align: center;
+  pointer-events: none;
+  z-index: 4;
+}
+.v3d-stick {
+  position: absolute;
+  right: calc(env(safe-area-inset-right, 0px) + 24px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  display: grid;
+  place-items: center;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  touch-action: none;
+  z-index: 5;
+}
+.v3d-knob {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--press);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+@media (max-width: 560px) {
+  .v3d-hud {
+    left: 8px;
+    right: 8px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+    justify-content: center;
+  }
+  .v3d-hint {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 112px);
+  }
+  .v3d-stick {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 160px);
+  }
+}
+
 </style>
 </head>
 <body>
@@ -2914,6 +3028,10 @@ button:focus-visible {
         <button type="button" id="btn-view" class="pill glass" aria-label="Switch map view"></button>
         <button type="button" id="btn-fit" class="pill glass icon-only" aria-label="Recenter the city" title="Recenter">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/><path d="m12 8.5 3.5 2v3l-3.5 2-3.5-2v-3z"/></svg>
+        </button>
+        <button type="button" id="btn-3d" class="pill glass" aria-label="See the town in 3D" aria-pressed="false" title="3D view (G)">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>
+          <span class="pill-text">3D</span>
         </button>
         <button type="button" id="btn-sound" class="pill glass icon-only" aria-label="Sound on" title="Sound (M)"></button>
         <button type="button" id="btn-random" class="pill glass" aria-label="Start a new town">
@@ -5070,6 +5188,365 @@ function addressOf(tile) {
 return { shortName, findRuns, computeStreets, addressOf };
 })();
 
+// ---- sidewalks.js ----
+const __mod_sidewalks = (() => {
+// The pedestrian network: where people may walk. Sidewalks run along both edges of every road,
+// zebra crossings sit at junctions and every few tiles along long streets, and parks, squares and
+// open ground link up between them. Buildings are only ever a start or an end (people go in and
+// out through the door facing their next step), so nobody walks through a building or down the
+// middle of a road. Both the overhead and the 3D view draw the same sidewalks and crossings.
+// Positions are in grid units, like everything the agents do.
+
+const { STRUCTURES } = __mod_config;
+const { DIRS } = __mod_state;
+const SIDEWALK = 0.15; // width of the sidewalk strip along an unconnected road edge
+const WALK_LINE = 0.075; // people walk down the middle of it
+const JAYWALK = 4; // crossing a street away from a zebra crossing costs as much as walking four tiles
+const CROSSWALK = 0.15;
+const CORNER = [
+  [WALK_LINE, WALK_LINE],
+  [1 - WALK_LINE, WALK_LINE],
+  [1 - WALK_LINE, 1 - WALK_LINE],
+  [WALK_LINE, 1 - WALK_LINE],
+];
+// How much each kind of open ground costs to cross per tile: park paths are pleasant, lawns less so.
+const GROUND_COST = { park: 0.9, playground: 1, field: 1.1, tree: 1.3 };
+const OPEN_COST = 2;
+const TYPE_INDEX = new Map(Object.keys(STRUCTURES).map((k, i) => [k, i]));
+
+const popcount = (m) => (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
+
+// A road tile people can walk along (a washed-out road can't be walked; a snowed-in one can).
+function roadTile(t) {
+  return !!t && t.terrain === 'grass' && t.structure?.type === 'road' && !t.structure.broken;
+}
+
+// Which sides of a road tile join another walkable road tile (N, E, S, W bits, like roadMask).
+// Same as roadMask, except that snow doesn't close the sidewalks.
+function footArms(city, t) {
+  if (!roadTile(t)) return 0;
+  let m = 0;
+  for (const d of DIRS) if (roadTile(city.getTile(t.x + d.dx, t.y + d.dy))) m |= d.bit;
+  return m;
+}
+
+// Which sides of a road tile carry a zebra crossing: every arm of a junction, and one side of a
+// straight stretch every five tiles (not right next to a junction, which has its own).
+function crosswalkMask(city, x, y) {
+  const t = city.getTile(x, y);
+  if (!roadTile(t)) return 0;
+  const m = footArms(city, t);
+  const arms = popcount(m);
+  if (arms >= 3) return m;
+  const junction = (tx, ty) => {
+    const n = city.getTile(tx, ty);
+    return roadTile(n) && popcount(footArms(city, n)) >= 3;
+  };
+  if (m === 10 && ((x % 5) + 5) % 5 === 2 && !junction(x - 1, y) && !junction(x + 1, y)) return 8;
+  if (m === 5 && ((y % 5) + 5) % 5 === 2 && !junction(x, y - 1) && !junction(x, y + 1)) return 1;
+  return 0;
+}
+
+// A cheap fingerprint of everything the network depends on, so it is rebuilt only when the map changes.
+function layoutHash(city) {
+  let h = 2166136261 ^ city.width ^ (city.height << 8);
+  for (const t of city.tiles) {
+    const s = t.structure;
+    const code = t.terrain === 'water' ? 1 : s ? 2 + TYPE_INDEX.get(s.type) * 4 + (s.broken ? 1 : 0) + (t.roadMask << 10) : 0;
+    h = Math.imul(h ^ code, 16777619);
+  }
+  return h >>> 0;
+}
+
+class SidewalkNetwork {
+  constructor(city) {
+    this.city = city;
+    this.hash = null;
+    this.version = 0;
+  }
+
+  // Rebuild if the map has changed since the last route. Cheap when it hasn't.
+  refresh() {
+    const h = layoutHash(this.city);
+    if (h !== this.hash) {
+      this.hash = h;
+      this.build();
+      this.version++;
+    }
+    return this;
+  }
+
+  build() {
+    const city = this.city;
+    const W = city.width;
+    const N = city.tiles.length;
+    this.N = N;
+    this.W = W;
+    const adj = (this.adj = new Array(5 * N));
+    // Node ids: road tile k has four corners 4k..4k+3 (NW, NE, SE, SW); any other tile k is node 4N + k.
+    const kind = (this.kind = new Uint8Array(N)); // 0 none, 1 road, 2 open ground, 3 building
+    const cost = (this.cost = new Float32Array(N));
+    this.cross = new Uint8Array(N);
+    for (const t of city.tiles) {
+      const k = t.y * W + t.x;
+      if (t.terrain !== 'grass') continue;
+      const s = t.structure;
+      if (s?.type === 'road') kind[k] = s.broken ? 0 : 1;
+      else if (!s) {
+        kind[k] = 2;
+        cost[k] = OPEN_COST;
+      } else if (STRUCTURES[s.type].walkable) {
+        kind[k] = 2;
+        cost[k] = GROUND_COST[s.type] ?? 1;
+      } else if (s.type !== 'rubble') kind[k] = 3;
+    }
+    const link = (a, b, c, flag = 0) => {
+      (adj[a] ||= []).push(b, c, flag);
+      (adj[b] ||= []).push(a, c, flag);
+    };
+    const center = (k) => 4 * N + k;
+    for (const t of city.tiles) {
+      const k = t.y * W + t.x;
+      if (kind[k] === 1) {
+        const m = footArms(city, t);
+        const marked = crosswalkMask(city, t.x, t.y);
+        this.cross[k] = marked;
+        for (let s = 0; s < 4; s++) {
+          const a = 4 * k + s;
+          const b = 4 * k + ((s + 1) % 4);
+          const len = 1 - 2 * WALK_LINE;
+          const bit = DIRS[s].bit;
+          if (!(m & bit)) link(a, b, len); // along the kerb
+          else link(a, b, len + (marked & bit ? CROSSWALK : JAYWALK), 1); // across the street
+        }
+        // Sidewalks carry on into the next road tile east and south.
+        for (const s of [1, 2]) {
+          if (!(m & DIRS[s].bit)) continue;
+          const n = city.getTile(t.x + DIRS[s].dx, t.y + DIRS[s].dy);
+          if (!n || kind[n.y * W + n.x] !== 1) continue;
+          const nk = n.y * W + n.x;
+          const o = (s + 2) % 4;
+          link(4 * k + s, 4 * nk + ((o + 1) % 4), 2 * WALK_LINE);
+          link(4 * k + ((s + 1) % 4), 4 * nk + o, 2 * WALK_LINE);
+        }
+      }
+      // Any tile beside a road reaches the two sidewalk corners on that side.
+      for (let s = 0; s < 4; s++) {
+        const n = city.getTile(t.x + DIRS[s].dx, t.y + DIRS[s].dy);
+        if (!n) continue;
+        const nk = n.y * W + n.x;
+        if (kind[k] === 1 && (kind[nk] === 2 || kind[nk] === 3)) {
+          const f = kind[nk] === 2 ? cost[nk] : 1;
+          for (const c of [s, (s + 1) % 4]) {
+            const [cx, cy] = CORNER[c];
+            const d = Math.hypot(t.x + cx - (n.x + 0.5), t.y + cy - (n.y + 0.5));
+            link(4 * k + c, center(nk), d * f);
+          }
+        }
+        // Open ground links to open ground and to buildings (east and south only, to link each pair once).
+        if (s === 1 || s === 2) {
+          const a = kind[k];
+          const b = kind[nk];
+          if ((a === 2 && (b === 2 || b === 3)) || (a === 3 && b === 2)) {
+            const f = ((a === 2 ? cost[k] : 1) + (b === 2 ? cost[nk] : 1)) / 2;
+            link(center(k), center(nk), f);
+          }
+        }
+      }
+    }
+  }
+
+  nodeOf(x, y) {
+    const k = y * this.W + x;
+    const kd = this.kind[k];
+    return kd === 2 || kd === 3 ? 4 * this.N + k : -1;
+  }
+
+  // Where a node stands, in grid units.
+  pos(id) {
+    if (id >= 4 * this.N) {
+      const k = id - 4 * this.N;
+      return { x: (k % this.W) + 0.5, y: Math.floor(k / this.W) + 0.5, k };
+    }
+    const k = id >> 2;
+    const [cx, cy] = CORNER[id & 3];
+    return { x: (k % this.W) + cx, y: Math.floor(k / this.W) + cy, k };
+  }
+
+  // Dijkstra from one tile, as far as maxCost (or until `goal` is reached). Buildings other than the
+  // start are reached but never passed through. The distances and the way back stay valid until the
+  // next search.
+  explore(from, maxCost = 30, goal = -1) {
+    this.refresh();
+    const start = this.nodeOf(from.x, from.y);
+    if (start < 0) return null;
+    const n = this.adj.length;
+    if (!this.dist || this.dist.length !== n) {
+      this.dist = new Float64Array(n);
+      this.prev = new Int32Array(n);
+      this.seen = new Uint32Array(n);
+      this.stamp = 0;
+    }
+    const { dist, prev, seen, kind } = this;
+    const stamp = ++this.stamp;
+    const base = 4 * this.N;
+    const reached = [start];
+    seen[start] = stamp;
+    dist[start] = 0;
+    prev[start] = -1;
+    const heap = [0, start];
+    while (heap.length) {
+      const d = heap[0];
+      const u = heap[1];
+      heapPop(heap);
+      if (d > dist[u]) continue; // a stale entry
+      if (u === goal) break;
+      if (u !== start && u >= base && kind[u - base] === 3) continue; // a building: the end of the line
+      const edges = this.adj[u];
+      if (!edges) continue;
+      for (let i = 0; i < edges.length; i += 3) {
+        const v = edges[i];
+        const nd = d + edges[i + 1];
+        if (nd > maxCost) continue;
+        if (seen[v] === stamp) {
+          if (nd >= dist[v]) continue;
+        } else {
+          seen[v] = stamp;
+          reached.push(v);
+        }
+        dist[v] = nd;
+        prev[v] = u;
+        heapPush(heap, nd, v);
+      }
+    }
+    return { start, reached, stamp };
+  }
+
+  reachedCost(ex, id) {
+    return this.seen[id] === ex.stamp ? this.dist[id] : Infinity;
+  }
+
+  // The walking route between two tiles, or null when there's no way on foot within maxCost.
+  route(from, to, maxCost = 30) {
+    const goal = this.refresh().nodeOf(to.x, to.y);
+    if (goal < 0) return null;
+    const ex = this.explore(from, maxCost, goal);
+    if (!ex || this.reachedCost(ex, goal) === Infinity || goal === ex.start) return null;
+    return this.trace(ex, goal);
+  }
+
+  // A walk from a tile to one of the places `weigh` likes, chosen at random by weight.
+  // weigh(tile, cost) → weight (0 to skip).
+  outing(from, weigh, maxCost = 14, rand = Math.random) {
+    const ex = this.explore(from, maxCost);
+    if (!ex) return null;
+    const tiles = this.city.tiles;
+    const base = 4 * this.N;
+    const options = [];
+    let total = 0;
+    for (const id of ex.reached) {
+      if (id < base || id === ex.start) continue;
+      const w = weigh(tiles[id - base], this.dist[id]);
+      if (w > 0) {
+        options.push(id, w);
+        total += w;
+      }
+    }
+    if (!total) return null;
+    let r = rand() * total;
+    for (let i = 0; i < options.length; i += 2) {
+      r -= options[i + 1];
+      if (r <= 0) return this.trace(ex, options[i]);
+    }
+    return this.trace(ex, options[options.length - 2]);
+  }
+
+  // Turn a chain of nodes into the points a walker passes. A building end becomes its door: the
+  // middle of the edge it shares with the next step, just inside.
+  trace(ex, goal) {
+    const ids = [];
+    for (let u = goal; u !== -1; u = this.prev[u]) ids.push(u);
+    ids.reverse();
+    const base = 4 * this.N;
+    const pts = ids.map((id) => this.pos(id));
+    const crossings = [];
+    for (let i = 1; i < ids.length; i++) {
+      const a = ids[i - 1];
+      const b = ids[i];
+      crossings.push(a < base && b < base && a >> 2 === b >> 2 && this.isCrossing(a, b));
+    }
+    const door = (end, next) => {
+      const k = end.k;
+      if (this.kind[k] !== 3) return end;
+      const tx = k % this.W;
+      const ty = Math.floor(k / this.W);
+      const dx = next.x - (tx + 0.5);
+      const dy = next.y - (ty + 0.5);
+      const side = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+      return { x: tx + 0.5 + side[0] * 0.44, y: ty + 0.5 + side[1] * 0.44, k, door: true };
+    };
+    if (pts.length > 1) {
+      pts[0] = door(pts[0], pts[1]);
+      pts[pts.length - 1] = door(pts[pts.length - 1], pts[pts.length - 2]);
+    }
+    return { points: pts, crossings, cost: this.dist[goal] };
+  }
+
+  isCrossing(a, b) {
+    const edges = this.adj[a];
+    for (let i = 0; i < edges.length; i += 3) if (edges[i] === b) return edges[i + 2] === 1;
+    return false;
+  }
+
+  // Is the tile a point stands on still fit to walk? (Built over, flooded or washed out → no.)
+  walkable(k) {
+    const t = this.city.tiles[k];
+    if (!t || t.terrain !== 'grass') return false;
+    const s = t.structure;
+    if (!s) return true;
+    if (s.type === 'road') return !s.broken;
+    return s.type !== 'rubble';
+  }
+}
+
+// A binary min-heap stored flat as [cost, node, cost, node, ...].
+function heapPush(h, d, u) {
+  let i = h.length >> 1;
+  h.push(d, u);
+  while (i > 0) {
+    const p = (i - 1) >> 1;
+    if (h[2 * p] <= d) break;
+    h[2 * i] = h[2 * p];
+    h[2 * i + 1] = h[2 * p + 1];
+    i = p;
+  }
+  h[2 * i] = d;
+  h[2 * i + 1] = u;
+}
+
+function heapPop(h) {
+  const u = h.pop();
+  const d = h.pop();
+  const n = h.length >> 1;
+  if (!n) return;
+  let i = 0;
+  for (;;) {
+    const l = 2 * i + 1;
+    if (l >= n) break;
+    const r = l + 1;
+    const c = r < n && h[2 * r] < h[2 * l] ? r : l;
+    if (h[2 * c] >= d) break;
+    h[2 * i] = h[2 * c];
+    h[2 * i + 1] = h[2 * c + 1];
+    i = c;
+  }
+  h[2 * i] = d;
+  h[2 * i + 1] = u;
+}
+
+return { SIDEWALK, WALK_LINE, footArms, crosswalkMask, SidewalkNetwork };
+})();
+
 // ---- agents.js ----
 const __mod_agents = (() => {
 // Agents: cars and pedestrians that make the simulation visible. They read the city and are never
@@ -5078,8 +5555,9 @@ const __mod_agents = (() => {
 const { CAR_COLORS, SHIRT_COLORS, SKIN_TONES, STRUCTURES } = __mod_config;
 const { DIRS } = __mod_state;
 const { pick, pickWeighted } = __mod_utils;
+const { SidewalkNetwork } = __mod_sidewalks;
 const MAX_CARS = 70;
-const MAX_WALKERS = 60;
+const MAX_WALKERS = 90;
 const MAX_TOWN_WALKERS = 14;
 const CART_COLORS = ['#b88a5a', '#a87a52', '#c99b6a', '#9b7a5f'];
 const HORSE_COLORS = ['#8a5d3b', '#6f4a33', '#c9a27a', '#4e3a2e', '#e8dccb'];
@@ -5100,6 +5578,7 @@ class AgentSystem {
     this._carTimer = 0;
     this._walkTimer = 0;
     this.hero = null; // the Life Story character, when they are out and about
+    this.paths = new SidewalkNetwork(city);
     this._heroWait = 1;
     city.on((ev) => {
       if (ev.type === 'reset' || ev.type === 'loaded') this.clear();
@@ -5281,50 +5760,90 @@ class AgentSystem {
   }
 
   // ---- Pedestrians -----------------------------------------------------
+  // People walk the sidewalk network (sidewalks.js): along the kerbs, over zebra crossings and through
+  // parks, never through buildings. Each walk has a purpose that suits the hour: the commute on foot,
+  // errands to shops and the library, school runs, or a stroll to the park. Both views draw the same
+  // walkers from the fields set here (gx, gy, heading, moving, alpha and their look).
 
   desiredWalkers(daylight) {
     const pop = this.city.stats.population;
     const w = this.city.derived.weather;
     const shelter = 1 - 0.55 * (w?.rain || 0) - 0.4 * (w?.snow || 0);
-    return Math.round(Math.min(MAX_WALKERS, pop / 4) * (0.15 + 0.85 * daylight) * shelter);
+    return Math.round(Math.min(MAX_WALKERS, pop / 3.5) * (0.15 + 0.85 * daylight) * shelter);
   }
 
   updateWalkers(dt, daylight) {
     const active = this.walkers.filter((w) => !w.leaving).length;
     if (active < this.desiredWalkers(daylight) && this._walkTimer <= 0) {
       this.spawnWalker();
-      this._walkTimer = 0.45;
+      this._walkTimer = 0.3;
     }
     for (const w of this.walkers) this.stepWalker(w, dt);
     this.walkers = this.walkers.filter((w) => !w.dead);
   }
 
   spawnWalker() {
+    const clock = this.city.clock;
+    if (Math.random() < 0.45 * commuteActivity(clock) && this.spawnCommuteWalk()) return;
     const homes = this.city.homes().filter((h) => h.structure.residents > 0);
     const home = pickWeighted(homes, (h) => h.structure.residents);
     if (!home) return;
-    const path = this.findOuting(home);
-    if (!path) return;
-    this.walkers.push({
+    const child = Math.random() < 0.18;
+    const route = this.findOuting(home, { child });
+    if (!route) return;
+    const end = route.points[route.points.length - 1];
+    const inside = !!end.door;
+    this.walkers.push(this.walker(route, { home, child, look: makeLook(child), errand: inside }));
+  }
+
+  // Someone who lives close to work walks there in the morning and home again in the evening.
+  spawnCommuteWalk() {
+    const flows = this.city.derived.labor?.flows;
+    if (!flows?.length) return false;
+    const flow = pickWeighted(flows, (f) => (f.path.length <= 10 ? f.count : 0));
+    if (!flow) return false;
+    const W = this.city.width;
+    const home = { x: flow.from % W, y: Math.floor(flow.from / W) };
+    const job = { x: flow.to % W, y: Math.floor(flow.to / W) };
+    const homeward = this.city.clock > 0.55;
+    const route = homeward ? this.paths.route(job, home, 14) : this.paths.route(home, job, 14);
+    if (!route) return false;
+    this.walkers.push(this.walker(route, { home: homeward ? job : home, look: makeLook(false), oneWay: true }));
+    return true;
+  }
+
+  // A new walker at the start of a route.
+  walker(route, { home, dest = null, look, child = false, oneWay = false, speed = 0.5 + Math.random() * 0.3, ...extra }) {
+    const p = route.points[0];
+    return {
       home: { x: home.x, y: home.y },
-      path,
+      dest: dest ? { x: dest.x, y: dest.y } : null,
+      pts: route.points,
+      cross: route.crossings,
       i: 0,
-      t: 0,
+      s: 0,
       state: 'out',
       wait: 0,
-      speed: 0.5 + Math.random() * 0.3,
-      ox: (Math.random() - 0.5) * 0.44,
-      oy: (Math.random() - 0.5) * 0.44,
-      shirt: pick(SHIRT_COLORS),
-      skin: pick(SKIN_TONES),
+      speed: child ? speed * 1.1 : speed,
+      lane: 0.018 + Math.random() * 0.022, // how far right of the walking line they keep
+      shirt: look.shirt,
+      skin: look.skin,
+      hair: look.hair,
+      pants: look.pants,
+      hat: look.hat,
+      build: look.build,
       phase: Math.random() * Math.PI * 2,
       alpha: 0,
-      gx: home.x + 0.5,
-      gy: home.y + 0.5,
+      gx: p.x,
+      gy: p.y,
+      heading: 0,
       moving: true,
       leaving: false,
       dead: false,
-    });
+      child,
+      oneWay,
+      ...extra,
+    };
   }
 
   // ---- Townsfolk -------------------------------------------------------------------
@@ -5335,36 +5854,24 @@ class AgentSystem {
     if (this.walkers.filter((w) => w.townId && !w.leaving).length >= MAX_TOWN_WALKERS) return;
     for (const w of this.walkers) if (w.townId === person.id) w.leaving = true; // they've moved on
     if (Math.abs(trip.from.x - trip.to.x) + Math.abs(trip.from.y - trip.to.y) > 16) return; // they drove
-    const path = this.pathTo(trip.from, trip.to);
-    if (!path || path.length < 2 || path.length > 24) return;
+    const route = this.paths.route(trip.from, trip.to, 24);
+    if (!route || route.points.length < 2) return;
     const end = this.city.getTile(trip.to.x, trip.to.y);
-    this.walkers.push({
-      home: { ...trip.from },
-      dest: { ...trip.to },
-      path,
-      i: 0,
-      t: 0,
-      state: 'out',
-      wait: 0,
-      speed: 0.6 + Math.random() * 0.25,
-      ox: (Math.random() - 0.5) * 0.3,
-      oy: (Math.random() - 0.5) * 0.3,
-      shirt: person.look?.shirt || pick(SHIRT_COLORS),
-      skin: person.look?.skin || pick(SKIN_TONES),
-      hair: person.look?.hair,
-      phase: Math.random() * Math.PI * 2,
-      alpha: 0,
-      gx: trip.from.x + 0.5,
-      gy: trip.from.y + 0.5,
-      moving: true,
-      leaving: false,
-      dead: false,
-      townId: person.id,
-      mood: person.mood,
-      child: person.age < 13,
-      oneWay: true,
-      stay: !!end?.structure && !!STRUCTURES[end.structure.type].walkable, // parks: they hang around
-    });
+    const child = person.age < 13;
+    const look = makeLook(child, person.look);
+    this.walkers.push(
+      this.walker(route, {
+        home: trip.from,
+        dest: trip.to,
+        look,
+        child,
+        oneWay: true,
+        speed: 0.6 + Math.random() * 0.25,
+        townId: person.id,
+        mood: person.mood,
+        stay: !!end?.structure && !!STRUCTURES[end.structure.type].walkable, // parks: they hang around
+      })
+    );
   }
 
   // ---- The Life Story character ----------------------------------------------------
@@ -5386,105 +5893,68 @@ class AgentSystem {
     this._heroWait = 3 + Math.random() * 4;
     const homeTile = this.city.getTile(home.x, home.y);
     if (!homeTile?.structure) return;
-    let path = null;
+    const child = c.age < 13;
+    let route = null;
     let dest = null;
     if (c.job && daylight > 0.5 && Math.random() < 0.7) {
-      path = this.pathTo(home, c.job);
-      if (path) dest = c.job;
+      route = this.paths.route(home, c.job, 30);
+      if (route) dest = c.job;
     }
-    if (!path) path = this.findOuting(homeTile);
-    if (!path || path.length < 2) return;
-    const w = {
-      home: { x: home.x, y: home.y },
-      dest,
-      path,
-      i: 0,
-      t: 0,
-      state: 'out',
-      wait: 0,
-      speed: 0.85,
-      ox: 0,
-      oy: 0,
-      shirt: c.look?.outfit || SHIRT_COLORS[0],
-      skin: c.look?.skin || SKIN_TONES[0],
-      hair: c.look?.hair || '#5b3a29',
-      phase: 0,
-      alpha: 0,
-      gx: home.x + 0.5,
-      gy: home.y + 0.5,
-      moving: true,
-      leaving: false,
-      dead: false,
-      hero: true,
-      child: c.age < 13,
-    };
+    if (!route) route = this.findOuting(homeTile, { child, leisure: true });
+    if (!route || route.points.length < 2) return;
+    const look = makeLook(child, { shirt: c.look?.outfit || SHIRT_COLORS[0], skin: c.look?.skin || SKIN_TONES[0], hair: c.look?.hair || '#5b3a29' });
+    const w = this.walker(route, { home, dest, look, child, speed: 0.85, hero: true, lane: 0.02, phase: 0 });
     this.hero = w;
     this.walkers.push(w);
   }
 
-  // A walking route from one building to another over walkable tiles (paths, parks, roadsides).
+  // The tiles a walk from one building to another passes, or null when it's too far on foot.
   pathTo(from, to) {
-    const city = this.city;
-    const key = (x, y) => y * city.width + x;
-    const prev = new Map([[key(from.x, from.y), null]]);
-    const queue = [{ x: from.x, y: from.y }];
-    for (let qi = 0; qi < queue.length; qi++) {
-      const cur = queue[qi];
-      for (const dir of DIRS) {
-        const nx = cur.x + dir.dx;
-        const ny = cur.y + dir.dy;
-        const k = key(nx, ny);
-        if (prev.has(k)) continue;
-        const goal = nx === to.x && ny === to.y;
-        if (!goal && !city.isWalkable(nx, ny)) continue;
-        prev.set(k, cur);
-        const n = { x: nx, y: ny };
-        if (goal) {
-          const path = [];
-          for (let p = n; p; p = prev.get(key(p.x, p.y))) path.unshift({ x: p.x, y: p.y });
-          return path;
-        }
-        queue.push(n);
-      }
-    }
-    return null;
+    const route = this.paths.route(from, to, 30);
+    if (!route) return null;
+    const W = this.city.width;
+    const tiles = [];
+    for (const p of route.points) if (tiles[tiles.length - 1]?.k !== p.k) tiles.push({ k: p.k });
+    return tiles.map(({ k }) => ({ x: k % W, y: Math.floor(k / W) }));
   }
 
-  // Residents prefer parks, then trees, then any open ground within a short stroll.
-  findOuting(home) {
-    const city = this.city;
-    const key = (x, y) => y * city.width + x;
-    const prev = new Map([[key(home.x, home.y), null]]);
-    const queue = [{ x: home.x, y: home.y, d: 0 }];
-    const reachable = [];
-    while (queue.length) {
-      const cur = queue.shift();
-      if (cur.d >= 9) continue;
-      for (const dir of DIRS) {
-        const nx = cur.x + dir.dx;
-        const ny = cur.y + dir.dy;
-        const k = key(nx, ny);
-        if (prev.has(k) || !city.isWalkable(nx, ny)) continue;
-        prev.set(k, cur);
-        const n = { x: nx, y: ny, d: cur.d + 1 };
-        queue.push(n);
-        reachable.push(n);
-      }
-    }
-    const dest = pickWeighted(reachable, (n) => {
-      const type = city.getTile(n.x, n.y).structure?.type;
-      if (type === 'park') return 8;
-      if (type === 'playground') return 7;
-      if (type === 'field') return 6;
-      if (type === 'cafe') return 5;
-      if (type === 'tree') return 2;
-      if (type === 'road') return 0.15;
-      return 0.4;
+  // Somewhere worth walking to from home, given the hour: shops and cafés by day, school in the
+  // morning for children, parks and playgrounds any time, a friend's house now and then.
+  findOuting(home, { child = false, leisure = false } = {}) {
+    const clock = this.city.clock;
+    const open = clock > 0.33 && clock < 0.8;
+    const schoolRun = child && clock > 0.28 && clock < 0.45;
+    return this.paths.outing(home, (t, d) => {
+      if (d < 1.5) return 0;
+      const type = t.structure?.type;
+      let w;
+      if (!type) w = 0.25;
+      else if (type === 'park') w = 8;
+      else if (type === 'playground') w = child ? 12 : 4;
+      else if (type === 'field') w = child ? 7 : 5;
+      else if (type === 'tree') w = 1.2;
+      else if (leisure) w = type === 'cafe' ? 4 : 0;
+      else if (type === 'school') w = schoolRun ? 30 : 0;
+      else if (type === 'cafe' || type === 'bakery') w = open ? 6 : 0.5;
+      else if (type === 'shop' || type === 'mall') w = open && !child ? 6 : 0;
+      else if (type === 'library') w = open ? 3 : 0;
+      else if (type === 'clinic') w = open && !child ? 0.6 : 0;
+      else if (STRUCTURES[type].capacity && t.structure.residents > 0) w = child ? 0.6 : 0.9; // visiting
+      else w = 0;
+      return w / (1 + d * 0.12);
     });
-    if (!dest) return null;
-    const path = [];
-    for (let n = dest; n; n = prev.get(key(n.x, n.y))) path.unshift({ x: n.x, y: n.y });
-    return path;
+  }
+
+  // Is a car close to where a walker is about to cross?
+  carNear(a, b) {
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    for (const c of this.cars) {
+      if (c.alpha < 0.3) continue;
+      const p = this.carPose(c);
+      if (Math.abs(p.gx - mx) < 0.75 && Math.abs(p.gy - my) < 0.75) return true;
+    }
+    return false;
   }
 
   stepWalker(w, dt) {
@@ -5494,22 +5964,27 @@ class AgentSystem {
       w.dead = true;
       return;
     }
+    const pts = w.pts;
     if (w.state === 'linger') {
       w.moving = false;
       w.wait -= dt;
-      const end = w.path[w.path.length - 1];
+      const end = pts[pts.length - 1];
       if (w.indoors) {
-        // The character is inside their workplace, hidden until it's time to head home.
+        // Inside the shop, school or workplace, hidden until it's time to come out.
         w.alpha = Math.max(0, w.alpha - dt * 3);
-        w.gx = end.x + 0.5;
-        w.gy = end.y + 0.5;
+        w.gx = end.x;
+        w.gy = end.y;
         if (w.wait > 0) return;
         w.indoors = false;
       } else {
-        if (!city.isWalkable(end.x, end.y)) w.leaving = true; // something was built where they stood
+        if (!this.paths.walkable(end.k)) w.leaving = true; // something was built where they stood
+        // A slow wander about the spot: a park bench, the swings, under a tree.
         const drift = this.time * 0.35 + w.phase;
-        w.gx = end.x + 0.5 + w.ox + Math.sin(drift) * 0.12;
-        w.gy = end.y + 0.5 + w.oy + Math.cos(drift * 0.8) * 0.12;
+        const nx = end.x + Math.sin(drift) * 0.2;
+        const ny = end.y + Math.cos(drift * 0.8) * 0.2;
+        if (Math.abs(nx - w.gx) + Math.abs(ny - w.gy) > 1e-4) w.heading = Math.atan2(ny - w.gy, nx - w.gx);
+        w.gx = nx;
+        w.gy = ny;
         w.moving = Math.abs(Math.cos(drift)) > 0.4;
       }
       if (w.wait <= 0 && w.oneWay) {
@@ -5518,57 +5993,113 @@ class AgentSystem {
       }
       if (w.wait <= 0) {
         w.state = 'back';
-        w.path = w.path.slice().reverse();
+        w.pts = pts.slice().reverse();
+        w.cross = w.cross.slice().reverse();
         w.i = 0;
-        w.t = 0;
+        w.s = 0;
       }
       return;
     }
-    const a = w.path[w.i];
-    const b = w.path[w.i + 1];
+    const a = pts[w.i];
+    const b = pts[w.i + 1];
     if (!b) {
       if (w.state === 'out') {
-        const type = city.getTile(a.x, a.y)?.structure?.type;
         w.state = 'linger';
+        const type = city.tiles[a.k]?.structure?.type;
         w.wait = type === 'park' || type === 'playground' || type === 'field' ? 5 + Math.random() * 8 : 2 + Math.random() * 3;
         if (w.oneWay) {
           // Townsfolk stay out in parks a while and step inside cafés and homes.
           if (w.stay) w.wait = 8 + Math.random() * 6;
           else w.leaving = true;
-        } else if (w.dest && a.x === w.dest.x && a.y === w.dest.y) {
-          w.indoors = true; // a shift at work
-          w.wait = 10 + Math.random() * 6;
+        } else if (a.door) {
+          w.indoors = true; // a shift at work, a lesson, the shopping
+          w.wait = w.dest ? 10 + Math.random() * 6 : 4 + Math.random() * 6;
         }
       } else {
         w.leaving = true; // home again
       }
       return;
     }
-    const isHome = b.x === w.home.x && b.y === w.home.y;
-    const isDest = !!w.dest && b.x === w.dest.x && b.y === w.dest.y;
-    const fromDest = !!w.dest && a.x === w.dest.x && a.y === w.dest.y;
-    if (!isHome && !isDest && !fromDest && !city.isWalkable(b.x, b.y)) {
-      w.leaving = true;
-      return;
-    }
     w.moving = true;
-    w.t += w.speed * dt;
-    if (w.t >= 1) {
-      w.t -= 1;
+    this.stepAlong(w, w.speed * dt, dt);
+    this.placeWalker(w);
+  }
+
+  // Walk `dist` grid units along the route. Each new stretch is checked first: something built or
+  // washed out ahead turns them back, and at a crossing they wait at the kerb while a car goes by.
+  stepAlong(w, dist, dt) {
+    while (dist > 0) {
+      const a = w.pts[w.i];
+      const b = w.pts[w.i + 1];
+      if (!b) return;
+      if (w.s === 0) {
+        if (!b.door && !this.paths.walkable(b.k)) {
+          w.leaving = true;
+          return;
+        }
+        if (w.cross[w.i] && (w.held || 0) < 2.5 && this.carNear(a, b)) {
+          w.held = (w.held || 0) + dt;
+          w.moving = false;
+          return;
+        }
+        w.held = 0;
+      }
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (w.s + dist < len) {
+        w.s += dist;
+        return;
+      }
+      dist -= len - w.s;
       w.i++;
+      w.s = 0;
     }
-    const p = w.path[w.i];
-    const q = w.path[w.i + 1] || p;
-    // Fade the personal offset in and out so walkers leave and enter through the middle of a home.
-    const atHomeEnd = (n) => n.x === w.home.x && n.y === w.home.y;
-    const offsetScale = Math.min(1, (atHomeEnd(p) ? w.t : 1) * (atHomeEnd(q) ? 1 - w.t : 1) * 3);
-    w.gx = p.x + (q.x - p.x) * w.t + 0.5 + w.ox * offsetScale;
-    w.gy = p.y + (q.y - p.y) * w.t + 0.5 + w.oy * offsetScale;
+  }
+
+  // Position on the current stretch, kept a little to the walker's right so people pass each other,
+  // eased in near doors and around corners.
+  placeWalker(w) {
+    const p = w.pts[w.i];
+    const q = w.pts[w.i + 1] || p;
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const t = Math.min(1, w.s / len);
+    let rx = -dy / len;
+    let ry = dx / len;
+    const o = w.pts[w.i - 1];
+    if (o && w.s < 0.12) {
+      const pl = Math.hypot(p.x - o.x, p.y - o.y) || 1;
+      const k = w.s / 0.12;
+      rx = rx * k + (-(p.y - o.y) / pl) * (1 - k);
+      ry = ry * k + ((p.x - o.x) / pl) * (1 - k);
+    }
+    const fromDoor = p.door ? w.s : Infinity;
+    const toDoor = q.door ? len - w.s : Infinity;
+    const off = w.lane * Math.min(1, Math.min(fromDoor, toDoor) / 0.15);
+    w.gx = p.x + dx * t + rx * off;
+    w.gy = p.y + dy * t + ry * off;
+    if (len > 1e-3 && q !== p) w.heading = Math.atan2(dy, dx);
   }
 }
 
+const PANTS_COLORS = ['#5b6a8f', '#3f4a66', '#7a6a5a', '#2f3a4a', '#8a8fa6', '#6d5a7a', '#4a5f55', '#b8a58c'];
+const HAIR_COLORS = ['#3b2a20', '#5b3a29', '#8a5a3a', '#d9b46a', '#1f1a1a', '#a0522d', '#c9c3bb', '#e0c38a'];
+const HAT_COLORS = ['#f2e6c9', '#6d5a7a', '#ff8f7e', '#3f4a66', '#7fc4ad', '#ffcf6e'];
 
-return { commuteActivity, AgentSystem };
+// What someone looks like: shirt, trousers, hair, now and then a hat, and how tall and broad they are.
+// `base` keeps the colours a named resident already has.
+function makeLook(child = false, base = {}) {
+  return {
+    shirt: base.shirt || pick(SHIRT_COLORS),
+    skin: base.skin || pick(SKIN_TONES),
+    hair: base.hair || (Math.random() < 0.85 ? pick(HAIR_COLORS) : null),
+    pants: base.pants || pick(PANTS_COLORS),
+    hat: base.hat !== undefined ? base.hat : Math.random() < 0.18 ? pick(HAT_COLORS) : null,
+    build: child ? 0.68 + Math.random() * 0.1 : 0.9 + Math.random() * 0.2,
+  };
+}
+
+return { commuteActivity, AgentSystem, makeLook };
 })();
 
 // ---- lifeData.js ----
@@ -10820,6 +11351,7 @@ const { clamp, hash2 } = __mod_utils;
 const { shortName, addressOf } = __mod_streets;
 const { rampStops, settings } = __mod_settings;
 const { notableType } = __mod_notables;
+const { crosswalkMask } = __mod_sidewalks;
 const SLAB_DEPTH = 18;
 // Unlit lighting for the cached ground layer; the frame's real light is multiplied on afterwards.
 const NEUTRAL_LIGHT = { ambient: [1, 1, 1], daylight: 1, windowLit: 0, lamps: 0, shadow: { alpha: 0 }, clock: 0.5 };
@@ -11871,20 +12403,41 @@ class Renderer {
     }
     ctx.stroke();
     ctx.setLineDash([]);
-    // Zebra crossing on busy junctions.
-    const links = [1, 2, 4, 8].filter((b) => m & b).length;
-    if (links >= 3) {
-      ctx.fillStyle = litA(PALETTE.marking, 1, L, 0.85);
-      for (let k = 0; k < 3; k++) {
-        const off = 0.3 + k * 0.2;
-        poly(ctx, [
-          [x + off - 0.05, y + 0.06],
-          [x + off + 0.05, y + 0.06],
-          [x + off + 0.05, y + 0.16],
-          [x + off - 0.05, y + 0.16],
-        ]);
-        ctx.fill();
-      }
+    this.drawKerbCorners(ctx, x, y, m, PALETTE.sidewalk, 0.15, L);
+    // Zebra crossings where people cross (sidewalks.js decides where): across every arm of a
+    // junction, and now and then along a long street.
+    const zebra = crosswalkMask(this.city, x, y) & m;
+    if (zebra) {
+      ctx.fillStyle = litA(PALETTE.marking, 1, L, 0.9);
+      EDGES.forEach((e, i) => {
+        if (!(zebra & (1 << i))) return;
+        for (let k = 0; k < 6; k++) {
+          const u0 = 0.19 + k * 0.11;
+          const u1 = u0 + 0.06;
+          const at = (u, v) => [x + e.a[0] + (e.b[0] - e.a[0]) * u + e.n[0] * v, y + e.a[1] + (e.b[1] - e.a[1]) * u + e.n[1] * v];
+          poly(ctx, [at(u0, 0.02), at(u1, 0.02), at(u1, 0.14), at(u0, 0.14)]);
+          ctx.fill();
+        }
+      });
+    }
+  }
+
+  // Where two arms of a junction meet, the sidewalks join in a little square at the corner.
+  drawKerbCorners(ctx, x, y, m, color, w, L) {
+    ctx.fillStyle = lit(color, 1.02, L);
+    for (let c = 0; c < 4; c++) {
+      const a = 1 << c;
+      const b = 1 << ((c + 3) % 4);
+      if (!(m & a) || !(m & b)) continue;
+      const cx = c === 1 || c === 2 ? x + 1 - w : x;
+      const cy = c >= 2 ? y + 1 - w : y;
+      poly(ctx, [
+        [cx, cy],
+        [cx + w, cy],
+        [cx + w, cy + w],
+        [cx, cy + w],
+      ]);
+      ctx.fill();
     }
   }
 
@@ -11902,6 +12455,7 @@ class Renderer {
       poly(ctx, edgeStrip(x, y, e, 0, dirt ? 0.13 : 0.12));
       ctx.fill();
     });
+    this.drawKerbCorners(ctx, x, y, m, dirt ? this.grassColor() : PALETTE.sidewalk, dirt ? 0.13 : 0.12, L);
     if (dirt) {
       // Two wheel ruts along each connection.
       ctx.strokeStyle = lit('#c3a87c', 1, L);
@@ -13744,8 +14298,9 @@ class Renderer {
       if (t.roadMask & (1 << i)) continue;
       const e = EDGES[i];
       return {
-        gx: t.x + (e.a[0] + e.b[0]) / 2 + e.n[0] * 0.08,
-        gy: t.y + (e.a[1] + e.b[1]) / 2 + e.n[1] * 0.08,
+        // At the kerb, clear of the people walking down the middle of the sidewalk.
+        gx: t.x + (e.a[0] + e.b[0]) / 2 + e.n[0] * 0.135,
+        gy: t.y + (e.a[1] + e.b[1]) / 2 + e.n[1] * 0.135,
       };
     }
     return null;
@@ -13874,7 +14429,8 @@ class Renderer {
   drawWalker(ctx, w, L) {
     if (w.alpha <= 0) return;
     const p = gridToWorld(w.gx, w.gy);
-    const bob = w.moving ? Math.abs(Math.sin(this.time * 9 + w.phase)) * 1.1 : 0;
+    const step = w.moving ? Math.sin(this.time * 9 + w.phase) : 0;
+    const bob = w.moving ? Math.abs(step) * 0.9 : 0;
     ctx.save();
     ctx.globalAlpha = w.alpha;
     if (w.hero) {
@@ -13885,7 +14441,10 @@ class Renderer {
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, 5 + pulse, 2.5 + pulse * 0.5, 0, 0, Math.PI * 2);
       ctx.stroke();
-      const s = w.child ? 1.1 : 1.35;
+    }
+    // Children are smaller, adults vary a little in height.
+    const s = w.hero ? (w.child ? 1.1 : 1.35) : w.build || 1;
+    if (s !== 1) {
       ctx.translate(p.x, p.y);
       ctx.scale(s, s);
       ctx.translate(-p.x, -p.y);
@@ -13894,15 +14453,33 @@ class Renderer {
     ctx.beginPath();
     ctx.ellipse(p.x, p.y, 2.4, 1.2, 0, 0, Math.PI * 2);
     ctx.fill();
+    // Legs swing as they walk.
+    ctx.strokeStyle = lit(w.pants || '#5b6a8f', 1, L);
+    ctx.lineWidth = 1.1;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(p.x - 0.6, p.y - 2 - bob);
+    ctx.lineTo(p.x - 0.6 + step * 0.9, p.y - 0.4);
+    ctx.moveTo(p.x + 0.6, p.y - 2 - bob);
+    ctx.lineTo(p.x + 0.6 - step * 0.9, p.y - 0.4);
+    ctx.stroke();
     ctx.fillStyle = lit(w.shirt, 1, L);
     ctx.beginPath();
-    ctx.roundRect(p.x - 1.6, p.y - 6.2 - bob, 3.2, 5.4, 1.4);
+    ctx.roundRect(p.x - 1.6, p.y - 6.2 - bob, 3.2, 4.6, 1.4);
     ctx.fill();
     ctx.fillStyle = lit(w.skin, 1, L);
     ctx.beginPath();
     ctx.arc(p.x, p.y - 7.8 - bob, 1.7, 0, Math.PI * 2);
     ctx.fill();
-    if (w.hair) {
+    if (w.hat) {
+      ctx.fillStyle = lit(w.hat, 1, L);
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y - 8.9 - bob, 2.3, 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 9.1 - bob, 1.4, Math.PI, 0);
+      ctx.fill();
+    } else if (w.hair) {
       ctx.fillStyle = lit(w.hair, 1, L);
       ctx.beginPath();
       ctx.arc(p.x, p.y - 8.2 - bob, 1.8, Math.PI * 1.05, Math.PI * 1.95);
@@ -17927,10 +18504,10 @@ return { zzfxG, SOUNDS, Audio };
 const __mod_main = (() => {
 // Wiring: creates each system, connects input to state, and runs the frame loop.
 
-const { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES } = __mod_config;
+const { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES, PALETTE } = __mod_config;
 const { CityState } = __mod_state;
 const { Simulation } = __mod_simulation;
-const { Renderer } = __mod_renderer;
+const { Renderer, growthOf } = __mod_renderer;
 const { Camera } = __mod_camera;
 const { InputController, typingTarget } = __mod_input;
 const { AutoSaver, readSlot, saveCity, activeSlot, setActiveSlot, deleteSlot, isLocked, firstEmptySlot, isVisiting, saveVisit, loadVisit, endVisit, rescueLegacyBackup } = __mod_persistence;
@@ -17958,7 +18535,11 @@ const { recomputeDesirability } = __mod_desirability;
 const { worldToGrid, mapBounds, tileRectBounds, gridToWorld } = __mod_iso;
 const { History, lPath, tileLine } = __mod_history;
 const { Audio } = __mod_audio;
-const { daylightAt } = __mod_time;
+const { daylightAt, sunHeight } = __mod_time;
+const { lightingAt } = __mod_lighting;
+const { crosswalkMask } = __mod_sidewalks;
+const { hash2 } = __mod_utils;
+const { mixHex } = __mod_color;
 const MAX_STROKE = 160;
 
 // What to tell the player when their town isn't being saved (see AutoSaver in persistence.js).
@@ -18992,27 +19573,110 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     return { hover: { ...hover, tool, valid }, ghost, overlay, selected, plan, issues };
   }
 
+  // ---- 3D view ----------------------------------------------------------------------
+  // The same town in 3D (src/view3d/), loaded the first time it's opened. It only reads the game:
+  // the simulation keeps running and saving, and the builder is just as it was on the way back.
+  let view3d = null;
+  let loading3d = null;
+  const app = document.getElementById('app');
+  const btn3d = document.getElementById('btn-3d');
+  const in3D = () => !!view3d?.active;
+  async function open3D() {
+    if (in3D()) return;
+    if (!loading3d) {
+      ui.toast('Opening the 3D view…', 1400);
+      // Relative to this page in the built game (dist/view3d/), and to src/ when run from source.
+      const url = './view3d/view3d.js';
+      loading3d = import(url)
+        .then((m) =>
+          m.createView3D({
+            city,
+            agents: sim.agents,
+            renderer,
+            STRUCTURES,
+            PALETTE,
+            growthOf,
+            lightingAt,
+            sunHeight,
+            crosswalkMask,
+            hash2,
+            mixHex,
+            lifeChar: () => sim.life.char,
+            isTyping: typingTarget,
+            toast: (msg, ms) => ui.toast(msg, ms),
+            mount: (el) => canvas.after(el),
+            mountHud: (...els) => app.append(...els),
+            onExit: () => close3D(),
+            onPick: (x, y) => {
+              selected = { x, y };
+              ui.inspect(city, selected);
+              audio.play('click');
+            },
+          })
+        )
+        .catch((err) => {
+          console.warn('3D view failed to load', err);
+          return null;
+        });
+    }
+    const v = await loading3d;
+    if (!v) {
+      loading3d = null;
+      return ui.toast('The 3D view can’t run in this browser', 3000);
+    }
+    view3d = v;
+    ui.closeTray();
+    const g = worldToGrid(camera.x, camera.y);
+    const followHero = following;
+    if (following) stopFollow();
+    app.classList.add('mode-3d');
+    canvas.style.visibility = 'hidden';
+    btn3d.setAttribute('aria-pressed', 'true');
+    view3d.enter({ x: g.gx, z: g.gy, dist: Math.min(40, Math.max(3, 15 / camera.zoom)), follow: followHero ? 'hero' : null });
+  }
+  function close3D() {
+    if (!in3D()) return;
+    const f = view3d.exit();
+    app.classList.remove('mode-3d');
+    canvas.style.visibility = '';
+    btn3d.setAttribute('aria-pressed', 'false');
+    const w = gridToWorld(f.x, f.z);
+    camera.tx = w.x;
+    camera.ty = w.y;
+    camera.tzoom = Math.min(camera.maxZoom, Math.max(camera.minZoom, 15 / f.dist));
+    camera.clampTarget();
+  }
+  btn3d.addEventListener('click', () => (in3D() ? close3D() : open3D()));
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyG' || in3D() || e.metaKey || e.ctrlKey || e.altKey || typingTarget(e.target)) return;
+    e.preventDefault();
+    open3D();
+  });
+
   let last = performance.now();
   let uiTimer = 0;
   function frame(now) {
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // the first frame can be stamped before `last`
     last = now;
     sim.update(dt);
-    input.edgeScroll(dt);
-    input.keyPan(dt);
-    if (following) {
-      const f = followTarget();
-      if (f) {
-        const w = gridToWorld(f.gx, f.gy);
-        camera.tx = w.x;
-        camera.ty = w.y - 10;
-        camera.clampTarget();
+    if (in3D()) view3d.frame(dt);
+    else {
+      input.edgeScroll(dt);
+      input.keyPan(dt);
+      if (following) {
+        const f = followTarget();
+        if (f) {
+          const w = gridToWorld(f.gx, f.gy);
+          camera.tx = w.x;
+          camera.ty = w.y - 10;
+          camera.clampTarget();
+        }
       }
+      camera.update(dt);
+      renderer.render(dt, viewState());
+      minimap.render();
     }
-    camera.update(dt);
     audio.ambient(dt, { daylight: daylightAt(city.clock), rain: city.derived.weather?.rain || 0 });
-    renderer.render(dt, viewState());
-    minimap.render();
     saver.tick(dt);
     uiTimer -= dt;
     if (uiTimer <= 0) {
@@ -19075,7 +19739,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

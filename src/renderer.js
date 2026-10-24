@@ -2956,8 +2956,9 @@ export class Renderer {
       if (t.roadMask & (1 << i)) continue;
       const e = EDGES[i];
       return {
-        gx: t.x + (e.a[0] + e.b[0]) / 2 + e.n[0] * 0.08,
-        gy: t.y + (e.a[1] + e.b[1]) / 2 + e.n[1] * 0.08,
+        // At the kerb, clear of the people walking down the middle of the sidewalk.
+        gx: t.x + (e.a[0] + e.b[0]) / 2 + e.n[0] * 0.135,
+        gy: t.y + (e.a[1] + e.b[1]) / 2 + e.n[1] * 0.135,
       };
     }
     return null;
