@@ -134,7 +134,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   // Automatic minimap: on for roomy screens, off on phones, unless the player chose.
   const minimapOn = () => settings.minimap ?? (window.innerWidth >= 760 && window.innerHeight >= 560);
 
-  let tool = 'house';
+  let tool = 'inspect'; // a town opens with Inspect, so a first tap or drag looks around instead of building
   let hover = null; // { x, y } tile under the mouse
   let selected = null; // { x, y } tile shown in the inspector
   let overlay = 'none';

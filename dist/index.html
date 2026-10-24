@@ -17749,7 +17749,7 @@ class Interface {
     this.onTool = onTool;
     this.onSpeed = onSpeed;
     this.onView = onView;
-    this.tool = 'house';
+    this.tool = 'inspect';
     this.groupChoice = Object.fromEntries(TOOL_GROUPS.map((g) => [g.id, g.tools[0].id]));
     this.speed = 1;
     this.view = 'none';
@@ -24290,6 +24290,20 @@ class DiplomacySheet {
     this._key = '';
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.card.addEventListener('click', (e) => this.onCardClick(e));
+    // Escape closes their card first (like Later), then the sheet. While the base is open it keeps
+    // its own keys (its listener comes first and stops the rest).
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+        if (!this.card.hidden) this.hideCard();
+        else if (this.open) this.toggle(false);
+        else return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      },
+      true
+    );
   }
 
   get dip() {
@@ -24714,7 +24728,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   // Automatic minimap: on for roomy screens, off on phones, unless the player chose.
   const minimapOn = () => settings.minimap ?? (window.innerWidth >= 760 && window.innerHeight >= 560);
 
-  let tool = 'house';
+  let tool = 'inspect'; // a town opens with Inspect, so a first tap or drag looks around instead of building
   let hover = null; // { x, y } tile under the mouse
   let selected = null; // { x, y } tile shown in the inspector
   let overlay = 'none';

@@ -143,7 +143,7 @@ Events are plain data in `src/lifeEvents.js` and `src/lifeEventsMore.js` (78 in 
 | Pan | Arrow keys or WASD (hold to glide), two-finger scroll on a trackpad, right-drag or middle-drag (or drag with Inspect) | Two fingers (or one finger with Inspect) |
 | Zoom | Mouse wheel, or pinch on a trackpad | Pinch |
 | Scroll wheel / trackpad | ☰ Settings: **Auto** (trackpad scrolling pans, mouse wheels zoom), **Always zoom** or **Always pan** | – |
-| Pick a tool | 1 House · K Cottage · O Apartments · 2 Tower · 3 Shop · E Café · N Bakery · 4 Office · L Mall · Y Factory · 5 School · 6 Clinic · J Library · H Fire station · U University · 7 Tree · 8 Park · P Playground · F Sports field · 9 Road · 0 Water. Keys do nothing while you type in a text field | Toolbar; buttons with a dot open more choices |
+| Pick a tool | 1 House · K Cottage · O Apartments · 2 Tower · 3 Shop · E Café · N Bakery · 4 Office · L Mall · Y Factory · 5 School · 6 Clinic · J Library · H Fire station · U University · 7 Tree · 8 Park · P Playground · F Sports field · 9 Road · 0 Water. Keys do nothing while you type in a text field. A town opens with Inspect picked, so clicks and drags look around until you pick something to build | Toolbar; buttons with a dot open more choices. A town opens with Inspect picked, so taps and drags look around until you pick something to build |
 | Pause / change speed | Space, or the speed button | ☰ City controls |
 | Switch map view | V, or the layers button | ☰ City controls |
 | Recenter | Recenter button (press again for the whole map) | ☰ City controls |
@@ -156,7 +156,7 @@ Events are plain data in `src/lifeEvents.js` and `src/lifeEventsMore.js` (78 in 
 | Base: build, post guards | Pick a defence or a soldier in the panel, then click the field (the preview says why a spot won't do); click something built to upgrade, repair or take it down | Same, with taps |
 | Base and battle camera | Drag or WASD to slide, scroll or pinch to zoom. **Angled** (default) looks up the field from behind your lines; **Free** also turns: right-drag, Q / E, or twist two fingers | Drag, pinch; twist in Free |
 | Attack a neighbour | Base → War → Attack… → Command the attack (or Leave it to your officers). Pick Left, Centre or Right (or a forward position you hold) before Send in; Advance sends a squad at their command post | Same |
-| Diplomacy | World → Diplomacy on a neighbour's card, or Base → War → Diplomacy…; Propose a treaty… then − / + to set terms; Declare war (tap twice) | Same |
+| Diplomacy | World → Diplomacy on a neighbour's card, or Base → War → Diplomacy…; Propose a treaty… then − / + to set terms; Declare war (tap twice); Esc closes a mayor's card, then the sheet | Same, with the ✕ or Later |
 | Battle | Send in a squad from its card; click one of your soldiers to pick their squad, then click the field to move them, or Hold / Charge / Fall back; Artillery then click a spot; Space pauses (orders given while paused start when you resume); Retreat (tap twice) pulls out | Same, with taps; the Pause button |
 | 3D view on / off | G, or the 3D button; G or Esc (from Orbit) goes back to the builder | 3D button; ‹ Builder to go back |
 | 3D: look around | Drag (Orbit: rotate; Street: look) · Q / E turn · R / F tilt | Drag with one finger; twist two fingers to turn |

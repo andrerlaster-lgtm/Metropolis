@@ -101,7 +101,7 @@ export class Interface {
     this.onTool = onTool;
     this.onSpeed = onSpeed;
     this.onView = onView;
-    this.tool = 'house';
+    this.tool = 'inspect';
     this.groupChoice = Object.fromEntries(TOOL_GROUPS.map((g) => [g.id, g.tools[0].id]));
     this.speed = 1;
     this.view = 'none';
