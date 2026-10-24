@@ -8,6 +8,7 @@ import { notablesHTML, notablesKey } from './notablesUI.js';
 import { townsfolkHTML, townsfolkKey } from './townsfolkUI.js';
 import { eraHTML, eraKey, chronicleHTML } from './eraUI.js';
 import { upgradesLineHTML, upgradesLineKey } from './skillsUI.js';
+import { mayorLineHTML, mayorLineKey } from './mayorUI.js';
 
 const SEVERITY_LABEL = { bad: 'Needs fixing', caution: 'Worth a look', good: 'Going well' };
 
@@ -16,7 +17,9 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 export class CityPanel {
-  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair, skills, onUpgrades }) {
+  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair, skills, onUpgrades, mayor, onTownHall }) {
+    this.mayor = mayor; // () → Mayor
+    this.onTownHall = onTownHall; // () → open the town hall
     this.skills = skills; // () → Skills
     this.onUpgrades = onUpgrades; // () → open the Town upgrades sheet
     this.onRepair = onRepair; // () → repair all storm damage now
@@ -67,6 +70,8 @@ export class CityPanel {
       else if (b.dataset.showtile) {
         const [x, y] = b.dataset.showtile.split(',').map(Number);
         this.onShowTile?.(x, y);
+      } else if (b.dataset.townhall != null) {
+        this.onTownHall?.();
       } else if (b.dataset.upgrades != null) {
         this.onUpgrades?.();
       } else if (b.dataset.repair != null) {
@@ -139,6 +144,15 @@ export class CityPanel {
         const open = !!budgetBox.querySelector('details')?.open;
         budgetBox.innerHTML = budgetHTML(city.derived.economy, eco.state, eco.sandbox);
         if (open) budgetBox.querySelector('details')?.setAttribute('open', '');
+      }
+    }
+    const mayorBox = this.panel.querySelector('.mayor-box');
+    if (mayorBox && this.mayor) {
+      const mkey = mayorLineKey(this.mayor());
+      if (mkey !== this._mayorKey || this._mayorBox !== mayorBox) {
+        this._mayorKey = mkey;
+        this._mayorBox = mayorBox;
+        mayorBox.innerHTML = mayorLineHTML(this.mayor());
       }
     }
     const upBox = this.panel.querySelector('.upgrades-box');
@@ -235,6 +249,7 @@ export class CityPanel {
     return (
       `<header><div><span class="insp-kicker">Your town</span><h2>${p.current.label}</h2></div>` +
       `<button type="button" class="insp-close" data-close aria-label="Close city panel">${CLOSE}</button></header>` +
+      (this.mayor ? `<h3>Mayor</h3><div class="mayor-box"></div>` : '') +
       (this.skills ? `<h3>Town upgrades</h3><div class="upgrades-box"></div>` : '') +
       `<h3>Era</h3><div class="era-box"></div>` +
       `<h3>Town history</h3><div class="chronicle"></div>` +

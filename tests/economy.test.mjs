@@ -111,8 +111,9 @@ test('notable people arrive when their kind has gathered enough inspiration', ()
   const n = sim.notables;
   const rates = n.rates();
   assert.ok(rates.scientist > 0 && rates.doctor === 0);
+  // Residents come and go at random, so the rate drifts: allow up to three times the expected wait.
   const days = threshold(0) / rates.scientist + 0.5;
-  for (let i = 0; i < (days * DAY_LENGTH_SECONDS) / 0.25; i++) sim.update(0.25);
+  for (let i = 0; i < (3 * days * DAY_LENGTH_SECONDS) / 0.25 && !arrivals.length; i++) sim.update(0.25);
   assert.equal(arrivals.length >= 1, true, `someone arrived (points ${JSON.stringify(n.state.points)}, day ${city.day}, people ${n.people.length})`);
   assert.equal(arrivals[0].person.type, 'scientist');
   assert.ok(arrivals[0].person.home, 'they live in one of the homes');

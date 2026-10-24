@@ -7,6 +7,7 @@ import { PRONOUNS, SKIN_TONES, HAIR_COLORS, OUTFIT_COLORS, TRAITS, CAREERS, stag
 import { STAT_LABELS } from './lifeEngine.js';
 import { addressOf } from './streets.js';
 import { ACTIVITY_GROUPS, energyFor } from './lifeActivities.js';
+import { KID_FOCUS } from './autopilot.js';
 import { ACHIEVEMENTS } from './lifeAchievements.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -40,6 +41,11 @@ export class LifeInterface {
     this.btn.addEventListener('click', () => this.toggle());
     this.panel.addEventListener('click', (e) => this.onPanelClick(e));
     this.panel.addEventListener('input', (e) => this.onPanelInput(e));
+    this.panel.addEventListener('change', (e) => {
+      if (!e.target.matches?.('[data-kidfocus]')) return;
+      this.h.setAutoKid?.({ focus: e.target.value });
+      this.render();
+    });
     this.panel.addEventListener('submit', (e) => {
       e.preventDefault();
       this.submitDraft();
@@ -161,7 +167,7 @@ export class LifeInterface {
             ? 'Too young for school'
             : 'Looking for work';
     const people = [
-      ...['mother', 'father'].map((k) => c.family[k] && { ...c.family[k], role: 'Parent' }),
+      ...['mother', 'father'].map((k) => c.family[k] && { ...c.family[k], role: c.family[k].name === this.h.mayorName?.() ? 'Parent · Mayor' : 'Parent' }),
       ...(c.siblings || []).map((sb) => ({ ...sb, role: 'Sibling', alive: sb.alive !== false })),
       c.partner && { ...c.partner, role: c.partner.married ? 'Spouse' : 'Partner', alive: true },
       ...c.children.map((k) => ({ ...k, role: 'Child', closeness: 80 })),
@@ -175,7 +181,7 @@ export class LifeInterface {
     return `<header class="life-head">
         <div class="avatar">${avatarSVG(c.look, 64)}</div>
         <div class="life-id"><span class="life-kicker">${c.generation > 1 ? `Generation ${c.generation}` : 'Life Story'}</span><h2>${esc(c.first)} ${esc(c.last)}</h2>
-        <p class="life-sub">Age ${c.age} · ${stage.label}</p>
+        <p class="life-sub">Age ${c.age} · ${stage.label}${this.h.youLead?.() ? ' · Mayor' : ''}</p>
         <div class="year-bar" title="Progress to next birthday"><span style="width:${Math.min(100, c.yearProgress * 100).toFixed(1)}%"></span></div></div>
         <button type="button" class="icon-btn" data-act="close" aria-label="Close life panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </header>
@@ -207,7 +213,7 @@ export class LifeInterface {
   // Things to do any time, grouped, with energy dots for what's left this year.
   activitiesHTML(c) {
     const max = energyFor(c.age);
-    if (!max) return '<h3>Things to do</h3><p class="life-hint">Babies mostly eat, sleep and giggle. Activities start at age 3.</p>';
+    if (!max) return `<h3>Things to do</h3><p class="life-hint">Babies mostly eat, sleep and giggle. Activities start at age 3.</p>${this.autoHTML(c)}`;
     const left = Math.max(0, c.energy ?? max);
     const list = this.life.activities();
     const dots = Array.from({ length: max }, (_, i) => `<span class="energy-dot${i < left ? ' on' : ''}"></span>`).join('');
@@ -222,7 +228,17 @@ export class LifeInterface {
         )
         .join('')}</div></div>`;
     }).join('');
-    return `<div class="act-head"><h3>Things to do</h3><span class="energy" aria-label="${left} of ${max} activities left this year">${dots}<small>${left ? `${left} left this year` : 'Rested by next birthday'}</small></span></div>${groups}`;
+    return `<div class="act-head"><h3>Things to do</h3><span class="energy" aria-label="${left} of ${max} activities left this year">${dots}<small>${left ? `${left} left this year` : 'Rested by next birthday'}</small></span></div>${this.autoHTML(c)}${groups}`;
+  }
+
+  // Auto mode: your main person picks their own activities through the year, with a focus you set.
+  autoHTML(c) {
+    const auto = this.h.autoKid?.();
+    if (!auto) return '';
+    const f = KID_FOCUS.find((x) => x.id === auto.focus) || KID_FOCUS[0];
+    return `<div class="auto-row"><button type="button" class="pill small${auto.on ? ' is-on' : ''}" data-act="autokid" aria-pressed="${auto.on}">Auto: ${auto.on ? 'on' : 'off'}</button>
+      <label class="auto-focus">Focus <select data-kidfocus aria-label="What ${esc(c.first)} works on">${KID_FOCUS.map((x) => `<option value="${x.id}"${x.id === auto.focus ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>
+      <small>${esc(auto.on ? `${c.first} picks their own activities through the year. ${f.hint}.` : `Turn on to let ${c.first} pick their own activities. ${f.hint}.`)}</small></div>`;
   }
 
   // Achievements are shared by every life in this city.
@@ -304,6 +320,7 @@ export class LifeInterface {
       this.cardMinimized = false;
       this._cardFor = null;
     }
+    else if (t.dataset.act === 'autokid') this.h.setAutoKid?.({ on: !this.h.autoKid?.().on });
     else if (t.dataset.act === 'continue') this.h.onContinue();
     else if (t.dataset.act === 'newlife') {
       this.draft = this.newDraft();

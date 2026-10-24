@@ -4071,7 +4071,8 @@ button.mil-sq {
 .sk-line b {
   color: var(--ink);
 }
-.upgrades-box {
+.upgrades-box,
+.mayor-box {
   display: grid;
   gap: 8px;
   justify-items: start;
@@ -4198,6 +4199,231 @@ button.mil-sq {
   }
 }
 
+/* Town hall: the mayor (mayor.js, mayorUI.js) */
+.mayor-chip {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #dfe7f7;
+  color: #2f4a80;
+  font: 800 11px/1.2 var(--font-body);
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+}
+.mayor-chip.is-spent {
+  opacity: 0.6;
+}
+.mayor-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.townhall-sheet {
+  width: min(560px, calc(100vw - 24px));
+}
+.th-who {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.th-who h3 {
+  margin: 2px 0;
+  font: 600 18px/1.15 var(--font-display);
+}
+.th-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+}
+.th-actions small {
+  margin-left: 4px;
+  color: var(--ink-soft);
+  font: 700 11.5px/1.3 var(--font-body);
+}
+.th-pip {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--meter-track);
+}
+.th-pip.on {
+  background: #5b9be0;
+}
+.th-skills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin: 0;
+}
+.th-skills div {
+  display: grid;
+  grid-template-columns: 72px 1fr 24px;
+  align-items: center;
+  gap: 6px;
+}
+.th-skills dt {
+  font: 800 11.5px/1.2 var(--font-body);
+  color: var(--ink-soft);
+}
+.th-skills dd {
+  display: contents;
+}
+.th-skills .sbar {
+  display: block;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--meter-track);
+  overflow: hidden;
+}
+.th-skills .sbar span {
+  display: block;
+  height: 100%;
+  background: #5b9be0;
+}
+.th-skills b {
+  font: 800 11.5px/1 var(--font-body);
+  text-align: right;
+}
+.th-duties {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.th-duty {
+  appearance: none;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 2px solid color-mix(in srgb, #5b9be0 45%, transparent);
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.th-duty:hover {
+  transform: translateY(-1px);
+}
+.th-duty:active {
+  transform: scale(0.98);
+}
+.th-duty:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.th-duty[aria-disabled='true'] {
+  opacity: 0.55;
+  border-color: transparent;
+}
+.th-duty.is-done {
+  background: color-mix(in srgb, #5b9be0 15%, var(--panel));
+}
+.th-skill {
+  flex: none;
+  color: #2f4a80;
+  font-size: 10.5px;
+}
+.th-effect {
+  font: 800 11.5px/1.3 var(--font-body);
+  color: #2f6f4a;
+}
+.th-duty[aria-disabled='true'] .th-effect {
+  color: var(--ink-soft);
+}
+.th-h {
+  margin: 4px 0 0;
+  font: 600 14px/1.2 var(--font-display);
+}
+.th-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.th-log li {
+  font: 700 12px/1.4 var(--font-body);
+  color: var(--ink-soft);
+}
+.th-log li span {
+  margin-right: 6px;
+  color: var(--ink);
+}
+@media (max-width: 560px) {
+  .th-duties,
+  .th-skills {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.th-auto,
+.th-prospects {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, #5b9be0 8%, transparent);
+}
+.th-auto-head,
+.auto-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.th-auto .pill.small,
+.auto-row .pill.small {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.th-auto .pill.is-on,
+.auto-row .pill.is-on {
+  background: #5b9be0;
+  color: #fff;
+}
+.th-focus {
+  flex-wrap: wrap;
+}
+.th-pro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font: 700 12.5px/1.4 var(--font-body);
+  color: var(--ink-soft);
+}
+.th-pro b {
+  color: var(--ink);
+}
+.auto-row {
+  margin: 4px 0 8px;
+}
+.auto-row small {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+  font: 700 11.5px/1.35 var(--font-body);
+}
+.auto-focus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 800 12px/1 var(--font-body);
+  color: var(--ink-soft);
+}
+.auto-focus select {
+  font: 700 16px/1.2 var(--font-body); /* 16px or more, or iPhones zoom the page when it's tapped */
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  color: var(--ink);
+}
+
 </style>
 <main id="app">
       <canvas id="city" aria-label="Your city. Tap a tile to build, drag to pan, pinch or scroll to zoom."></canvas>
@@ -4224,7 +4450,7 @@ button.mil-sq {
         </div>
         <div class="clock" id="stat-clock">Day 1</div>
         <div class="money-row" aria-label="Town budget"><span class="money-coin" aria-hidden="true">$</span><span id="stat-money">$0</span><span id="stat-net" class="net"></span></div>
-        <div class="tier"><span class="tier-name" id="tier-name">Hamlet</span><span class="tier-bar" aria-hidden="true"><span id="tier-meter"></span></span><span class="badge" id="tier-badge" hidden></span><span class="skill-chip" id="skill-chip" role="button" tabindex="0" hidden></span></div>
+        <div class="tier"><span class="tier-name" id="tier-name">Hamlet</span><span class="tier-bar" aria-hidden="true"><span id="tier-meter"></span></span><span class="badge" id="tier-badge" hidden></span><span class="skill-chip" id="skill-chip" role="button" tabindex="0" hidden></span><span class="mayor-chip" id="mayor-chip" role="button" tabindex="0">🏛</span></div>
       </section>
 
       <div class="legend glass" id="legend" hidden></div>
@@ -4289,6 +4515,7 @@ button.mil-sq {
       <section class="military" id="military" aria-label="Military base" hidden></section>
       <section class="more-sheet glass diplomacy-sheet" id="diplomacy-sheet" role="dialog" aria-label="Diplomacy" hidden></section>
       <section class="more-sheet glass skills-sheet" id="skills-sheet" role="dialog" aria-label="Town upgrades" hidden></section>
+      <section class="more-sheet glass townhall-sheet" id="townhall-sheet" role="dialog" aria-label="Town hall" hidden></section>
       <section class="decision-card glass diplo-card" id="diplo-card" role="dialog" aria-label="A message from a neighbouring mayor" hidden></section>
       <div class="toast glass" id="toast" role="status"></div>
     </main>
@@ -18537,6 +18764,678 @@ class Interface {
 return { SPEEDS, Interface };
 })();
 
+// ---- militaryData.js ----
+const __mod_militaryData = (() => {
+// What the military is made of: the base map, the defences you can build on it, the troops you can
+// recruit, and the ranks they earn. Plain data, read by military.js (the base and roster), battle.js
+// (the fighting) and the screens. Stats are tuned by tests/military.test.mjs, which keeps every
+// troop's and defence's damage per dollar inside one band.
+
+// The base map, in tiles. The enemy arrives along the top rows; your command post sits near the
+// bottom, and reinforcements come in from the bottom rows.
+const BASE_W = 16;
+const BASE_H = 20;
+const ENTRY_ROWS = 2; // rows 0–1: where attackers arrive (nothing may be built there)
+const DEPLOY_ROWS = 2; // the last two rows: where your reinforcements come in
+const HQ_AT = { x: 7, y: 15 }; // top-left of the 2×2 command post
+
+// Defences. `blocks`: troops can't walk through it (every structure blocks; the route check keeps a
+// way open from the enemy's edge to the command post). `attack.kind`: bullet (hits at once),
+// shell (lobbed, lands later, splash). `vs`: damage multipliers against a target's tags.
+const DEFENCES = {
+  hq: {
+    label: 'Command post',
+    short: 'HQ',
+    w: 2,
+    h: 2,
+    hp: 1400,
+    armor: 4,
+    cost: 0,
+    fixed: true,
+    tags: ['structure'],
+    attack: { dmg: 6, rate: 1.4, range: 4, kind: 'bullet' },
+    desc: 'Your headquarters. If it falls, the battle is lost. Upgrading it lets you keep a bigger army.',
+  },
+  sandbags: {
+    label: 'Sandbag wall',
+    short: 'Sandbags',
+    w: 1,
+    h: 1,
+    hp: 260,
+    armor: 2,
+    cost: 30,
+    tags: ['structure', 'wall'],
+    cover: true,
+    desc: 'Cheap walls that steer the enemy the long way round. Your soldiers beside them take less damage.',
+  },
+  mg: {
+    label: 'Machine-gun nest',
+    short: 'MG nest',
+    w: 1,
+    h: 1,
+    hp: 340,
+    armor: 3,
+    cost: 160,
+    tags: ['structure'],
+    cover: true,
+    attack: { dmg: 6, rate: 4, range: 4.5, kind: 'bullet', vs: { infantry: 1.15 } },
+    desc: 'Fast fire at anyone in range. Good against groups of soldiers.',
+  },
+  bunker: {
+    label: 'Bunker',
+    short: 'Bunker',
+    w: 1,
+    h: 1,
+    hp: 760,
+    armor: 7,
+    cost: 300,
+    tags: ['structure'],
+    cover: true,
+    attack: { dmg: 15, rate: 1.3, range: 4, kind: 'bullet' },
+    desc: 'Thick concrete that soaks up a lot of punishment and keeps firing.',
+  },
+  mortar: {
+    label: 'Mortar pit',
+    short: 'Mortar',
+    w: 1,
+    h: 1,
+    hp: 230,
+    armor: 1,
+    cost: 240,
+    tags: ['structure'],
+    attack: { dmg: 34, rate: 0.32, range: 8, min: 2, kind: 'shell', splash: 1.3 },
+    desc: 'Lobs shells a long way. Hits a whole group, but can’t fire at anyone close by.',
+  },
+};
+const BUILDABLE = ['sandbags', 'mg', 'bunker', 'mortar'];
+const MAX_LEVEL = 3;
+// Each level above the first: more health and more damage.
+const levelHp = (level) => 1 + 0.35 * (level - 1);
+const levelDmg = (level) => 1 + 0.3 * (level - 1);
+// Upgrading from `level` to `level + 1`.
+function upgradeCost(type, level) {
+  if (type === 'hq') return level === 1 ? 450 : 900;
+  return Math.round(DEFENCES[type].cost * 0.6 * level);
+}
+const maxHpOf = (type, level = 1) => Math.round(DEFENCES[type].hp * levelHp(level));
+// Repairs: dollars per point of health. Crews fix damage over time; "repair now" costs half as much again.
+const repairRate = (type) => Math.max(0.3, (DEFENCES[type].cost || 400) / DEFENCES[type].hp) * 0.5;
+const REPAIR_HP_PER_DAY = 700; // what the base's repair crews get through in a day
+const RUSH_REPAIR = 1.5;
+
+// The command post's level sets how many soldiers the base can hold, and how many stand guard.
+const ARMY_CAP = [0, 10, 16, 24];
+const GARRISON_CAP = [0, 4, 6, 8];
+
+// Troops. Everyone is infantry for now. `attack.kind`: bullet or grenade (thrown, lands later,
+// splash). `train`: days of regular training; emergency recruits arrive at once for EMERGENCY× the price.
+const UNITS = {
+  rifleman: {
+    label: 'Rifleman',
+    plural: 'Riflemen',
+    hp: 100,
+    armor: 0,
+    speed: 1.5,
+    cost: 60,
+    upkeep: 3,
+    train: 0.4,
+    tags: ['infantry'],
+    attack: { dmg: 9, rate: 1.1, range: 3.6, kind: 'bullet' },
+    desc: 'Dependable all-rounder.',
+  },
+  gunner: {
+    label: 'Machine gunner',
+    plural: 'Machine gunners',
+    hp: 120,
+    armor: 1,
+    speed: 1.15,
+    cost: 110,
+    upkeep: 5,
+    train: 0.6,
+    tags: ['infantry'],
+    attack: { dmg: 4, rate: 4, range: 4, kind: 'bullet', vs: { infantry: 1.25, structure: 0.5 } },
+    desc: 'Pins down soldiers. Weak against walls and bunkers.',
+  },
+  grenadier: {
+    label: 'Grenadier',
+    plural: 'Grenadiers',
+    hp: 105,
+    armor: 0,
+    speed: 1.35,
+    cost: 130,
+    upkeep: 5,
+    train: 0.6,
+    tags: ['infantry'],
+    attack: { dmg: 26, rate: 0.45, range: 4.2, kind: 'grenade', splash: 0.9, vs: { structure: 2.2 } },
+    desc: 'Throws grenades. Breaks defences and groups.',
+  },
+  medic: {
+    label: 'Medic',
+    plural: 'Medics',
+    specialist: true,
+    hp: 90,
+    armor: 0,
+    speed: 1.5,
+    cost: 170,
+    upkeep: 7,
+    train: 0,
+    tags: ['infantry'],
+    heal: { rate: 7, range: 2.4 },
+    attack: { dmg: 5, rate: 0.8, range: 3, kind: 'bullet' },
+    desc: 'Specialist, hired ready to go. Patches up nearby soldiers, and fewer of the wounded die.',
+  },
+};
+const UNIT_TYPES = Object.keys(UNITS);
+const EMERGENCY = 2.5;
+
+// Ranks from experience: each one adds a little health and damage.
+const RANKS = [
+  { label: 'Private', short: 'Pvt.', xp: 0 },
+  { label: 'Corporal', short: 'Cpl.', xp: 40 },
+  { label: 'Sergeant', short: 'Sgt.', xp: 120 },
+  { label: 'Veteran', short: 'Vet.', xp: 260 },
+];
+function rankOf(xp = 0) {
+  let r = 0;
+  for (let i = 0; i < RANKS.length; i++) if (xp >= RANKS[i].xp) r = i;
+  return r;
+}
+const rankBonus = (xp) => 1 + 0.08 * rankOf(xp);
+
+// The commander's own call: an artillery strike on a spot, paid from the military budget.
+const ARTILLERY = { cost: 120, cooldown: 45, delay: 2.2, shells: 3, radius: 1.5, dmg: 90, spread: 0.9 };
+
+// Reinforcements: squads of up to this many leave the reserve together, one squad every few seconds.
+const SQUAD_SIZE = 4;
+const REINFORCE_COOLDOWN = 10;
+
+// Injuries: the chance that a soldier who goes down survives (more with a medic in the battle), and
+// how long recovery takes in days.
+const SURVIVE = 0.55;
+const SURVIVE_MEDIC = 0.75;
+const INJURY_DAYS = [2, 4];
+const LIGHT_INJURY_DAYS = 1;
+
+const SURNAMES = [
+  'Moreno', 'Okafor', 'Lindqvist', 'Tanaka', 'Brennan', 'Haddad', 'Novak', 'Castillo', 'Mensah', 'Kowalski',
+  'Dubois', 'Patel', 'Ferreira', 'Nakamura', 'Ivanova', 'Osei', 'MacLeod', 'Rossi', 'Andersen', 'Delgado',
+  'Kaur', 'Fischer', 'Mwangi', 'Silva', 'Horvath', 'Quinn', 'Yilmaz', 'Laurent', 'Abara', 'Petrov',
+  'Sato', 'Gallagher', 'Bianchi', 'Nguyen', 'Eriksen', 'Ramos', 'Adeyemi', 'Kim', 'Walsh', 'Romero',
+];
+const INITIALS = 'ABCDEFGHJKLMNPRSTVW';
+
+return { BASE_W, BASE_H, ENTRY_ROWS, DEPLOY_ROWS, HQ_AT, DEFENCES, BUILDABLE, MAX_LEVEL, levelHp, levelDmg, upgradeCost, maxHpOf, repairRate, REPAIR_HP_PER_DAY, RUSH_REPAIR, ARMY_CAP, GARRISON_CAP, UNITS, UNIT_TYPES, EMERGENCY, RANKS, rankOf, rankBonus, ARTILLERY, SQUAD_SIZE, REINFORCE_COOLDOWN, SURVIVE, SURVIVE_MEDIC, INJURY_DAYS, LIGHT_INJURY_DAYS, SURNAMES, INITIALS };
+})();
+
+// ---- mayor.js ----
+const __mod_mayor = (() => {
+// The mayor: your town's leader, a second person you control. At first it's your main person's
+// father; when he dies, your main person takes over once they're an adult, and until then a
+// relative stands in as acting mayor. The mayor has four skills and three actions a day for duties
+// with real effects: a speech lifts the town's spirit (decisions.js effects, so homes are happier
+// for a while), a fundraiser brings in money, inspecting the base trains the soldiers and patches
+// the defences (military.js), and meeting a neighbour's mayor builds trust (diplomacy.js). Each
+// duty can be done once a day, works better with its skill, and the skill grows with use.
+//
+// Saved in city.systems.mayor = { v, who, name, age, gen, skills, day, actions, done, log } where
+// who is 'father' (your main person's father), 'you' (your main person), 'regent' (a relative
+// standing in) or 'founder' (no main person yet). Pure rules, no screen (mayorUI.js).
+
+const { FIRST_NAMES } = __mod_lifeData;
+const { pick, clamp } = __mod_utils;
+const { maxHpOf } = __mod_militaryData;
+const MAYOR_VERSION = 1;
+const ACTIONS_PER_DAY = 3;
+const ADULT = 18;
+const LOG_KEEP = 30;
+const SKILL_GAIN = 2;
+
+const SKILL_LABELS = { charisma: 'Charisma', business: 'Business', command: 'Command', diplomacy: 'Diplomacy' };
+
+// What each duty does; `skill` is the one that makes it work better and grows when it's used.
+const DUTIES = [
+  { id: 'speech', skill: 'charisma', name: 'Give a speech', text: 'Homes all over town are happier for two days.' },
+  { id: 'fundraiser', skill: 'business', name: 'Hold a fundraiser', text: 'Money for the town, more as it grows.' },
+  { id: 'inspect', skill: 'command', name: 'Inspect the base', text: 'Soldiers gain experience and damaged defences get patched up.' },
+  { id: 'envoy', skill: 'diplomacy', name: 'Meet a neighbour’s mayor', text: 'They trust you more and hold fewer grudges.' },
+];
+const DUTY = Object.fromEntries(DUTIES.map((d) => [d.id, d]));
+
+const day = (city) => city.day + city.clock;
+const fullName = (c) => `${c.first} ${c.last}`;
+
+// How strong a duty is: 0.5 with no skill, 1.5 at the top.
+const skillFactor = (skill) => 0.5 + clamp(skill, 0, 100) / 100;
+
+class Mayor {
+  // deps: { life: () → LifeSystem, economy: () → Economy, decisions: () → Decisions, war: () → WarRoom | null, rand }
+  constructor(city, deps = {}) {
+    this.city = city;
+    this.d = deps;
+    this.rand = deps.rand || Math.random;
+  }
+
+  get char() {
+    return this.d.life?.()?.char || null;
+  }
+
+  get state() {
+    const s = this.city.systems;
+    if (!s.mayor || typeof s.mayor !== 'object' || !s.mayor.skills) s.mayor = this.fresh();
+    return s.mayor;
+  }
+
+  randomSkills() {
+    const r = () => 30 + Math.round(this.rand() * 25);
+    return { charisma: r(), business: r(), command: r(), diplomacy: r() };
+  }
+
+  // Your main person's skills as mayor come from how they grew up: looks, happiness and friends make
+  // charisma; smarts, their career and savings make business sense; health makes command; smarts,
+  // a settled mood and a partner make a diplomat. Their traits add a little. From 10 to 100.
+  skillsOf(c) {
+    const s = c.stats || {};
+    const has = (t) => (c.traits || []).includes(t);
+    const friends = Math.min(5, (c.friends || []).length);
+    const level = c.job ? (c.job.level || 0) + 1 : 0;
+    const k = (v) => clamp(Math.round(v), 10, 100);
+    return {
+      charisma: k(10 + 0.4 * (s.looks ?? 50) + 0.3 * (s.happiness ?? 50) + 4 * friends + (has('outgoing') ? 8 : 0) + (has('creative') ? 4 : 0)),
+      business: k(10 + 0.55 * (s.smarts ?? 50) + 6 * level + Math.min(10, (c.money || 0) / 5000) + (has('thrifty') ? 6 : 0)),
+      command: k(10 + 0.45 * (s.health ?? 50) + 0.2 * (s.smarts ?? 50) + (has('sporty') ? 8 : 0)),
+      diplomacy: k(10 + 0.45 * (s.smarts ?? 50) + 0.25 * (s.happiness ?? 50) + (c.partner ? 4 : 0) + (has('calm') ? 8 : 0)),
+    };
+  }
+
+  // The skills your main person would bring if they led today, while someone else does.
+  prospects() {
+    const c = this.char;
+    if (!c?.alive || this.state.who === 'you') return null;
+    return this.skillsOf(c);
+  }
+
+  fresh() {
+    const c = this.char;
+    const f = c?.family?.father;
+    const base = { v: MAYOR_VERSION, day: Math.floor(day(this.city)), actions: ACTIONS_PER_DAY, done: {}, log: [] };
+    if (c && f?.alive) return { ...base, who: 'father', name: f.name, age: f.age, gen: c.generation || 1, skills: this.randomSkills() };
+    if (c) return { ...base, ...this.successor(c) };
+    return { ...base, who: 'founder', name: `${pick(FIRST_NAMES, this.rand)} Hale`, age: 45, gen: 0, skills: this.randomSkills() };
+  }
+
+  // Who leads next: your main person if they're an adult, or a relative standing in until they are.
+  successor(c) {
+    if (c?.alive && c.age >= ADULT) return { who: 'you', name: fullName(c), age: c.age, gen: c.generation || 1, skills: this.skillsOf(c) };
+    const pronoun = this.rand() < 0.5 ? 'she' : 'he';
+    return {
+      who: 'regent',
+      name: `${pick(FIRST_NAMES, this.rand)} ${c?.last || 'Hale'}`,
+      relation: pronoun === 'she' ? 'aunt' : 'uncle',
+      age: 40 + Math.floor(this.rand() * 15),
+      gen: c?.generation || 1,
+      skills: this.randomSkills(),
+    };
+  }
+
+  // A new leader takes office; the day's actions start fresh.
+  install(next, why) {
+    const st = this.state;
+    const before = st.name;
+    const quiet = st.who === 'founder'; // a new town's first family taking office isn't news
+    Object.assign(st, { relation: undefined, ...next, actions: ACTIONS_PER_DAY, done: {} });
+    this.note(why ? `${why} ${this.title()} ${st.name} took office.` : `${st.name} took office as ${this.title().toLowerCase()}.`);
+    this.city.emit('mayorChanged', { before, after: st.name, who: st.who, quiet });
+  }
+
+  // Keep the mayor in step with your main person's family and with the calendar.
+  update() {
+    const st = this.state;
+    const c = this.char;
+    const today = Math.floor(day(this.city));
+    if (today > st.day) {
+      if (st.who === 'regent' || st.who === 'founder') st.age += today - st.day;
+      st.day = today;
+      st.actions = ACTIONS_PER_DAY;
+      st.done = {};
+    }
+    if (!c) return;
+    const f = c.family?.father;
+    if (st.who === 'founder') return this.install(f?.alive ? { who: 'father', name: f.name, age: f.age, gen: c.generation || 1, skills: this.randomSkills() } : this.successor(c));
+    if (st.who === 'father') {
+      if (f && f.name === st.name && (c.generation || 1) === st.gen) {
+        st.age = f.age;
+        if (!f.alive) this.install(this.successor(c), `Mayor ${st.name} died.`);
+        return;
+      }
+      // The family story went on to the next generation: the old mayor steps down for the heir.
+      if (c.heirOf) return this.install(this.successor(c), `${st.name} stepped down.`);
+      // A new life in a different family: its father leads now.
+      if (f?.alive) return this.install({ who: 'father', name: f.name, age: f.age, gen: c.generation || 1, skills: this.randomSkills() });
+      return this.install(this.successor(c), `${st.name} stepped down.`);
+    }
+    if (st.who === 'you') {
+      const same = fullName(c) === st.name && (c.generation || 1) === st.gen;
+      if (same && c.alive) {
+        st.age = c.age;
+        return;
+      }
+      if (same && !c.alive) return; // waiting for the family story to go on
+      return this.install(this.successor(c), `Mayor ${st.name} died.`);
+    }
+    if (st.who === 'regent' && c.alive && c.age >= ADULT) this.install(this.successor(c), `${c.first} came of age.`);
+  }
+
+  title() {
+    const st = this.state;
+    return st.who === 'regent' ? 'Acting mayor' : 'Mayor';
+  }
+
+  // How the mayor is related to your main person, in words.
+  relation() {
+    const st = this.state;
+    const c = this.char;
+    if (st.who === 'you') return 'You';
+    if (st.who === 'father') return c ? `${c.first}’s father` : 'Your father';
+    if (st.who === 'regent') return c ? `${c.first}’s ${st.relation || 'relative'}, until ${c.first} turns ${ADULT}` : 'A relative';
+    return 'The town’s founder';
+  }
+
+  // Who takes over next, in words.
+  nextInLine() {
+    const st = this.state;
+    const c = this.char;
+    if (!c) return null;
+    if (st.who === 'you') return 'Your heir takes over, or a relative until they are grown up.';
+    if (!c.alive) return null;
+    return c.age >= ADULT ? `${c.first} takes over.` : `${c.first} takes over at ${ADULT}; a relative stands in until then.`;
+  }
+
+  // ---- Duties ---------------------------------------------------------------------------------
+
+  dutyError(id) {
+    const st = this.state;
+    const d = DUTY[id];
+    if (!d) return 'No such duty';
+    if (st.done[id]) return 'Already done today';
+    if (st.actions <= 0) return 'No actions left today. More tomorrow';
+    if (id === 'inspect' && !this.d.war?.()?.military) return 'Your town has no base yet';
+    if (id === 'envoy' && !this.neighbour()) return 'There’s no neighbouring town';
+    return null;
+  }
+
+  // The neighbour a meeting goes to: the one that trusts you least.
+  neighbour() {
+    const war = this.d.war?.();
+    const dip = war?.diplomacy;
+    const list = war?.world?.neighbours || [];
+    if (!dip || !list.length) return null;
+    return list.slice().sort((a, b) => dip.rel(a.id).trust - dip.rel(b.id).trust)[0];
+  }
+
+  // A rough idea of what a duty would do now, for the button.
+  preview(id) {
+    const st = this.state;
+    const f = skillFactor(st.skills[DUTY[id].skill]);
+    const pop = this.city.stats?.population || 0;
+    if (id === 'speech') return `+${Math.round(this.speechAmount(f) * 100)}% happiness`;
+    if (id === 'fundraiser') return `about $${this.fundsAmount(f, pop).toLocaleString()}`;
+    if (id === 'inspect') return `+${this.drillXp(f)} experience each`;
+    if (id === 'envoy') {
+      const n = this.neighbour();
+      return n ? `+${Math.round(this.trustGain(f, n))} trust with ${n.entry.name}` : '';
+    }
+    return '';
+  }
+
+  speechAmount(f) {
+    return 0.02 * f;
+  }
+  fundsAmount(f, pop) {
+    return Math.round(((100 + 1.5 * pop) * f) / 10) * 10;
+  }
+  drillXp(f) {
+    return Math.round(8 * f);
+  }
+  trustGain(f, n) {
+    const atWar = this.d.war?.()?.diplomacy?.atWar(n.id);
+    return 6 * f * (atWar ? 0.5 : 1);
+  }
+
+  // Do a duty. Returns { text } or { error }.
+  perform(id) {
+    const err = this.dutyError(id);
+    if (err) return { error: err };
+    const st = this.state;
+    const d = DUTY[id];
+    const f = skillFactor(st.skills[d.skill]) * (0.9 + this.rand() * 0.2);
+    const now = day(this.city);
+    let text = '';
+    if (id === 'speech') {
+      const amount = this.speechAmount(f);
+      const dec = this.d.decisions?.();
+      if (dec) dec.state.effects.push({ amount, until: now + 2, id: 'speech' });
+      text = `${st.name} gave a rousing speech in the square. Homes are ${Math.round(amount * 100)}% happier for two days.`;
+    } else if (id === 'fundraiser') {
+      const n = this.fundsAmount(f, this.city.stats?.population || 0);
+      const eco = this.d.economy?.();
+      if (eco) {
+        eco.state.money += n;
+        eco.state.today.income += n;
+      }
+      text = `${st.name}’s fundraiser brought in $${n.toLocaleString()}.`;
+    } else if (id === 'inspect') {
+      const m = this.d.war().military;
+      const xp = this.drillXp(f);
+      const fit = m.fit();
+      for (const s of fit) s.xp += xp;
+      let patched = 0;
+      let hp = Math.round(150 * f);
+      for (const s of m.damaged()) {
+        if (hp <= 0) break;
+        const max = maxHpOf(s.type, s.level);
+        const n = Math.min(hp, Math.max(0, max - s.hp));
+        s.hp += n;
+        hp -= n;
+        if (n > 0) patched++;
+      }
+      text = `${st.name} inspected the base: ${fit.length} soldier${fit.length === 1 ? '' : 's'} drilled (+${xp} experience)${patched ? `, ${patched} defence${patched === 1 ? '' : 's'} patched up` : ''}.`;
+    } else if (id === 'envoy') {
+      const n = this.neighbour();
+      const dip = this.d.war().diplomacy;
+      const r = dip.rel(n.id);
+      const gain = this.trustGain(f, n);
+      r.trust = clamp(r.trust + gain, -100, 100);
+      r.grievance = Math.max(0, (r.grievance || 0) - 5 * f);
+      dip.note?.(n.id, `Mayor ${st.name} visited ${n.entry.name} for talks.`);
+      text = `${st.name} met the mayor of ${n.entry.name}. Their trust in you rose by ${Math.round(gain)}.`;
+    }
+    st.actions -= 1;
+    st.done[id] = true;
+    st.skills[d.skill] = Math.min(100, st.skills[d.skill] + SKILL_GAIN);
+    this.note(text);
+    return { text };
+  }
+
+  note(text) {
+    const st = this.state;
+    st.log.unshift({ day: this.city.day, text });
+    if (st.log.length > LOG_KEEP) st.log.length = LOG_KEEP;
+  }
+}
+
+return { MAYOR_VERSION, ACTIONS_PER_DAY, ADULT, SKILL_LABELS, DUTIES, DUTY, skillFactor, Mayor };
+})();
+
+// ---- autopilot.js ----
+const __mod_autopilot = (() => {
+// Auto mode for your two people. Each can be left to pick their own actions with a focus you set:
+// your main person (the child) picks their Life Story activities through the year, and the mayor
+// picks the day's duties. Off by default; you can still act by hand while it's on.
+//
+// Saved in city.systems.autopilot = { v, kid: { on, focus }, mayor: { on, focus } }. Pure rules,
+// no screen: the Life panel and the Town hall show the switches.
+
+const { energyFor } = __mod_lifeActivities;
+const { ACTIONS_PER_DAY } = __mod_mayor;
+const AUTOPILOT_VERSION = 1;
+
+// What the child aims for. Weights per stat; `money` is per dollar, `social` per friendship made.
+const KID_FOCUS = [
+  { id: 'balanced', label: 'Balanced', hint: 'Works on whatever is lowest' },
+  { id: 'leader', label: 'Future leader', hint: 'Smarts, health, charm and friends: what makes a good mayor', weights: { smarts: 1, health: 0.7, happiness: 0.6, looks: 0.5, social: 0.8 } },
+  { id: 'smarts', label: 'Smarts', hint: 'Study first', weights: { smarts: 1, happiness: 0.1 } },
+  { id: 'health', label: 'Health', hint: 'Exercise and check-ups', weights: { health: 1, happiness: 0.1 } },
+  { id: 'happiness', label: 'Happiness', hint: 'Fun, friends and rest', weights: { happiness: 1, social: 0.4 } },
+  { id: 'money', label: 'Money', hint: 'Side jobs and overtime', weights: { money: 0.01, happiness: 0.05 } },
+];
+
+// What the mayor does first; later duties fill the rest of the day.
+const MAYOR_FOCUS = [
+  { id: 'balanced', label: 'Balanced', hint: 'A bit of everything, in turn' },
+  { id: 'money', label: 'Money', hint: 'Fundraisers first', order: ['fundraiser', 'speech', 'inspect', 'envoy'] },
+  { id: 'happiness', label: 'Happiness', hint: 'Speeches first', order: ['speech', 'envoy', 'fundraiser', 'inspect'] },
+  { id: 'military', label: 'Military', hint: 'The base first', order: ['inspect', 'fundraiser', 'speech', 'envoy'] },
+  { id: 'diplomacy', label: 'Diplomacy', hint: 'Neighbours first', order: ['envoy', 'speech', 'fundraiser', 'inspect'] },
+];
+const BALANCED_ORDER = ['speech', 'fundraiser', 'inspect', 'envoy'];
+
+// Roughly what each activity gives (the real outcome is rolled when it's done). Activities that
+// open an event card (job hunting, buying a home) are left to you.
+const ACTIVITY_GAINS = {
+  study: { smarts: 4 },
+  exercise: { health: 5, happiness: 2 },
+  doctor: { health: 6 },
+  rest: { happiness: 5 },
+  makeover: { looks: 4, happiness: 2 },
+  family: { happiness: 3, social: 0.5 },
+  sibling: { happiness: 3, social: 0.5 },
+  friend: { happiness: 4, social: 1 },
+  meet: { happiness: 3, social: 1 },
+  date: { happiness: 4, social: 0.5 },
+  kids: { happiness: 5 },
+  playground: { happiness: 5, health: 2 },
+  park: { happiness: 5, health: 2 },
+  shopping: { happiness: 4, looks: 2 },
+  volunteer: { happiness: 5, smarts: 1, social: 0.5 },
+  babysit: { money: 150 },
+  overtime: { money: 400, happiness: -1, health: -3 },
+};
+const STATS = ['happiness', 'health', 'smarts', 'looks'];
+
+// How much an activity is worth to the child with this focus. Gains shrink near the top of a stat
+// and when done again the same year, as they really do.
+function scoreActivity(offer, focusId, c) {
+  const gains = ACTIVITY_GAINS[offer.id];
+  if (!gains) return -Infinity;
+  const f = KID_FOCUS.find((x) => x.id === focusId) || KID_FOCUS[0];
+  const weights = f.weights || Object.fromEntries(STATS.map((k) => [k, (100 - (c.stats?.[k] ?? 50)) / 100]).concat([['social', 0.2]]));
+  const repeats = c.yearActs?.[offer.id] || 0;
+  let score = 0;
+  for (const [k, v] of Object.entries(gains)) {
+    const w = weights[k] || 0;
+    const room = STATS.includes(k) && v > 0 ? Math.max(0, 1 - (c.stats?.[k] ?? 50) / 110) : 1;
+    score += w * v * room;
+  }
+  score -= (offer.cost || 0) * 0.002;
+  return score / (1 + repeats);
+}
+
+class Autopilot {
+  // deps: { life: () → LifeSystem, mayor: () → Mayor }
+  constructor(city, deps = {}) {
+    this.city = city;
+    this.d = deps;
+  }
+
+  get state() {
+    const s = this.city.systems;
+    if (!s.autopilot || typeof s.autopilot !== 'object') s.autopilot = { v: AUTOPILOT_VERSION, kid: { on: false, focus: 'leader' }, mayor: { on: false, focus: 'balanced' } };
+    const st = s.autopilot;
+    for (const [who, list] of [['kid', KID_FOCUS], ['mayor', MAYOR_FOCUS]]) {
+      if (!st[who]) st[who] = { on: false, focus: list[0].id };
+      if (!list.some((f) => f.id === st[who].focus)) st[who].focus = list[0].id;
+    }
+    return st;
+  }
+
+  set(who, patch) {
+    const st = this.state[who];
+    if (!st) return;
+    if (patch.on != null) st.on = !!patch.on;
+    if (patch.focus) st.focus = patch.focus;
+    this.state; // re-checks the focus
+  }
+
+  // The activity the child would pick now, or null.
+  pickActivity() {
+    const life = this.d.life?.();
+    const c = life?.char;
+    if (!c) return null;
+    const money = c.money || 0;
+    const offers = life.activities().filter((a) => !a.blocked && ACTIVITY_GAINS[a.id] && (a.cost || 0) <= money * 0.3);
+    let best = null;
+    let bestScore = 0;
+    for (const a of offers) {
+      const sc = scoreActivity(a, this.state.kid.focus, c);
+      if (sc > bestScore) {
+        best = a;
+        bestScore = sc;
+      }
+    }
+    return best;
+  }
+
+  // The duty the mayor would pick now, or null.
+  pickDuty() {
+    const m = this.d.mayor?.();
+    if (!m) return null;
+    const f = MAYOR_FOCUS.find((x) => x.id === this.state.mayor.focus) || MAYOR_FOCUS[0];
+    let order = f.order;
+    if (!order) {
+      const k = Math.floor(this.city.day) % BALANCED_ORDER.length; // a different start each day
+      order = BALANCED_ORDER.slice(k).concat(BALANCED_ORDER.slice(0, k));
+    }
+    return order.find((id) => !m.dutyError(id)) || null;
+  }
+
+  // Call a few times a second. Actions are spread out: the mayor's through the day, the child's
+  // through the year. Returns what was done, for messages: [{ who, text }].
+  update() {
+    const st = this.state;
+    const done = [];
+    const m = this.d.mayor?.();
+    if (st.mayor.on && m) {
+      m.update();
+      const used = ACTIONS_PER_DAY - m.state.actions;
+      if (used < ACTIONS_PER_DAY && this.city.clock >= (used + 1) / (ACTIONS_PER_DAY + 1)) {
+        const id = this.pickDuty();
+        if (id) {
+          const r = m.perform(id);
+          if (r.text) done.push({ who: 'mayor', duty: id, text: r.text });
+        }
+      }
+    }
+    const life = this.d.life?.();
+    const c = life?.char;
+    if (st.kid.on && c?.alive && !c.pending) {
+      const total = energyFor(c.age);
+      const left = Math.max(0, c.energy ?? total);
+      const used = total - left;
+      if (left > 0 && c.yearProgress >= (used + 1) / (total + 1)) {
+        const a = this.pickActivity();
+        if (a) {
+          const r = life.doActivity(a.id);
+          if (r?.text) done.push({ who: 'kid', activity: a.id, text: r.text });
+        }
+      }
+    }
+    return done;
+  }
+}
+
+return { AUTOPILOT_VERSION, KID_FOCUS, MAYOR_FOCUS, ACTIVITY_GAINS, scoreActivity, Autopilot };
+})();
+
 // ---- lifeUI.js ----
 const __mod_lifeUI = (() => {
 // Life Story interface: the Life button, the life panel (create, follow, remember) and the event card.
@@ -18548,6 +19447,7 @@ const { PRONOUNS, SKIN_TONES, HAIR_COLORS, OUTFIT_COLORS, TRAITS, CAREERS, stage
 const { STAT_LABELS } = __mod_lifeEngine;
 const { addressOf } = __mod_streets;
 const { ACTIVITY_GROUPS, energyFor } = __mod_lifeActivities;
+const { KID_FOCUS } = __mod_autopilot;
 const { ACHIEVEMENTS } = __mod_lifeAchievements;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const money = (n) => `$${Math.round(n).toLocaleString()}`;
@@ -18580,6 +19480,11 @@ class LifeInterface {
     this.btn.addEventListener('click', () => this.toggle());
     this.panel.addEventListener('click', (e) => this.onPanelClick(e));
     this.panel.addEventListener('input', (e) => this.onPanelInput(e));
+    this.panel.addEventListener('change', (e) => {
+      if (!e.target.matches?.('[data-kidfocus]')) return;
+      this.h.setAutoKid?.({ focus: e.target.value });
+      this.render();
+    });
     this.panel.addEventListener('submit', (e) => {
       e.preventDefault();
       this.submitDraft();
@@ -18701,7 +19606,7 @@ class LifeInterface {
             ? 'Too young for school'
             : 'Looking for work';
     const people = [
-      ...['mother', 'father'].map((k) => c.family[k] && { ...c.family[k], role: 'Parent' }),
+      ...['mother', 'father'].map((k) => c.family[k] && { ...c.family[k], role: c.family[k].name === this.h.mayorName?.() ? 'Parent · Mayor' : 'Parent' }),
       ...(c.siblings || []).map((sb) => ({ ...sb, role: 'Sibling', alive: sb.alive !== false })),
       c.partner && { ...c.partner, role: c.partner.married ? 'Spouse' : 'Partner', alive: true },
       ...c.children.map((k) => ({ ...k, role: 'Child', closeness: 80 })),
@@ -18715,7 +19620,7 @@ class LifeInterface {
     return `<header class="life-head">
         <div class="avatar">${avatarSVG(c.look, 64)}</div>
         <div class="life-id"><span class="life-kicker">${c.generation > 1 ? `Generation ${c.generation}` : 'Life Story'}</span><h2>${esc(c.first)} ${esc(c.last)}</h2>
-        <p class="life-sub">Age ${c.age} · ${stage.label}</p>
+        <p class="life-sub">Age ${c.age} · ${stage.label}${this.h.youLead?.() ? ' · Mayor' : ''}</p>
         <div class="year-bar" title="Progress to next birthday"><span style="width:${Math.min(100, c.yearProgress * 100).toFixed(1)}%"></span></div></div>
         <button type="button" class="icon-btn" data-act="close" aria-label="Close life panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </header>
@@ -18747,7 +19652,7 @@ class LifeInterface {
   // Things to do any time, grouped, with energy dots for what's left this year.
   activitiesHTML(c) {
     const max = energyFor(c.age);
-    if (!max) return '<h3>Things to do</h3><p class="life-hint">Babies mostly eat, sleep and giggle. Activities start at age 3.</p>';
+    if (!max) return `<h3>Things to do</h3><p class="life-hint">Babies mostly eat, sleep and giggle. Activities start at age 3.</p>${this.autoHTML(c)}`;
     const left = Math.max(0, c.energy ?? max);
     const list = this.life.activities();
     const dots = Array.from({ length: max }, (_, i) => `<span class="energy-dot${i < left ? ' on' : ''}"></span>`).join('');
@@ -18762,7 +19667,17 @@ class LifeInterface {
         )
         .join('')}</div></div>`;
     }).join('');
-    return `<div class="act-head"><h3>Things to do</h3><span class="energy" aria-label="${left} of ${max} activities left this year">${dots}<small>${left ? `${left} left this year` : 'Rested by next birthday'}</small></span></div>${groups}`;
+    return `<div class="act-head"><h3>Things to do</h3><span class="energy" aria-label="${left} of ${max} activities left this year">${dots}<small>${left ? `${left} left this year` : 'Rested by next birthday'}</small></span></div>${this.autoHTML(c)}${groups}`;
+  }
+
+  // Auto mode: your main person picks their own activities through the year, with a focus you set.
+  autoHTML(c) {
+    const auto = this.h.autoKid?.();
+    if (!auto) return '';
+    const f = KID_FOCUS.find((x) => x.id === auto.focus) || KID_FOCUS[0];
+    return `<div class="auto-row"><button type="button" class="pill small${auto.on ? ' is-on' : ''}" data-act="autokid" aria-pressed="${auto.on}">Auto: ${auto.on ? 'on' : 'off'}</button>
+      <label class="auto-focus">Focus <select data-kidfocus aria-label="What ${esc(c.first)} works on">${KID_FOCUS.map((x) => `<option value="${x.id}"${x.id === auto.focus ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>
+      <small>${esc(auto.on ? `${c.first} picks their own activities through the year. ${f.hint}.` : `Turn on to let ${c.first} pick their own activities. ${f.hint}.`)}</small></div>`;
   }
 
   // Achievements are shared by every life in this city.
@@ -18844,6 +19759,7 @@ class LifeInterface {
       this.cardMinimized = false;
       this._cardFor = null;
     }
+    else if (t.dataset.act === 'autokid') this.h.setAutoKid?.({ on: !this.h.autoKid?.().on });
     else if (t.dataset.act === 'continue') this.h.onContinue();
     else if (t.dataset.act === 'newlife') {
       this.draft = this.newDraft();
@@ -19498,6 +20414,168 @@ class SkillsSheet {
 return { upgradesLineHTML, upgradesLineKey, SkillsSheet };
 })();
 
+// ---- mayorUI.js ----
+const __mod_mayorUI = (() => {
+// Town hall sheet: the mayor (mayor.js), their skills, today's actions and the four duties, what
+// they did lately and who takes over next. Also keeps the mayor chip on the town card up to date
+// and gives the City panel its Mayor line. Changes go through Mayor.perform.
+
+const { DUTIES, SKILL_LABELS, ACTIONS_PER_DAY } = __mod_mayor;
+const { MAYOR_FOCUS } = __mod_autopilot;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+const actionsText = (n) => `${n} of ${ACTIONS_PER_DAY} action${ACTIONS_PER_DAY === 1 ? '' : 's'} left today`;
+
+// The City panel's line about the mayor, with a button that opens the town hall.
+function mayorLineHTML(m) {
+  const st = m.state;
+  return `<p class="sk-line"><b>${esc(m.title())} ${esc(st.name)}</b>, ${esc(m.relation())}. ${actionsText(st.actions)}.</p><button type="button" class="ghost-btn small" data-townhall>Town hall</button>`;
+}
+const mayorLineKey = (m) => JSON.stringify([m.state.name, m.state.who, m.state.actions, m.relation()]);
+
+class TownHall {
+  // deps: { mayor: () → Mayor, autopilot: () → Autopilot, toast(msg, ms), sound(name), onOpen(), onChange() }
+  constructor(deps) {
+    this.d = deps;
+    this.el = document.getElementById('townhall-sheet');
+    this.chip = document.getElementById('mayor-chip');
+    this.open = false;
+    this._key = '';
+    this.el.addEventListener('click', (e) => this.onClick(e));
+    // The chip sits on the town card, which opens the City panel: a tap here opens the town hall instead.
+    const fromChip = (e) => {
+      e.stopPropagation();
+      this.toggle(true);
+    };
+    this.chip.addEventListener('click', fromChip);
+    this.chip.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fromChip(e);
+      }
+    });
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || !this.open || e.target?.closest?.('input, textarea, select, [contenteditable]')) return;
+        this.toggle(false);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      },
+      true
+    );
+  }
+
+  get m() {
+    return this.d.mayor();
+  }
+
+  toggle(force = !this.open) {
+    this.open = force;
+    this.el.hidden = !force;
+    if (force) {
+      this.d.onOpen?.();
+      this.render(true);
+    }
+  }
+
+  // A few times a second: the chip, and the sheet while it's open.
+  tick() {
+    const m = this.m;
+    m.update();
+    const n = m.state.actions;
+    this.chip.textContent = `🏛 ${n}`;
+    this.chip.classList.toggle('is-spent', !n);
+    this.chip.setAttribute('aria-label', `${m.title()} ${m.state.name}: ${actionsText(n)}. Open the town hall`);
+    if (this.open) this.render(false);
+  }
+
+  render(force) {
+    const m = this.m;
+    const st = m.state;
+    const auto = this.d.autopilot?.().state.mayor;
+    const pro = m.prospects();
+    const key = JSON.stringify([st.name, st.who, st.age, st.actions, st.done, st.skills, st.log[0]?.text, DUTIES.map((d) => m.preview(d.id)), auto, pro]);
+    if (!force && key === this._key) return;
+    this._key = key;
+    const next = m.nextInLine();
+    this.el.innerHTML = `
+      <header><h2>Town hall</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>
+      <div class="th-who">
+        <div><span class="insp-kicker">${esc(m.title())}</span><h3>${esc(st.name)}</h3><p class="sk-line">${esc(m.relation())} · age ${Math.round(st.age)}</p></div>
+        <p class="th-actions" aria-label="${actionsText(st.actions)}">${Array.from({ length: ACTIONS_PER_DAY }, (_, i) => `<span class="th-pip${i < st.actions ? ' on' : ''}"></span>`).join('')}<small>${actionsText(st.actions)}</small></p>
+      </div>
+      <dl class="th-skills">${Object.entries(SKILL_LABELS)
+        .map(([k, label]) => `<div><dt>${label}</dt><dd><span class="sbar"><span style="width:${st.skills[k]}%"></span></span><b>${st.skills[k]}</b></dd></div>`)
+        .join('')}</dl>
+      <div class="th-duties">${DUTIES.map((d) => this.dutyHTML(d)).join('')}</div>
+      ${auto ? this.autoHTML(auto) : ''}
+      ${next ? `<p class="sk-intro">Who leads next: ${esc(next)}</p>` : ''}
+      ${pro ? this.prospectsHTML(pro) : ''}
+      ${st.log.length ? `<h3 class="th-h">Lately</h3><ul class="th-log">${st.log.slice(0, 6).map((l) => `<li><span>Day ${l.day}</span>${esc(l.text)}</li>`).join('')}</ul>` : ''}`;
+  }
+
+  // Auto mode: the mayor picks the day's duties, with the focus you set.
+  autoHTML(auto) {
+    return `<div class="th-auto">
+      <div class="th-auto-head"><b>Auto mode</b><button type="button" class="pill small${auto.on ? ' is-on' : ''}" data-auto-mayor aria-pressed="${auto.on}">${auto.on ? 'On' : 'Off'}</button></div>
+      <div class="seg th-focus" role="group" aria-label="What the mayor does first">${MAYOR_FOCUS.map((f) => `<button type="button" data-mayor-focus="${f.id}" aria-pressed="${auto.focus === f.id}" title="${esc(f.hint)}">${esc(f.label)}</button>`).join('')}</div>
+      <p class="sk-intro">${auto.on ? 'The mayor does the day’s duties on their own, spread over the day.' : 'Turn it on and the mayor does the day’s duties on their own.'} ${esc(MAYOR_FOCUS.find((f) => f.id === auto.focus)?.hint || '')}.</p>
+    </div>`;
+  }
+
+  // What your main person would bring as mayor, from how they're growing up.
+  prospectsHTML(pro) {
+    const c = this.m.char;
+    return `<div class="th-prospects"><h3 class="th-h">If ${esc(c.first)} led today</h3>
+      <p class="th-pro">${Object.entries(SKILL_LABELS).map(([k, label]) => `<span>${label} <b>${pro[k]}</b></span>`).join('')}</p>
+      <p class="sk-intro">How ${esc(c.first)} grows up decides how good a mayor they'll be: smarts, health, happiness, looks, friends, a career and their traits all count.</p></div>`;
+  }
+
+  dutyHTML(d) {
+    const m = this.m;
+    const err = m.dutyError(d.id);
+    const done = m.state.done[d.id];
+    return `<button type="button" class="th-duty${done ? ' is-done' : ''}" data-duty="${d.id}" ${err ? 'aria-disabled="true"' : ''} title="${esc(err || d.text)}">
+      <span class="sk-name">${done ? '✓ ' : ''}${esc(d.name)}<span class="th-skill">${SKILL_LABELS[d.skill]}</span></span>
+      <span class="sk-text">${esc(d.text)}</span>
+      <span class="th-effect">${esc(err || m.preview(d.id))}</span>
+    </button>`;
+  }
+
+  onClick(e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.close != null) return this.toggle(false);
+    const ap = this.d.autopilot?.();
+    if (ap && b.dataset.autoMayor != null) {
+      ap.set('mayor', { on: !ap.state.mayor.on });
+      this.d.sound?.('click');
+      return this.render(true);
+    }
+    if (ap && b.dataset.mayorFocus) {
+      ap.set('mayor', { focus: b.dataset.mayorFocus });
+      this.d.sound?.('click');
+      return this.render(true);
+    }
+    const id = b.dataset.duty;
+    if (!id) return;
+    const r = this.m.perform(id);
+    if (r.error) {
+      this.d.sound?.('nope');
+      this.d.toast?.(r.error, 2600);
+    } else {
+      this.d.onChange?.(id);
+      this.d.sound?.('chime');
+      this.d.toast?.(r.text, 4200);
+    }
+    this.render(true);
+  }
+}
+
+return { mayorLineHTML, mayorLineKey, TownHall };
+})();
+
 // ---- cityUI.js ----
 const __mod_cityUI = (() => {
 // City panel: the town's title, progress to the next milestone, what it unlocks, and what residents
@@ -19510,6 +20588,7 @@ const { notablesHTML, notablesKey } = __mod_notablesUI;
 const { townsfolkHTML, townsfolkKey } = __mod_townsfolkUI;
 const { eraHTML, eraKey, chronicleHTML } = __mod_eraUI;
 const { upgradesLineHTML, upgradesLineKey } = __mod_skillsUI;
+const { mayorLineHTML, mayorLineKey } = __mod_mayorUI;
 const SEVERITY_LABEL = { bad: 'Needs fixing', caution: 'Worth a look', good: 'Going well' };
 
 const labelOf = (id) => STRUCTURES[id]?.label || TOOLS.find((t) => t.id === id)?.label || id;
@@ -19517,7 +20596,9 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 
 class CityPanel {
-  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair, skills, onUpgrades }) {
+  constructor({ milestones, onShow, onOpen, onBuild, economy, onShowTile, notables, townsfolk, eras, growth, onRepair, skills, onUpgrades, mayor, onTownHall }) {
+    this.mayor = mayor; // () → Mayor
+    this.onTownHall = onTownHall; // () → open the town hall
     this.skills = skills; // () → Skills
     this.onUpgrades = onUpgrades; // () → open the Town upgrades sheet
     this.onRepair = onRepair; // () → repair all storm damage now
@@ -19568,6 +20649,8 @@ class CityPanel {
       else if (b.dataset.showtile) {
         const [x, y] = b.dataset.showtile.split(',').map(Number);
         this.onShowTile?.(x, y);
+      } else if (b.dataset.townhall != null) {
+        this.onTownHall?.();
       } else if (b.dataset.upgrades != null) {
         this.onUpgrades?.();
       } else if (b.dataset.repair != null) {
@@ -19640,6 +20723,15 @@ class CityPanel {
         const open = !!budgetBox.querySelector('details')?.open;
         budgetBox.innerHTML = budgetHTML(city.derived.economy, eco.state, eco.sandbox);
         if (open) budgetBox.querySelector('details')?.setAttribute('open', '');
+      }
+    }
+    const mayorBox = this.panel.querySelector('.mayor-box');
+    if (mayorBox && this.mayor) {
+      const mkey = mayorLineKey(this.mayor());
+      if (mkey !== this._mayorKey || this._mayorBox !== mayorBox) {
+        this._mayorKey = mkey;
+        this._mayorBox = mayorBox;
+        mayorBox.innerHTML = mayorLineHTML(this.mayor());
       }
     }
     const upBox = this.panel.querySelector('.upgrades-box');
@@ -19736,6 +20828,7 @@ class CityPanel {
     return (
       `<header><div><span class="insp-kicker">Your town</span><h2>${p.current.label}</h2></div>` +
       `<button type="button" class="insp-close" data-close aria-label="Close city panel">${CLOSE}</button></header>` +
+      (this.mayor ? `<h3>Mayor</h3><div class="mayor-box"></div>` : '') +
       (this.skills ? `<h3>Town upgrades</h3><div class="upgrades-box"></div>` : '') +
       `<h3>Era</h3><div class="era-box"></div>` +
       `<h3>Town history</h3><div class="chronicle"></div>` +
@@ -21318,209 +22411,6 @@ class WorldPanel {
 }
 
 return { OWNER, describeBuild, townSummary, WorldPanel };
-})();
-
-// ---- militaryData.js ----
-const __mod_militaryData = (() => {
-// What the military is made of: the base map, the defences you can build on it, the troops you can
-// recruit, and the ranks they earn. Plain data, read by military.js (the base and roster), battle.js
-// (the fighting) and the screens. Stats are tuned by tests/military.test.mjs, which keeps every
-// troop's and defence's damage per dollar inside one band.
-
-// The base map, in tiles. The enemy arrives along the top rows; your command post sits near the
-// bottom, and reinforcements come in from the bottom rows.
-const BASE_W = 16;
-const BASE_H = 20;
-const ENTRY_ROWS = 2; // rows 0–1: where attackers arrive (nothing may be built there)
-const DEPLOY_ROWS = 2; // the last two rows: where your reinforcements come in
-const HQ_AT = { x: 7, y: 15 }; // top-left of the 2×2 command post
-
-// Defences. `blocks`: troops can't walk through it (every structure blocks; the route check keeps a
-// way open from the enemy's edge to the command post). `attack.kind`: bullet (hits at once),
-// shell (lobbed, lands later, splash). `vs`: damage multipliers against a target's tags.
-const DEFENCES = {
-  hq: {
-    label: 'Command post',
-    short: 'HQ',
-    w: 2,
-    h: 2,
-    hp: 1400,
-    armor: 4,
-    cost: 0,
-    fixed: true,
-    tags: ['structure'],
-    attack: { dmg: 6, rate: 1.4, range: 4, kind: 'bullet' },
-    desc: 'Your headquarters. If it falls, the battle is lost. Upgrading it lets you keep a bigger army.',
-  },
-  sandbags: {
-    label: 'Sandbag wall',
-    short: 'Sandbags',
-    w: 1,
-    h: 1,
-    hp: 260,
-    armor: 2,
-    cost: 30,
-    tags: ['structure', 'wall'],
-    cover: true,
-    desc: 'Cheap walls that steer the enemy the long way round. Your soldiers beside them take less damage.',
-  },
-  mg: {
-    label: 'Machine-gun nest',
-    short: 'MG nest',
-    w: 1,
-    h: 1,
-    hp: 340,
-    armor: 3,
-    cost: 160,
-    tags: ['structure'],
-    cover: true,
-    attack: { dmg: 6, rate: 4, range: 4.5, kind: 'bullet', vs: { infantry: 1.15 } },
-    desc: 'Fast fire at anyone in range. Good against groups of soldiers.',
-  },
-  bunker: {
-    label: 'Bunker',
-    short: 'Bunker',
-    w: 1,
-    h: 1,
-    hp: 760,
-    armor: 7,
-    cost: 300,
-    tags: ['structure'],
-    cover: true,
-    attack: { dmg: 15, rate: 1.3, range: 4, kind: 'bullet' },
-    desc: 'Thick concrete that soaks up a lot of punishment and keeps firing.',
-  },
-  mortar: {
-    label: 'Mortar pit',
-    short: 'Mortar',
-    w: 1,
-    h: 1,
-    hp: 230,
-    armor: 1,
-    cost: 240,
-    tags: ['structure'],
-    attack: { dmg: 34, rate: 0.32, range: 8, min: 2, kind: 'shell', splash: 1.3 },
-    desc: 'Lobs shells a long way. Hits a whole group, but can’t fire at anyone close by.',
-  },
-};
-const BUILDABLE = ['sandbags', 'mg', 'bunker', 'mortar'];
-const MAX_LEVEL = 3;
-// Each level above the first: more health and more damage.
-const levelHp = (level) => 1 + 0.35 * (level - 1);
-const levelDmg = (level) => 1 + 0.3 * (level - 1);
-// Upgrading from `level` to `level + 1`.
-function upgradeCost(type, level) {
-  if (type === 'hq') return level === 1 ? 450 : 900;
-  return Math.round(DEFENCES[type].cost * 0.6 * level);
-}
-const maxHpOf = (type, level = 1) => Math.round(DEFENCES[type].hp * levelHp(level));
-// Repairs: dollars per point of health. Crews fix damage over time; "repair now" costs half as much again.
-const repairRate = (type) => Math.max(0.3, (DEFENCES[type].cost || 400) / DEFENCES[type].hp) * 0.5;
-const REPAIR_HP_PER_DAY = 700; // what the base's repair crews get through in a day
-const RUSH_REPAIR = 1.5;
-
-// The command post's level sets how many soldiers the base can hold, and how many stand guard.
-const ARMY_CAP = [0, 10, 16, 24];
-const GARRISON_CAP = [0, 4, 6, 8];
-
-// Troops. Everyone is infantry for now. `attack.kind`: bullet or grenade (thrown, lands later,
-// splash). `train`: days of regular training; emergency recruits arrive at once for EMERGENCY× the price.
-const UNITS = {
-  rifleman: {
-    label: 'Rifleman',
-    plural: 'Riflemen',
-    hp: 100,
-    armor: 0,
-    speed: 1.5,
-    cost: 60,
-    upkeep: 3,
-    train: 0.4,
-    tags: ['infantry'],
-    attack: { dmg: 9, rate: 1.1, range: 3.6, kind: 'bullet' },
-    desc: 'Dependable all-rounder.',
-  },
-  gunner: {
-    label: 'Machine gunner',
-    plural: 'Machine gunners',
-    hp: 120,
-    armor: 1,
-    speed: 1.15,
-    cost: 110,
-    upkeep: 5,
-    train: 0.6,
-    tags: ['infantry'],
-    attack: { dmg: 4, rate: 4, range: 4, kind: 'bullet', vs: { infantry: 1.25, structure: 0.5 } },
-    desc: 'Pins down soldiers. Weak against walls and bunkers.',
-  },
-  grenadier: {
-    label: 'Grenadier',
-    plural: 'Grenadiers',
-    hp: 105,
-    armor: 0,
-    speed: 1.35,
-    cost: 130,
-    upkeep: 5,
-    train: 0.6,
-    tags: ['infantry'],
-    attack: { dmg: 26, rate: 0.45, range: 4.2, kind: 'grenade', splash: 0.9, vs: { structure: 2.2 } },
-    desc: 'Throws grenades. Breaks defences and groups.',
-  },
-  medic: {
-    label: 'Medic',
-    plural: 'Medics',
-    specialist: true,
-    hp: 90,
-    armor: 0,
-    speed: 1.5,
-    cost: 170,
-    upkeep: 7,
-    train: 0,
-    tags: ['infantry'],
-    heal: { rate: 7, range: 2.4 },
-    attack: { dmg: 5, rate: 0.8, range: 3, kind: 'bullet' },
-    desc: 'Specialist, hired ready to go. Patches up nearby soldiers, and fewer of the wounded die.',
-  },
-};
-const UNIT_TYPES = Object.keys(UNITS);
-const EMERGENCY = 2.5;
-
-// Ranks from experience: each one adds a little health and damage.
-const RANKS = [
-  { label: 'Private', short: 'Pvt.', xp: 0 },
-  { label: 'Corporal', short: 'Cpl.', xp: 40 },
-  { label: 'Sergeant', short: 'Sgt.', xp: 120 },
-  { label: 'Veteran', short: 'Vet.', xp: 260 },
-];
-function rankOf(xp = 0) {
-  let r = 0;
-  for (let i = 0; i < RANKS.length; i++) if (xp >= RANKS[i].xp) r = i;
-  return r;
-}
-const rankBonus = (xp) => 1 + 0.08 * rankOf(xp);
-
-// The commander's own call: an artillery strike on a spot, paid from the military budget.
-const ARTILLERY = { cost: 120, cooldown: 45, delay: 2.2, shells: 3, radius: 1.5, dmg: 90, spread: 0.9 };
-
-// Reinforcements: squads of up to this many leave the reserve together, one squad every few seconds.
-const SQUAD_SIZE = 4;
-const REINFORCE_COOLDOWN = 10;
-
-// Injuries: the chance that a soldier who goes down survives (more with a medic in the battle), and
-// how long recovery takes in days.
-const SURVIVE = 0.55;
-const SURVIVE_MEDIC = 0.75;
-const INJURY_DAYS = [2, 4];
-const LIGHT_INJURY_DAYS = 1;
-
-const SURNAMES = [
-  'Moreno', 'Okafor', 'Lindqvist', 'Tanaka', 'Brennan', 'Haddad', 'Novak', 'Castillo', 'Mensah', 'Kowalski',
-  'Dubois', 'Patel', 'Ferreira', 'Nakamura', 'Ivanova', 'Osei', 'MacLeod', 'Rossi', 'Andersen', 'Delgado',
-  'Kaur', 'Fischer', 'Mwangi', 'Silva', 'Horvath', 'Quinn', 'Yilmaz', 'Laurent', 'Abara', 'Petrov',
-  'Sato', 'Gallagher', 'Bianchi', 'Nguyen', 'Eriksen', 'Ramos', 'Adeyemi', 'Kim', 'Walsh', 'Romero',
-];
-const INITIALS = 'ABCDEFGHJKLMNPRSTVW';
-
-return { BASE_W, BASE_H, ENTRY_ROWS, DEPLOY_ROWS, HQ_AT, DEFENCES, BUILDABLE, MAX_LEVEL, levelHp, levelDmg, upgradeCost, maxHpOf, repairRate, REPAIR_HP_PER_DAY, RUSH_REPAIR, ARMY_CAP, GARRISON_CAP, UNITS, UNIT_TYPES, EMERGENCY, RANKS, rankOf, rankBonus, ARTILLERY, SQUAD_SIZE, REINFORCE_COOLDOWN, SURVIVE, SURVIVE_MEDIC, INJURY_DAYS, LIGHT_INJURY_DAYS, SURNAMES, INITIALS };
 })();
 
 // ---- flowfield.js ----
@@ -25189,6 +26079,9 @@ const { WarRoom } = __mod_warRoom;
 const { MilitaryScreen, inDays } = __mod_militaryUI;
 const { DiplomacySheet } = __mod_diplomacyUI;
 const { SkillsSheet } = __mod_skillsUI;
+const { Mayor } = __mod_mayor;
+const { TownHall } = __mod_mayorUI;
+const { Autopilot } = __mod_autopilot;
 const { KIND_LABEL } = __mod_diplomacy;
 const { crosswalkMask, footArms } = __mod_sidewalks;
 const { hash2 } = __mod_utils;
@@ -25457,6 +26350,28 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       lifeUI.toggle(false);
       worldPanel.toggle(false);
       diplomacySheet.toggle(false);
+      townHall.toggle(false);
+      ui.closeTray();
+    },
+  });
+  // The mayor (mayor.js, mayorUI.js): your main person's father leads the town, then the family does.
+  const mayor = new Mayor(city, { life: () => sim.life, economy: () => sim.economy, decisions: () => sim.decisions, war: () => warRoom });
+  const autopilot = new Autopilot(city, { life: () => sim.life, mayor: () => mayor });
+  const townHall = new TownHall({
+    mayor: () => mayor,
+    autopilot: () => autopilot,
+    toast: (msg, ms) => ui.toast(msg, ms),
+    sound: (name) => audio.play(name),
+    onChange: () => {
+      city.dirty = true;
+    },
+    onOpen: () => {
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      worldPanel.toggle(false);
+      diplomacySheet.toggle(false);
+      skillsSheet.toggle(false);
       ui.closeTray();
     },
   });
@@ -25474,11 +26389,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onRepair: () => repairAll(),
     skills: () => sim.skills,
     onUpgrades: () => skillsSheet.toggle(true),
+    mayor: () => mayor,
+    onTownHall: () => townHall.toggle(true),
     onOpen: () => {
       lifeUI.toggle(false);
       ui.toggleMore(false);
       ui.closeTray();
       skillsSheet.toggle(false);
+      townHall.toggle(false);
     },
     onShow: (th) => {
       focusTile(th.x, th.y);
@@ -25658,6 +26576,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
     },
     onStart: (opts) => newTown(opts),
@@ -25684,6 +26603,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
     },
     beforeOpen: () => saver.flush(),
@@ -25892,6 +26812,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   const lifeUI = new LifeInterface({
     life: sim.life,
+    mayorName: () => (mayor.state.who === 'father' ? mayor.state.name : null),
+    youLead: () => mayor.state.who === 'you',
+    autoKid: () => autopilot.state.kid,
+    setAutoKid: (patch) => autopilot.set('kid', patch),
     onCreate: (draft) => {
       const c = sim.life.create(draft);
       const home = c.home && city.getTile(c.home.x, c.home.y);
@@ -25930,6 +26854,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       ui.toggleMore(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
     },
     onFocus: () => {
       const home = sim.life.char?.home;
@@ -26094,6 +27019,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     else if (ev.type === 'lifeEvent') audio.play('chime');
     if (ev.type === 'milestone') celebrate(ev.milestone);
     if (ev.type === 'era') newEra(ev);
+    if (ev.type === 'mayorChanged') lifeUI.render();
+    if (ev.type === 'mayorChanged' && !ev.quiet) {
+      audio.play('chime');
+      ui.toast(`🏛 ${mayor.state.name} is now ${mayor.title().toLowerCase()} (${mayor.relation()})`, 5200);
+    }
     if (ev.type === 'skillPoint') {
       audio.play('chime');
       ui.toast(`★ Your town earned ${ev.points > 1 ? `${ev.points} upgrade points` : 'an upgrade point'}. Tap ★ on the town card to spend ${ev.points > 1 ? 'them' : 'it'}`, 4600);
@@ -26341,6 +27271,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       lifeUI.toggle(false);
       diplomacySheet.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
     },
   });
@@ -26369,6 +27300,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       worldPanel.toggle(false);
       diplomacySheet.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
       stopFollow();
     },
@@ -26388,6 +27320,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       lifeUI.toggle(false);
       worldPanel.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
       if (militaryScreen.open && !warRoom.busy) militaryScreen.close();
     },
@@ -26585,6 +27518,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       syncBaseButton();
       diplomacySheet.tick();
       skillsSheet.tick();
+      townHall.tick();
+      // Auto mode: your two people act by themselves when you've switched it on.
+      if (!warRoom.busy) {
+        for (const d of autopilot.update()) {
+          ui.toast(d.who === 'mayor' ? `🏛 ${d.text}` : `🤖 ${d.text}`, 3600);
+          if (d.who === 'mayor') city.dirty = true;
+        }
+      }
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -26639,7 +27580,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, autopilot, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

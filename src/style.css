@@ -4066,7 +4066,8 @@ button.mil-sq {
 .sk-line b {
   color: var(--ink);
 }
-.upgrades-box {
+.upgrades-box,
+.mayor-box {
   display: grid;
   gap: 8px;
   justify-items: start;
@@ -4191,4 +4192,229 @@ button.mil-sq {
   .sk-branches {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Town hall: the mayor (mayor.js, mayorUI.js) */
+.mayor-chip {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #dfe7f7;
+  color: #2f4a80;
+  font: 800 11px/1.2 var(--font-body);
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+}
+.mayor-chip.is-spent {
+  opacity: 0.6;
+}
+.mayor-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.townhall-sheet {
+  width: min(560px, calc(100vw - 24px));
+}
+.th-who {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.th-who h3 {
+  margin: 2px 0;
+  font: 600 18px/1.15 var(--font-display);
+}
+.th-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+}
+.th-actions small {
+  margin-left: 4px;
+  color: var(--ink-soft);
+  font: 700 11.5px/1.3 var(--font-body);
+}
+.th-pip {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--meter-track);
+}
+.th-pip.on {
+  background: #5b9be0;
+}
+.th-skills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  margin: 0;
+}
+.th-skills div {
+  display: grid;
+  grid-template-columns: 72px 1fr 24px;
+  align-items: center;
+  gap: 6px;
+}
+.th-skills dt {
+  font: 800 11.5px/1.2 var(--font-body);
+  color: var(--ink-soft);
+}
+.th-skills dd {
+  display: contents;
+}
+.th-skills .sbar {
+  display: block;
+  height: 6px;
+  border-radius: 4px;
+  background: var(--meter-track);
+  overflow: hidden;
+}
+.th-skills .sbar span {
+  display: block;
+  height: 100%;
+  background: #5b9be0;
+}
+.th-skills b {
+  font: 800 11.5px/1 var(--font-body);
+  text-align: right;
+}
+.th-duties {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.th-duty {
+  appearance: none;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 2px solid color-mix(in srgb, #5b9be0 45%, transparent);
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.th-duty:hover {
+  transform: translateY(-1px);
+}
+.th-duty:active {
+  transform: scale(0.98);
+}
+.th-duty:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.th-duty[aria-disabled='true'] {
+  opacity: 0.55;
+  border-color: transparent;
+}
+.th-duty.is-done {
+  background: color-mix(in srgb, #5b9be0 15%, var(--panel));
+}
+.th-skill {
+  flex: none;
+  color: #2f4a80;
+  font-size: 10.5px;
+}
+.th-effect {
+  font: 800 11.5px/1.3 var(--font-body);
+  color: #2f6f4a;
+}
+.th-duty[aria-disabled='true'] .th-effect {
+  color: var(--ink-soft);
+}
+.th-h {
+  margin: 4px 0 0;
+  font: 600 14px/1.2 var(--font-display);
+}
+.th-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.th-log li {
+  font: 700 12px/1.4 var(--font-body);
+  color: var(--ink-soft);
+}
+.th-log li span {
+  margin-right: 6px;
+  color: var(--ink);
+}
+@media (max-width: 560px) {
+  .th-duties,
+  .th-skills {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.th-auto,
+.th-prospects {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, #5b9be0 8%, transparent);
+}
+.th-auto-head,
+.auto-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.th-auto .pill.small,
+.auto-row .pill.small {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+.th-auto .pill.is-on,
+.auto-row .pill.is-on {
+  background: #5b9be0;
+  color: #fff;
+}
+.th-focus {
+  flex-wrap: wrap;
+}
+.th-pro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font: 700 12.5px/1.4 var(--font-body);
+  color: var(--ink-soft);
+}
+.th-pro b {
+  color: var(--ink);
+}
+.auto-row {
+  margin: 4px 0 8px;
+}
+.auto-row small {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+  font: 700 11.5px/1.35 var(--font-body);
+}
+.auto-focus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 800 12px/1 var(--font-body);
+  color: var(--ink-soft);
+}
+.auto-focus select {
+  font: 700 16px/1.2 var(--font-body); /* 16px or more, or iPhones zoom the page when it's tapped */
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  color: var(--ink);
 }
