@@ -4,9 +4,10 @@
 import { CAR_COLORS, SHIRT_COLORS, SKIN_TONES, STRUCTURES } from './config.js';
 import { DIRS } from './state.js';
 import { pick, pickWeighted } from './utils.js';
+import { SidewalkNetwork } from './sidewalks.js';
 
 const MAX_CARS = 70;
-const MAX_WALKERS = 60;
+const MAX_WALKERS = 90;
 const MAX_TOWN_WALKERS = 14;
 const CART_COLORS = ['#b88a5a', '#a87a52', '#c99b6a', '#9b7a5f'];
 const HORSE_COLORS = ['#8a5d3b', '#6f4a33', '#c9a27a', '#4e3a2e', '#e8dccb'];
@@ -27,6 +28,7 @@ export class AgentSystem {
     this._carTimer = 0;
     this._walkTimer = 0;
     this.hero = null; // the Life Story character, when they are out and about
+    this.paths = new SidewalkNetwork(city);
     this._heroWait = 1;
     city.on((ev) => {
       if (ev.type === 'reset' || ev.type === 'loaded') this.clear();
@@ -208,50 +210,90 @@ export class AgentSystem {
   }
 
   // ---- Pedestrians -----------------------------------------------------
+  // People walk the sidewalk network (sidewalks.js): along the kerbs, over zebra crossings and through
+  // parks, never through buildings. Each walk has a purpose that suits the hour: the commute on foot,
+  // errands to shops and the library, school runs, or a stroll to the park. Both views draw the same
+  // walkers from the fields set here (gx, gy, heading, moving, alpha and their look).
 
   desiredWalkers(daylight) {
     const pop = this.city.stats.population;
     const w = this.city.derived.weather;
     const shelter = 1 - 0.55 * (w?.rain || 0) - 0.4 * (w?.snow || 0);
-    return Math.round(Math.min(MAX_WALKERS, pop / 4) * (0.15 + 0.85 * daylight) * shelter);
+    return Math.round(Math.min(MAX_WALKERS, pop / 3.5) * (0.15 + 0.85 * daylight) * shelter);
   }
 
   updateWalkers(dt, daylight) {
     const active = this.walkers.filter((w) => !w.leaving).length;
     if (active < this.desiredWalkers(daylight) && this._walkTimer <= 0) {
       this.spawnWalker();
-      this._walkTimer = 0.45;
+      this._walkTimer = 0.3;
     }
     for (const w of this.walkers) this.stepWalker(w, dt);
     this.walkers = this.walkers.filter((w) => !w.dead);
   }
 
   spawnWalker() {
+    const clock = this.city.clock;
+    if (Math.random() < 0.45 * commuteActivity(clock) && this.spawnCommuteWalk()) return;
     const homes = this.city.homes().filter((h) => h.structure.residents > 0);
     const home = pickWeighted(homes, (h) => h.structure.residents);
     if (!home) return;
-    const path = this.findOuting(home);
-    if (!path) return;
-    this.walkers.push({
+    const child = Math.random() < 0.18;
+    const route = this.findOuting(home, { child });
+    if (!route) return;
+    const end = route.points[route.points.length - 1];
+    const inside = !!end.door;
+    this.walkers.push(this.walker(route, { home, child, look: makeLook(child), errand: inside }));
+  }
+
+  // Someone who lives close to work walks there in the morning and home again in the evening.
+  spawnCommuteWalk() {
+    const flows = this.city.derived.labor?.flows;
+    if (!flows?.length) return false;
+    const flow = pickWeighted(flows, (f) => (f.path.length <= 10 ? f.count : 0));
+    if (!flow) return false;
+    const W = this.city.width;
+    const home = { x: flow.from % W, y: Math.floor(flow.from / W) };
+    const job = { x: flow.to % W, y: Math.floor(flow.to / W) };
+    const homeward = this.city.clock > 0.55;
+    const route = homeward ? this.paths.route(job, home, 14) : this.paths.route(home, job, 14);
+    if (!route) return false;
+    this.walkers.push(this.walker(route, { home: homeward ? job : home, look: makeLook(false), oneWay: true }));
+    return true;
+  }
+
+  // A new walker at the start of a route.
+  walker(route, { home, dest = null, look, child = false, oneWay = false, speed = 0.5 + Math.random() * 0.3, ...extra }) {
+    const p = route.points[0];
+    return {
       home: { x: home.x, y: home.y },
-      path,
+      dest: dest ? { x: dest.x, y: dest.y } : null,
+      pts: route.points,
+      cross: route.crossings,
       i: 0,
-      t: 0,
+      s: 0,
       state: 'out',
       wait: 0,
-      speed: 0.5 + Math.random() * 0.3,
-      ox: (Math.random() - 0.5) * 0.44,
-      oy: (Math.random() - 0.5) * 0.44,
-      shirt: pick(SHIRT_COLORS),
-      skin: pick(SKIN_TONES),
+      speed: child ? speed * 1.1 : speed,
+      lane: 0.018 + Math.random() * 0.022, // how far right of the walking line they keep
+      shirt: look.shirt,
+      skin: look.skin,
+      hair: look.hair,
+      pants: look.pants,
+      hat: look.hat,
+      build: look.build,
       phase: Math.random() * Math.PI * 2,
       alpha: 0,
-      gx: home.x + 0.5,
-      gy: home.y + 0.5,
+      gx: p.x,
+      gy: p.y,
+      heading: 0,
       moving: true,
       leaving: false,
       dead: false,
-    });
+      child,
+      oneWay,
+      ...extra,
+    };
   }
 
   // ---- Townsfolk -------------------------------------------------------------------
@@ -262,36 +304,24 @@ export class AgentSystem {
     if (this.walkers.filter((w) => w.townId && !w.leaving).length >= MAX_TOWN_WALKERS) return;
     for (const w of this.walkers) if (w.townId === person.id) w.leaving = true; // they've moved on
     if (Math.abs(trip.from.x - trip.to.x) + Math.abs(trip.from.y - trip.to.y) > 16) return; // they drove
-    const path = this.pathTo(trip.from, trip.to);
-    if (!path || path.length < 2 || path.length > 24) return;
+    const route = this.paths.route(trip.from, trip.to, 24);
+    if (!route || route.points.length < 2) return;
     const end = this.city.getTile(trip.to.x, trip.to.y);
-    this.walkers.push({
-      home: { ...trip.from },
-      dest: { ...trip.to },
-      path,
-      i: 0,
-      t: 0,
-      state: 'out',
-      wait: 0,
-      speed: 0.6 + Math.random() * 0.25,
-      ox: (Math.random() - 0.5) * 0.3,
-      oy: (Math.random() - 0.5) * 0.3,
-      shirt: person.look?.shirt || pick(SHIRT_COLORS),
-      skin: person.look?.skin || pick(SKIN_TONES),
-      hair: person.look?.hair,
-      phase: Math.random() * Math.PI * 2,
-      alpha: 0,
-      gx: trip.from.x + 0.5,
-      gy: trip.from.y + 0.5,
-      moving: true,
-      leaving: false,
-      dead: false,
-      townId: person.id,
-      mood: person.mood,
-      child: person.age < 13,
-      oneWay: true,
-      stay: !!end?.structure && !!STRUCTURES[end.structure.type].walkable, // parks: they hang around
-    });
+    const child = person.age < 13;
+    const look = makeLook(child, person.look);
+    this.walkers.push(
+      this.walker(route, {
+        home: trip.from,
+        dest: trip.to,
+        look,
+        child,
+        oneWay: true,
+        speed: 0.6 + Math.random() * 0.25,
+        townId: person.id,
+        mood: person.mood,
+        stay: !!end?.structure && !!STRUCTURES[end.structure.type].walkable, // parks: they hang around
+      })
+    );
   }
 
   // ---- The Life Story character ----------------------------------------------------
@@ -313,105 +343,68 @@ export class AgentSystem {
     this._heroWait = 3 + Math.random() * 4;
     const homeTile = this.city.getTile(home.x, home.y);
     if (!homeTile?.structure) return;
-    let path = null;
+    const child = c.age < 13;
+    let route = null;
     let dest = null;
     if (c.job && daylight > 0.5 && Math.random() < 0.7) {
-      path = this.pathTo(home, c.job);
-      if (path) dest = c.job;
+      route = this.paths.route(home, c.job, 30);
+      if (route) dest = c.job;
     }
-    if (!path) path = this.findOuting(homeTile);
-    if (!path || path.length < 2) return;
-    const w = {
-      home: { x: home.x, y: home.y },
-      dest,
-      path,
-      i: 0,
-      t: 0,
-      state: 'out',
-      wait: 0,
-      speed: 0.85,
-      ox: 0,
-      oy: 0,
-      shirt: c.look?.outfit || SHIRT_COLORS[0],
-      skin: c.look?.skin || SKIN_TONES[0],
-      hair: c.look?.hair || '#5b3a29',
-      phase: 0,
-      alpha: 0,
-      gx: home.x + 0.5,
-      gy: home.y + 0.5,
-      moving: true,
-      leaving: false,
-      dead: false,
-      hero: true,
-      child: c.age < 13,
-    };
+    if (!route) route = this.findOuting(homeTile, { child, leisure: true });
+    if (!route || route.points.length < 2) return;
+    const look = makeLook(child, { shirt: c.look?.outfit || SHIRT_COLORS[0], skin: c.look?.skin || SKIN_TONES[0], hair: c.look?.hair || '#5b3a29' });
+    const w = this.walker(route, { home, dest, look, child, speed: 0.85, hero: true, lane: 0.02, phase: 0 });
     this.hero = w;
     this.walkers.push(w);
   }
 
-  // A walking route from one building to another over walkable tiles (paths, parks, roadsides).
+  // The tiles a walk from one building to another passes, or null when it's too far on foot.
   pathTo(from, to) {
-    const city = this.city;
-    const key = (x, y) => y * city.width + x;
-    const prev = new Map([[key(from.x, from.y), null]]);
-    const queue = [{ x: from.x, y: from.y }];
-    for (let qi = 0; qi < queue.length; qi++) {
-      const cur = queue[qi];
-      for (const dir of DIRS) {
-        const nx = cur.x + dir.dx;
-        const ny = cur.y + dir.dy;
-        const k = key(nx, ny);
-        if (prev.has(k)) continue;
-        const goal = nx === to.x && ny === to.y;
-        if (!goal && !city.isWalkable(nx, ny)) continue;
-        prev.set(k, cur);
-        const n = { x: nx, y: ny };
-        if (goal) {
-          const path = [];
-          for (let p = n; p; p = prev.get(key(p.x, p.y))) path.unshift({ x: p.x, y: p.y });
-          return path;
-        }
-        queue.push(n);
-      }
-    }
-    return null;
+    const route = this.paths.route(from, to, 30);
+    if (!route) return null;
+    const W = this.city.width;
+    const tiles = [];
+    for (const p of route.points) if (tiles[tiles.length - 1]?.k !== p.k) tiles.push({ k: p.k });
+    return tiles.map(({ k }) => ({ x: k % W, y: Math.floor(k / W) }));
   }
 
-  // Residents prefer parks, then trees, then any open ground within a short stroll.
-  findOuting(home) {
-    const city = this.city;
-    const key = (x, y) => y * city.width + x;
-    const prev = new Map([[key(home.x, home.y), null]]);
-    const queue = [{ x: home.x, y: home.y, d: 0 }];
-    const reachable = [];
-    while (queue.length) {
-      const cur = queue.shift();
-      if (cur.d >= 9) continue;
-      for (const dir of DIRS) {
-        const nx = cur.x + dir.dx;
-        const ny = cur.y + dir.dy;
-        const k = key(nx, ny);
-        if (prev.has(k) || !city.isWalkable(nx, ny)) continue;
-        prev.set(k, cur);
-        const n = { x: nx, y: ny, d: cur.d + 1 };
-        queue.push(n);
-        reachable.push(n);
-      }
-    }
-    const dest = pickWeighted(reachable, (n) => {
-      const type = city.getTile(n.x, n.y).structure?.type;
-      if (type === 'park') return 8;
-      if (type === 'playground') return 7;
-      if (type === 'field') return 6;
-      if (type === 'cafe') return 5;
-      if (type === 'tree') return 2;
-      if (type === 'road') return 0.15;
-      return 0.4;
+  // Somewhere worth walking to from home, given the hour: shops and cafés by day, school in the
+  // morning for children, parks and playgrounds any time, a friend's house now and then.
+  findOuting(home, { child = false, leisure = false } = {}) {
+    const clock = this.city.clock;
+    const open = clock > 0.33 && clock < 0.8;
+    const schoolRun = child && clock > 0.28 && clock < 0.45;
+    return this.paths.outing(home, (t, d) => {
+      if (d < 1.5) return 0;
+      const type = t.structure?.type;
+      let w;
+      if (!type) w = 0.25;
+      else if (type === 'park') w = 8;
+      else if (type === 'playground') w = child ? 12 : 4;
+      else if (type === 'field') w = child ? 7 : 5;
+      else if (type === 'tree') w = 1.2;
+      else if (leisure) w = type === 'cafe' ? 4 : 0;
+      else if (type === 'school') w = schoolRun ? 30 : 0;
+      else if (type === 'cafe' || type === 'bakery') w = open ? 6 : 0.5;
+      else if (type === 'shop' || type === 'mall') w = open && !child ? 6 : 0;
+      else if (type === 'library') w = open ? 3 : 0;
+      else if (type === 'clinic') w = open && !child ? 0.6 : 0;
+      else if (STRUCTURES[type].capacity && t.structure.residents > 0) w = child ? 0.6 : 0.9; // visiting
+      else w = 0;
+      return w / (1 + d * 0.12);
     });
-    if (!dest) return null;
-    const path = [];
-    for (let n = dest; n; n = prev.get(key(n.x, n.y))) path.unshift({ x: n.x, y: n.y });
-    return path;
+  }
+
+  // Is a car close to where a walker is about to cross?
+  carNear(a, b) {
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    for (const c of this.cars) {
+      if (c.alpha < 0.3) continue;
+      const p = this.carPose(c);
+      if (Math.abs(p.gx - mx) < 0.75 && Math.abs(p.gy - my) < 0.75) return true;
+    }
+    return false;
   }
 
   stepWalker(w, dt) {
@@ -421,22 +414,27 @@ export class AgentSystem {
       w.dead = true;
       return;
     }
+    const pts = w.pts;
     if (w.state === 'linger') {
       w.moving = false;
       w.wait -= dt;
-      const end = w.path[w.path.length - 1];
+      const end = pts[pts.length - 1];
       if (w.indoors) {
-        // The character is inside their workplace, hidden until it's time to head home.
+        // Inside the shop, school or workplace, hidden until it's time to come out.
         w.alpha = Math.max(0, w.alpha - dt * 3);
-        w.gx = end.x + 0.5;
-        w.gy = end.y + 0.5;
+        w.gx = end.x;
+        w.gy = end.y;
         if (w.wait > 0) return;
         w.indoors = false;
       } else {
-        if (!city.isWalkable(end.x, end.y)) w.leaving = true; // something was built where they stood
+        if (!this.paths.walkable(end.k)) w.leaving = true; // something was built where they stood
+        // A slow wander about the spot: a park bench, the swings, under a tree.
         const drift = this.time * 0.35 + w.phase;
-        w.gx = end.x + 0.5 + w.ox + Math.sin(drift) * 0.12;
-        w.gy = end.y + 0.5 + w.oy + Math.cos(drift * 0.8) * 0.12;
+        const nx = end.x + Math.sin(drift) * 0.2;
+        const ny = end.y + Math.cos(drift * 0.8) * 0.2;
+        if (Math.abs(nx - w.gx) + Math.abs(ny - w.gy) > 1e-4) w.heading = Math.atan2(ny - w.gy, nx - w.gx);
+        w.gx = nx;
+        w.gy = ny;
         w.moving = Math.abs(Math.cos(drift)) > 0.4;
       }
       if (w.wait <= 0 && w.oneWay) {
@@ -445,52 +443,108 @@ export class AgentSystem {
       }
       if (w.wait <= 0) {
         w.state = 'back';
-        w.path = w.path.slice().reverse();
+        w.pts = pts.slice().reverse();
+        w.cross = w.cross.slice().reverse();
         w.i = 0;
-        w.t = 0;
+        w.s = 0;
       }
       return;
     }
-    const a = w.path[w.i];
-    const b = w.path[w.i + 1];
+    const a = pts[w.i];
+    const b = pts[w.i + 1];
     if (!b) {
       if (w.state === 'out') {
-        const type = city.getTile(a.x, a.y)?.structure?.type;
         w.state = 'linger';
+        const type = city.tiles[a.k]?.structure?.type;
         w.wait = type === 'park' || type === 'playground' || type === 'field' ? 5 + Math.random() * 8 : 2 + Math.random() * 3;
         if (w.oneWay) {
           // Townsfolk stay out in parks a while and step inside cafés and homes.
           if (w.stay) w.wait = 8 + Math.random() * 6;
           else w.leaving = true;
-        } else if (w.dest && a.x === w.dest.x && a.y === w.dest.y) {
-          w.indoors = true; // a shift at work
-          w.wait = 10 + Math.random() * 6;
+        } else if (a.door) {
+          w.indoors = true; // a shift at work, a lesson, the shopping
+          w.wait = w.dest ? 10 + Math.random() * 6 : 4 + Math.random() * 6;
         }
       } else {
         w.leaving = true; // home again
       }
       return;
     }
-    const isHome = b.x === w.home.x && b.y === w.home.y;
-    const isDest = !!w.dest && b.x === w.dest.x && b.y === w.dest.y;
-    const fromDest = !!w.dest && a.x === w.dest.x && a.y === w.dest.y;
-    if (!isHome && !isDest && !fromDest && !city.isWalkable(b.x, b.y)) {
-      w.leaving = true;
-      return;
-    }
     w.moving = true;
-    w.t += w.speed * dt;
-    if (w.t >= 1) {
-      w.t -= 1;
+    this.stepAlong(w, w.speed * dt, dt);
+    this.placeWalker(w);
+  }
+
+  // Walk `dist` grid units along the route. Each new stretch is checked first: something built or
+  // washed out ahead turns them back, and at a crossing they wait at the kerb while a car goes by.
+  stepAlong(w, dist, dt) {
+    while (dist > 0) {
+      const a = w.pts[w.i];
+      const b = w.pts[w.i + 1];
+      if (!b) return;
+      if (w.s === 0) {
+        if (!b.door && !this.paths.walkable(b.k)) {
+          w.leaving = true;
+          return;
+        }
+        if (w.cross[w.i] && (w.held || 0) < 2.5 && this.carNear(a, b)) {
+          w.held = (w.held || 0) + dt;
+          w.moving = false;
+          return;
+        }
+        w.held = 0;
+      }
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (w.s + dist < len) {
+        w.s += dist;
+        return;
+      }
+      dist -= len - w.s;
       w.i++;
+      w.s = 0;
     }
-    const p = w.path[w.i];
-    const q = w.path[w.i + 1] || p;
-    // Fade the personal offset in and out so walkers leave and enter through the middle of a home.
-    const atHomeEnd = (n) => n.x === w.home.x && n.y === w.home.y;
-    const offsetScale = Math.min(1, (atHomeEnd(p) ? w.t : 1) * (atHomeEnd(q) ? 1 - w.t : 1) * 3);
-    w.gx = p.x + (q.x - p.x) * w.t + 0.5 + w.ox * offsetScale;
-    w.gy = p.y + (q.y - p.y) * w.t + 0.5 + w.oy * offsetScale;
+  }
+
+  // Position on the current stretch, kept a little to the walker's right so people pass each other,
+  // eased in near doors and around corners.
+  placeWalker(w) {
+    const p = w.pts[w.i];
+    const q = w.pts[w.i + 1] || p;
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const t = Math.min(1, w.s / len);
+    let rx = -dy / len;
+    let ry = dx / len;
+    const o = w.pts[w.i - 1];
+    if (o && w.s < 0.12) {
+      const pl = Math.hypot(p.x - o.x, p.y - o.y) || 1;
+      const k = w.s / 0.12;
+      rx = rx * k + (-(p.y - o.y) / pl) * (1 - k);
+      ry = ry * k + ((p.x - o.x) / pl) * (1 - k);
+    }
+    const fromDoor = p.door ? w.s : Infinity;
+    const toDoor = q.door ? len - w.s : Infinity;
+    const off = w.lane * Math.min(1, Math.min(fromDoor, toDoor) / 0.15);
+    w.gx = p.x + dx * t + rx * off;
+    w.gy = p.y + dy * t + ry * off;
+    if (len > 1e-3 && q !== p) w.heading = Math.atan2(dy, dx);
   }
 }
 
+const PANTS_COLORS = ['#5b6a8f', '#3f4a66', '#7a6a5a', '#2f3a4a', '#8a8fa6', '#6d5a7a', '#4a5f55', '#b8a58c'];
+const HAIR_COLORS = ['#3b2a20', '#5b3a29', '#8a5a3a', '#d9b46a', '#1f1a1a', '#a0522d', '#c9c3bb', '#e0c38a'];
+const HAT_COLORS = ['#f2e6c9', '#6d5a7a', '#ff8f7e', '#3f4a66', '#7fc4ad', '#ffcf6e'];
+
+// What someone looks like: shirt, trousers, hair, now and then a hat, and how tall and broad they are.
+// `base` keeps the colours a named resident already has.
+export function makeLook(child = false, base = {}) {
+  return {
+    shirt: base.shirt || pick(SHIRT_COLORS),
+    skin: base.skin || pick(SKIN_TONES),
+    hair: base.hair || (Math.random() < 0.85 ? pick(HAIR_COLORS) : null),
+    pants: base.pants || pick(PANTS_COLORS),
+    hat: base.hat !== undefined ? base.hat : Math.random() < 0.18 ? pick(HAT_COLORS) : null,
+    build: child ? 0.68 + Math.random() * 0.1 : 0.9 + Math.random() * 0.2,
+  };
+}

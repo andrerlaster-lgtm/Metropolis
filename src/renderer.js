@@ -8,6 +8,7 @@ import { clamp, hash2 } from './utils.js';
 import { shortName, addressOf } from './streets.js';
 import { rampStops, settings } from './settings.js';
 import { notableType } from './notables.js';
+import { crosswalkMask } from './sidewalks.js';
 
 const SLAB_DEPTH = 18;
 // Unlit lighting for the cached ground layer; the frame's real light is multiplied on afterwards.
@@ -1060,20 +1061,41 @@ export class Renderer {
     }
     ctx.stroke();
     ctx.setLineDash([]);
-    // Zebra crossing on busy junctions.
-    const links = [1, 2, 4, 8].filter((b) => m & b).length;
-    if (links >= 3) {
-      ctx.fillStyle = litA(PALETTE.marking, 1, L, 0.85);
-      for (let k = 0; k < 3; k++) {
-        const off = 0.3 + k * 0.2;
-        poly(ctx, [
-          [x + off - 0.05, y + 0.06],
-          [x + off + 0.05, y + 0.06],
-          [x + off + 0.05, y + 0.16],
-          [x + off - 0.05, y + 0.16],
-        ]);
-        ctx.fill();
-      }
+    this.drawKerbCorners(ctx, x, y, m, PALETTE.sidewalk, 0.15, L);
+    // Zebra crossings where people cross (sidewalks.js decides where): across every arm of a
+    // junction, and now and then along a long street.
+    const zebra = crosswalkMask(this.city, x, y) & m;
+    if (zebra) {
+      ctx.fillStyle = litA(PALETTE.marking, 1, L, 0.9);
+      EDGES.forEach((e, i) => {
+        if (!(zebra & (1 << i))) return;
+        for (let k = 0; k < 6; k++) {
+          const u0 = 0.19 + k * 0.11;
+          const u1 = u0 + 0.06;
+          const at = (u, v) => [x + e.a[0] + (e.b[0] - e.a[0]) * u + e.n[0] * v, y + e.a[1] + (e.b[1] - e.a[1]) * u + e.n[1] * v];
+          poly(ctx, [at(u0, 0.02), at(u1, 0.02), at(u1, 0.14), at(u0, 0.14)]);
+          ctx.fill();
+        }
+      });
+    }
+  }
+
+  // Where two arms of a junction meet, the sidewalks join in a little square at the corner.
+  drawKerbCorners(ctx, x, y, m, color, w, L) {
+    ctx.fillStyle = lit(color, 1.02, L);
+    for (let c = 0; c < 4; c++) {
+      const a = 1 << c;
+      const b = 1 << ((c + 3) % 4);
+      if (!(m & a) || !(m & b)) continue;
+      const cx = c === 1 || c === 2 ? x + 1 - w : x;
+      const cy = c >= 2 ? y + 1 - w : y;
+      poly(ctx, [
+        [cx, cy],
+        [cx + w, cy],
+        [cx + w, cy + w],
+        [cx, cy + w],
+      ]);
+      ctx.fill();
     }
   }
 
@@ -1091,6 +1113,7 @@ export class Renderer {
       poly(ctx, edgeStrip(x, y, e, 0, dirt ? 0.13 : 0.12));
       ctx.fill();
     });
+    this.drawKerbCorners(ctx, x, y, m, dirt ? this.grassColor() : PALETTE.sidewalk, dirt ? 0.13 : 0.12, L);
     if (dirt) {
       // Two wheel ruts along each connection.
       ctx.strokeStyle = lit('#c3a87c', 1, L);
@@ -3063,7 +3086,8 @@ export class Renderer {
   drawWalker(ctx, w, L) {
     if (w.alpha <= 0) return;
     const p = gridToWorld(w.gx, w.gy);
-    const bob = w.moving ? Math.abs(Math.sin(this.time * 9 + w.phase)) * 1.1 : 0;
+    const step = w.moving ? Math.sin(this.time * 9 + w.phase) : 0;
+    const bob = w.moving ? Math.abs(step) * 0.9 : 0;
     ctx.save();
     ctx.globalAlpha = w.alpha;
     if (w.hero) {
@@ -3074,7 +3098,10 @@ export class Renderer {
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, 5 + pulse, 2.5 + pulse * 0.5, 0, 0, Math.PI * 2);
       ctx.stroke();
-      const s = w.child ? 1.1 : 1.35;
+    }
+    // Children are smaller, adults vary a little in height.
+    const s = w.hero ? (w.child ? 1.1 : 1.35) : w.build || 1;
+    if (s !== 1) {
       ctx.translate(p.x, p.y);
       ctx.scale(s, s);
       ctx.translate(-p.x, -p.y);
@@ -3083,15 +3110,33 @@ export class Renderer {
     ctx.beginPath();
     ctx.ellipse(p.x, p.y, 2.4, 1.2, 0, 0, Math.PI * 2);
     ctx.fill();
+    // Legs swing as they walk.
+    ctx.strokeStyle = lit(w.pants || '#5b6a8f', 1, L);
+    ctx.lineWidth = 1.1;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(p.x - 0.6, p.y - 2 - bob);
+    ctx.lineTo(p.x - 0.6 + step * 0.9, p.y - 0.4);
+    ctx.moveTo(p.x + 0.6, p.y - 2 - bob);
+    ctx.lineTo(p.x + 0.6 - step * 0.9, p.y - 0.4);
+    ctx.stroke();
     ctx.fillStyle = lit(w.shirt, 1, L);
     ctx.beginPath();
-    ctx.roundRect(p.x - 1.6, p.y - 6.2 - bob, 3.2, 5.4, 1.4);
+    ctx.roundRect(p.x - 1.6, p.y - 6.2 - bob, 3.2, 4.6, 1.4);
     ctx.fill();
     ctx.fillStyle = lit(w.skin, 1, L);
     ctx.beginPath();
     ctx.arc(p.x, p.y - 7.8 - bob, 1.7, 0, Math.PI * 2);
     ctx.fill();
-    if (w.hair) {
+    if (w.hat) {
+      ctx.fillStyle = lit(w.hat, 1, L);
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y - 8.9 - bob, 2.3, 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 9.1 - bob, 1.4, Math.PI, 0);
+      ctx.fill();
+    } else if (w.hair) {
       ctx.fillStyle = lit(w.hair, 1, L);
       ctx.beginPath();
       ctx.arc(p.x, p.y - 8.2 - bob, 1.8, Math.PI * 1.05, Math.PI * 1.95);
