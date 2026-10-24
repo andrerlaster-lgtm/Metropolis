@@ -110,6 +110,16 @@ From [isometric-city](https://github.com/uxcaleb/isometric-city) (originally ami
 - [ ] City name generator and several saved cities
 - [x] Statistics panel with history sparklines (Trends in the City panel)
 
+## 3b. Reference for world expansion: openage
+
+[SFTtech/openage](https://github.com/SFTtech/openage) (GPL-3.0-or-later): ideas only, never code or assets. Notes and the ideas ranked for civilisations, trade, diplomacy, territory and warfare are in [docs/references/openage.md](docs/references/openage.md).
+
+- [ ] Foundation: civ ids, ownership, stances, a scheduled event queue, several towns on a world map (save migration + test)
+- [ ] AI towns that grow by themselves (a governor running `growth.js` per town, seeded)
+- [ ] Exploration and territory (line of sight, explored/visible masks, borders)
+- [ ] Trade (caravans with activity graphs and keyframed movement, distance-based profit, shared prices)
+- [ ] Diplomacy (treaties, tribute) and calm, abstract warfare (army supply, sieges as scheduled events)
+
 ## 4. Deploy and tooling
 - [ ] Move the code to `andrerlaster-lgtm/Metropolis` and link it to Vercel so every push redeploys (until then each deploy is started by hand)
 - [ ] Test pinch and long-press on a real phone
