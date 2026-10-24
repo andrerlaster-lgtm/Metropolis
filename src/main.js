@@ -42,6 +42,7 @@ import { SkillsSheet } from './skillsUI.js';
 import { Mayor } from './mayor.js';
 import { TownHall } from './mayorUI.js';
 import { Autopilot } from './autopilot.js';
+import { influenceOf, reachOf, reachText, homesNeeding } from './influence.js';
 import { KIND_LABEL } from './diplomacy.js';
 import { crosswalkMask, footArms } from './sidewalks.js';
 import { hash2 } from './utils.js';
@@ -140,6 +141,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   let tool = 'inspect'; // a town opens with Inspect, so a first tap or drag looks around instead of building
   let hover = null; // { x, y } tile under the mouse
+  let reachFlash = null; // a just-placed building's reach on show: { x, y, type, until }
+  let needsCache = { tool: null, at: 0, list: [] }; // homes missing what the picked tool gives
   let selected = null; // { x, y } tile shown in the inspector
   let overlay = 'none';
   let fitted = false;
@@ -288,6 +291,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     }
     const cost = each * list.length;
     const ok = history.record(label(list.length), list, () => withFeedback(list, () => (list.length === 1 ? city.apply(tool, list[0].x, list[0].y) : city.applyMany(tool, list))), { cost });
+    // Show the new building's reach for a moment, so a tap on a tablet shows what it covers too.
+    if (ok && influenceOf(tool, city).length) {
+      const at = list[list.length - 1];
+      reachFlash = { x: at.x, y: at.y, type: tool, until: performance.now() + 3500 };
+    }
     if (ok && cost) {
       sim.economy.spend(cost);
       const end = list[list.length - 1];
@@ -1337,18 +1345,43 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   const hot = window.claude?.hot;
   hot?.snapshot?.(() => ({ city: city.toJSON() }));
 
+  // Reach (influence.js): what a building does to the homes around it. While a building tool is
+  // picked, homes still missing what it gives are marked; the cursor shows its reach before you
+  // place it; a building you just placed, or inspect, shows its reach on the map.
+  function needsFor(t) {
+    const now = performance.now();
+    if (needsCache.tool !== t || now - needsCache.at > 500) needsCache = { tool: t, at: now, list: homesNeeding(city, t) };
+    return needsCache.list;
+  }
+  function reachAt(x, y, type, fade = 1) {
+    const effects = reachOf(city, x, y, type);
+    return effects.length ? { x, y, effects, text: reachText(effects), fade } : null;
+  }
+  function reachView() {
+    if (hover && tool !== 'inspect' && influenceOf(tool, city).length) return reachAt(hover.x, hover.y, tool);
+    if (reachFlash) {
+      const left = reachFlash.until - performance.now();
+      if (left > 0) return reachAt(reachFlash.x, reachFlash.y, reachFlash.type, Math.min(1, left / 800));
+      reachFlash = null;
+    }
+    const st = selected && tool === 'inspect' ? city.getTile(selected.x, selected.y)?.structure : null;
+    return st ? reachAt(selected.x, selected.y, st.type) : null;
+  }
+
   function viewState() {
     if (watching()) return { overlay, selected, plan: null, issues: [] };
     const plan = stroke ? { tool: stroke.tool, tiles: stroke.tiles.map((c) => ({ ...c, valid: city.canApply(stroke.tool, c.x, c.y) })) } : null;
     const issues = cityPanel.issues();
-    if (!hover) return { overlay, selected, plan, issues };
+    const reach = reachView();
+    const needs = tool !== 'inspect' ? needsFor(tool) : null;
+    if (!hover) return { overlay, selected, plan, issues, reach, needs };
     const t = city.getTile(hover.x, hover.y);
     const valid = tool === 'inspect' || city.canApply(tool, hover.x, hover.y);
     const ghost =
       valid && STRUCTURES[tool] && !t.structure && t.terrain === 'grass'
         ? { x: hover.x, y: hover.y, structure: { type: tool, variant: 'blush', floors: tool === 'office' ? 4 : 5, shape: 0, residents: 0 } }
         : null;
-    return { hover: { ...hover, tool, valid }, ghost, overlay, selected, plan, issues };
+    return { hover: { ...hover, tool, valid }, ghost, overlay, selected, plan, issues, reach, needs };
   }
 
   // ---- 3D view ----------------------------------------------------------------------

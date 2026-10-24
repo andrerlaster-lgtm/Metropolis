@@ -355,6 +355,8 @@ export class Renderer {
     if (view.overlay && view.overlay !== 'none') for (const t of tiles) this.drawOverlay(ctx, t, view.overlay);
     if (view.issues?.length) this.drawIssues(ctx, view.issues);
     this.drawStreetNames(ctx, rect);
+    if (view.needs?.length) this.drawNeeds(ctx, view.needs);
+    if (view.reach) this.drawReach(ctx, view.reach);
     if (view.selected) this.drawSelected(ctx, view.selected);
     if (view.hover) this.drawHover(ctx, view.hover);
     if (view.plan) this.drawPlan(ctx, view.plan);
@@ -401,6 +403,7 @@ export class Renderer {
     this.drawFog(ctx, w, L);
     this.drawVignette(ctx, L);
     this.drawThoughts(ctx);
+    if (view.reach) this.drawReachLabel(ctx, view.reach);
     this.drawConfetti(ctx, dt);
   }
 
@@ -1420,6 +1423,64 @@ export class Renderer {
     tilePoly(ctx, sel.x, sel.y, -0.02);
     ctx.stroke();
     ctx.setLineDash([]);
+  }
+
+  // A building's reach (influence.js): the tiles it helps (green) or bothers (coral), a dashed ring
+  // at its range, and a label with the homes it reaches. `fade` (0..1) lets a just-placed one fade out.
+  drawReach(ctx, reach) {
+    const z = this.camera.zoom;
+    const a = reach.fade ?? 1;
+    for (const e of reach.effects) {
+      const rgb = e.good ? '92,191,136' : '239,100,97';
+      for (const c of e.tiles) {
+        ctx.fillStyle = `rgba(${rgb},${((0.18 + 0.3 * c.s) * a).toFixed(3)})`;
+        tilePoly(ctx, c.x, c.y, 0.03);
+        ctx.fill();
+      }
+      ctx.strokeStyle = `rgba(${rgb},${(0.95 * a).toFixed(3)})`;
+      ctx.lineWidth = 2 / z;
+      ctx.setLineDash([6 / z, 4 / z]);
+      gridEllipse(ctx, reach.x + 0.5, reach.y + 0.5, 0, e.radius + 0.5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // The reach label, drawn on top of everything in screen space so buildings never hide it.
+  drawReachLabel(ctx, reach) {
+    const a = reach.fade ?? 1;
+    if (!reach.text || a < 0.4) return;
+    const k = this.textScale || 1;
+    const p = this.worldToScreen(gridToWorld(reach.x + 0.5, reach.y + 0.5, 40));
+    ctx.save();
+    ctx.font = `800 ${12 * k}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(reach.text).width + 18 * k;
+    const h = 24 * k;
+    const x = clamp(p.x, w / 2 + 6, this.w - w / 2 - 6); // kept on screen near the edges
+    const y = clamp(p.y - h, h / 2 + 6, this.h - h / 2 - 6);
+    ctx.fillStyle = `rgba(255,255,255,${(0.94 * a).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h / 2, w, h, 8 * k);
+    ctx.fill();
+    ctx.fillStyle = `rgba(60,48,90,${a.toFixed(3)})`;
+    ctx.fillText(reach.text, x, y + 0.5);
+    ctx.restore();
+  }
+
+  // Homes still missing what the picked building gives: a soft pulsing marker on each.
+  drawNeeds(ctx, needs) {
+    const z = this.camera.zoom;
+    const pulse = this.reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(this.time * 3);
+    ctx.fillStyle = `rgba(242,178,48,${(0.18 + 0.14 * pulse).toFixed(3)})`;
+    ctx.strokeStyle = 'rgba(232,150,20,0.9)';
+    ctx.lineWidth = 1.4 / z;
+    for (const c of needs) {
+      tilePoly(ctx, c.x, c.y, 0.08);
+      ctx.fill();
+      ctx.stroke();
+    }
   }
 
   drawHover(ctx, hover) {
