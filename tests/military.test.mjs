@@ -483,3 +483,33 @@ test('destroying the command post never wins a battle by itself: only defeating 
   }
   void war.autoResolve(attack, b);
 });
+
+test('soldiers point their weapon at whoever they shoot, also while walking', () => {
+  const { m } = base(13);
+  m.state.funds = 3000;
+  for (let i = 0; i < 4; i++) m.recruit('rifleman', { emergency: true });
+  const b = new Battle(spec(m, { waves: [{ at: 0, units: party(['rifleman', 'rifleman', 'rifleman', 'gunner', 'rifleman', 'gunner']) }], auto: false }));
+  let deployed = false;
+  let shots = 0;
+  let moving = 0;
+  while (!b.over && b.t < 90) {
+    // Send the squad in late, so it walks to its line with the enemy already in range.
+    if (!deployed && b.units.some((u) => u.side === 'att' && u.alive && u.y > 7)) {
+      b.deploy(b.squads.find((q) => q.side === 'def' && !q.deployed).id);
+      deployed = true;
+    }
+    b.step();
+    for (const u of b.units) {
+      if (u.side !== 'def' || !u.alive || u.fired !== b.t || typeof u.tgt !== 'number') continue;
+      const t = b.unit(u.tgt);
+      const want = Math.atan2(t.y - u.y, t.x - u.x);
+      const off = Math.abs(Math.atan2(Math.sin(want - u.aim), Math.cos(want - u.aim)));
+      assert.ok(off < 0.01, `aim off by ${off}`);
+      shots++;
+      if (u.mode === 'move') moving++;
+    }
+  }
+  assert.ok(shots > 10);
+  assert.ok(deployed);
+  void moving;
+});

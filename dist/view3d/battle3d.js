@@ -19,6 +19,13 @@ const SIDE = {
 const SKIN = [0xf1c9a5, 0xd9a47e, 0xa8714f, 0x7a4e35, 0xe8b894];
 const ANGLED = { yaw: Math.PI / 2, pitch: 0.92 };
 const DOWN_SHOW = 6; // seconds a fallen soldier stays on the field
+const AIM_HOLD = 0.8; // seconds a soldier keeps turned to their target after a shot
+// Where the rifle's muzzle is, from the soldier's centre (the model is scaled by 1.15): forward along
+// where they point it, and a little to their right, where the rifle is held. Facing (dx, dz), a
+// soldier's right is (-dz, dx) (x is east, z is south).
+const MUZZLE_FWD = 0.28;
+const MUZZLE_RIGHT = 0.08;
+const MUZZLE_Y = 0.29;
 const CAMERA_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyQ', 'KeyE'];
 
 export function createBattleView(opts) {
@@ -419,7 +426,7 @@ class BattleView {
     const torso = box(0.17, 0.16, 0.1).translate(0, 0.24, 0);
     const head = new THREE.SphereGeometry(0.055, 8, 6).translate(0, 0.37, 0);
     const helmet = new THREE.SphereGeometry(0.068, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.385, 0);
-    const gun = box(0.03, 0.03, 0.24).translate(0.07, 0.25, 0.09);
+    const gun = box(0.03, 0.03, 0.24).translate(-0.07, 0.25, 0.09); // in the right hand (local −x)
     this.parts = {
       legs: inst(legs, white(), MAX_UNITS),
       torso: inst(torso, white(), MAX_UNITS),
@@ -547,7 +554,9 @@ class BattleView {
       }
       const side = u.side === (m.mine || 'def') ? SIDE.def : SIDE.att; // yours lavender, theirs coral
       const bob = u.moving && u.alive ? Math.abs(Math.sin(this.time * 11 + u.id)) * 0.025 : 0;
-      const yaw = Math.atan2(Math.cos(u.face), Math.sin(u.face));
+      // Shooting, they turn to their target (also while walking); otherwise they face where they go.
+      const look = u.alive && u.aim != null && t - (u.fired ?? -9) < AIM_HOLD ? u.aim : u.face;
+      const yaw = Math.atan2(Math.cos(look), Math.sin(look));
       e.set(-lying * Math.PI / 2, yaw, 0, 'YXZ');
       q.setFromEuler(e);
       v.set(u.x, bob, u.y);
@@ -573,9 +582,9 @@ class BattleView {
       }
       if (u.hp < u.maxHp) bar(u.x, 0.62, u.y, Math.max(0, u.hp / u.maxHp), 0.36, u.hp / u.maxHp > 0.5 ? 0x5cbf88 : u.hp / u.maxHp > 0.25 ? 0xf2b230 : 0xef6461);
       if (t - (u.fired ?? -9) < 0.07 && fl < MAX_UNITS + 40) {
-        const dx = Math.cos(u.face);
-        const dz = Math.sin(u.face);
-        v.set(u.x + dx * 0.36 - dz * 0.08, 0.29, u.y + dz * 0.36 + dx * 0.08);
+        const dx = Math.cos(look);
+        const dz = Math.sin(look);
+        v.set(u.x + dx * MUZZLE_FWD - dz * MUZZLE_RIGHT, MUZZLE_Y, u.y + dz * MUZZLE_FWD + dx * MUZZLE_RIGHT);
         q.identity();
         s.setScalar(0.8 + Math.random() * 0.6);
         m4.compose(v, q, s);
@@ -620,11 +629,22 @@ class BattleView {
       const age = t - f.t;
       if (age > (f.life || 0.12)) continue;
       const k = Math.min(1, age / 0.1);
-      const x0 = f.x + (f.x2 - f.x) * Math.max(0, k - 0.45);
-      const y0 = f.y + (f.y2 - f.y) * Math.max(0, k - 0.45);
-      const x1 = f.x + (f.x2 - f.x) * k;
-      const y1 = f.y + (f.y2 - f.y) * k;
-      pos.set([x0, 0.27, y0, x1, 0.27, y1], tr * 6);
+      // A soldier's shot leaves from the rifle's muzzle, not the middle of their body.
+      let sx = f.x;
+      let sy = f.y;
+      if (f.unit) {
+        const len = Math.hypot(f.x2 - f.x, f.y2 - f.y) || 1;
+        const dx = (f.x2 - f.x) / len;
+        const dz = (f.y2 - f.y) / len;
+        sx += dx * MUZZLE_FWD - dz * MUZZLE_RIGHT;
+        sy += dz * MUZZLE_FWD + dx * MUZZLE_RIGHT;
+      }
+      const x0 = sx + (f.x2 - sx) * Math.max(0, k - 0.45);
+      const y0 = sy + (f.y2 - sy) * Math.max(0, k - 0.45);
+      const x1 = sx + (f.x2 - sx) * k;
+      const y1 = sy + (f.y2 - sy) * k;
+      const h = f.unit ? MUZZLE_Y : 0.27;
+      pos.set([x0, h, y0, x1, h, y1], tr * 6);
       col.set(f.side === 'att' ? 0xffb38a : 0xfff0a0);
       cl.set([col.r, col.g, col.b, col.r, col.g, col.b], tr * 6);
       tr++;
