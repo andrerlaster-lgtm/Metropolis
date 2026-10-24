@@ -161,7 +161,7 @@ export class LifeInterface {
             ? 'Too young for school'
             : 'Looking for work';
     const people = [
-      ...['mother', 'father'].map((k) => c.family[k] && { ...c.family[k], role: 'Parent' }),
+      ...['mother', 'father'].map((k) => c.family[k] && { ...c.family[k], role: c.family[k].name === this.h.mayorName?.() ? 'Parent · Mayor' : 'Parent' }),
       ...(c.siblings || []).map((sb) => ({ ...sb, role: 'Sibling', alive: sb.alive !== false })),
       c.partner && { ...c.partner, role: c.partner.married ? 'Spouse' : 'Partner', alive: true },
       ...c.children.map((k) => ({ ...k, role: 'Child', closeness: 80 })),
@@ -175,7 +175,7 @@ export class LifeInterface {
     return `<header class="life-head">
         <div class="avatar">${avatarSVG(c.look, 64)}</div>
         <div class="life-id"><span class="life-kicker">${c.generation > 1 ? `Generation ${c.generation}` : 'Life Story'}</span><h2>${esc(c.first)} ${esc(c.last)}</h2>
-        <p class="life-sub">Age ${c.age} · ${stage.label}</p>
+        <p class="life-sub">Age ${c.age} · ${stage.label}${this.h.youLead?.() ? ' · Mayor' : ''}</p>
         <div class="year-bar" title="Progress to next birthday"><span style="width:${Math.min(100, c.yearProgress * 100).toFixed(1)}%"></span></div></div>
         <button type="button" class="icon-btn" data-act="close" aria-label="Close life panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </header>

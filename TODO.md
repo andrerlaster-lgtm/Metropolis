@@ -160,6 +160,11 @@ Phase 2a (done): diplomacy.
 - [ ] Trade: visible deliveries, dynamic prices, raids on shipments only during declared wars, trade suspended in war
 - [ ] Espionage: fog of war and reconnaissance, last-known positions, intelligence funding from the military budget, counterintelligence, captured spies, then playable rescue missions
 
+The mayor (done): a second person you control.
+
+- [x] Your main person's father is mayor, with skills, three actions a day and four duties (speech, fundraiser, base inspection, meeting a neighbour's mayor); the family keeps the office (acting relative until your main person is 18)
+- [ ] Ideas: more duties (open a building, call an election, set the tax rate), the mayor leading troops in battle, elections and rivals, mayor events in Life Story
+
 Town upgrades (done): a skill tree for the town.
 
 - [x] Points from growth (start, each town title, every 50 residents at the biggest); four branches of six (Treasury, Wellbeing, Services & growth, Defence); free to give points back

@@ -39,6 +39,8 @@ import { WarRoom } from './warRoom.js';
 import { MilitaryScreen, inDays } from './militaryUI.js';
 import { DiplomacySheet } from './diplomacyUI.js';
 import { SkillsSheet } from './skillsUI.js';
+import { Mayor } from './mayor.js';
+import { TownHall } from './mayorUI.js';
 import { KIND_LABEL } from './diplomacy.js';
 import { crosswalkMask, footArms } from './sidewalks.js';
 import { hash2 } from './utils.js';
@@ -308,6 +310,26 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       lifeUI.toggle(false);
       worldPanel.toggle(false);
       diplomacySheet.toggle(false);
+      townHall.toggle(false);
+      ui.closeTray();
+    },
+  });
+  // The mayor (mayor.js, mayorUI.js): your main person's father leads the town, then the family does.
+  const mayor = new Mayor(city, { life: () => sim.life, economy: () => sim.economy, decisions: () => sim.decisions, war: () => warRoom });
+  const townHall = new TownHall({
+    mayor: () => mayor,
+    toast: (msg, ms) => ui.toast(msg, ms),
+    sound: (name) => audio.play(name),
+    onChange: () => {
+      city.dirty = true;
+    },
+    onOpen: () => {
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      worldPanel.toggle(false);
+      diplomacySheet.toggle(false);
+      skillsSheet.toggle(false);
       ui.closeTray();
     },
   });
@@ -325,11 +347,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onRepair: () => repairAll(),
     skills: () => sim.skills,
     onUpgrades: () => skillsSheet.toggle(true),
+    mayor: () => mayor,
+    onTownHall: () => townHall.toggle(true),
     onOpen: () => {
       lifeUI.toggle(false);
       ui.toggleMore(false);
       ui.closeTray();
       skillsSheet.toggle(false);
+      townHall.toggle(false);
     },
     onShow: (th) => {
       focusTile(th.x, th.y);
@@ -509,6 +534,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
     },
     onStart: (opts) => newTown(opts),
@@ -535,6 +561,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       lifeUI.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
     },
     beforeOpen: () => saver.flush(),
@@ -743,6 +770,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   const lifeUI = new LifeInterface({
     life: sim.life,
+    mayorName: () => (mayor.state.who === 'father' ? mayor.state.name : null),
+    youLead: () => mayor.state.who === 'you',
     onCreate: (draft) => {
       const c = sim.life.create(draft);
       const home = c.home && city.getTile(c.home.x, c.home.y);
@@ -781,6 +810,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       cityPanel.toggle(false);
       ui.toggleMore(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
     },
     onFocus: () => {
       const home = sim.life.char?.home;
@@ -945,6 +975,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     else if (ev.type === 'lifeEvent') audio.play('chime');
     if (ev.type === 'milestone') celebrate(ev.milestone);
     if (ev.type === 'era') newEra(ev);
+    if (ev.type === 'mayorChanged') lifeUI.render();
+    if (ev.type === 'mayorChanged' && !ev.quiet) {
+      audio.play('chime');
+      ui.toast(`🏛 ${mayor.state.name} is now ${mayor.title().toLowerCase()} (${mayor.relation()})`, 5200);
+    }
     if (ev.type === 'skillPoint') {
       audio.play('chime');
       ui.toast(`★ Your town earned ${ev.points > 1 ? `${ev.points} upgrade points` : 'an upgrade point'}. Tap ★ on the town card to spend ${ev.points > 1 ? 'them' : 'it'}`, 4600);
@@ -1192,6 +1227,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       lifeUI.toggle(false);
       diplomacySheet.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
     },
   });
@@ -1220,6 +1256,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       worldPanel.toggle(false);
       diplomacySheet.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
       stopFollow();
     },
@@ -1239,6 +1276,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       lifeUI.toggle(false);
       worldPanel.toggle(false);
       skillsSheet.toggle(false);
+      townHall.toggle(false);
       ui.closeTray();
       if (militaryScreen.open && !warRoom.busy) militaryScreen.close();
     },
@@ -1436,6 +1474,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       syncBaseButton();
       diplomacySheet.tick();
       skillsSheet.tick();
+      townHall.tick();
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -1490,7 +1529,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.
