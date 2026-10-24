@@ -3756,3 +3756,14 @@ button.mil-sq {
     flex: none;
   }
 }
+/* The Base button shows only its shield below 1440px, so the top-right row stays as short as it can. */
+@media (max-width: 1440px) {
+  #btn-base .pill-text {
+    display: none;
+  }
+  #btn-base {
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+}

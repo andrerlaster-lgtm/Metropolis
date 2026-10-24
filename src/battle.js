@@ -14,10 +14,12 @@
 // waves, or attacking the computer's base with your squads (it defends itself). The other side, and
 // both sides in auto-resolve, are commanded by the computer.
 //
-// Who wins: the attacker by destroying the command post, or by defeating the defending army (every
-// soldier down, no reserve left and every armed defence fallen) or making it break and run. The
-// defender by holding until every attacker is beaten or has withdrawn (morale breaks, or the attack
-// runs out of time and supplies). Two forward positions in the middle of the field can be captured
+// Who wins (the locked design: an attack is won only by defeating or routing the defending army):
+// the attacker when the defending force is beaten (every soldier down, no reserve left to send in,
+// and every armed defence fallen) or breaks and runs. Destroying the command post doesn't end the
+// battle by itself; it's a heavy blow to the defenders' morale (HQ_LOST), which often makes them
+// break. The defender wins by holding until every attacker is beaten or has withdrawn (morale
+// breaks, or the attack runs out of time and supplies). Two forward positions in the middle of the field can be captured
 // by standing on them unopposed: the side holding one may send its reinforcements in there.
 
 import { DEFENCES, UNITS, ARTILLERY, SQUAD_SIZE, REINFORCE_COOLDOWN, rankBonus, levelDmg, SURVIVE, SURVIVE_MEDIC } from './militaryData.js';
@@ -39,6 +41,7 @@ const THINK = 0.5; // how often the computer commanders think, in seconds
 const CAPTURE_TIME = 6; // seconds standing unopposed on a forward position to take it
 const CAPTURE_R = 1.4;
 const ZONE_CLEAR = 2.5; // no enemy this close for a forward position to be used to reinforce
+export const HQ_LOST = 40; // morale the defenders lose when their command post is destroyed
 const other = (side) => (side === 'att' ? 'def' : 'att');
 
 const dist2 = (ax, ay, bx, by) => (ax - bx) ** 2 + (ay - by) ** 2;
@@ -518,7 +521,15 @@ export class Battle {
     if (def.heal) this.heal(u, def, dt);
     const tgt = this.fight(u, def, u.mode === 'move');
     if (u.mode === 'advance') {
-      if (!tgt) this.walk(u, def.speed, this.field('hq'), null, dt);
+      // Make for the command post; once it has fallen, go after whoever is still defending.
+      if (!tgt) {
+        const q = this.hq;
+        if (q && q.hp > 0) this.walk(u, def.speed, this.field('hq'), null, dt);
+        else {
+          const foe = this.nearestFoe(u);
+          if (foe) this.walk(u, def.speed, this.field(`p:${Math.floor(foe.x)},${Math.floor(foe.y)}`), foe, dt);
+        }
+      }
     } else if (u.mode === 'move') {
       const d = u.dest;
       if (dist2(u.x, u.y, d.x, d.y) < 0.04) {
@@ -556,8 +567,18 @@ export class Battle {
       }
     }
     if (!best && u.side === 'att') {
+      // No soldiers left to fight: the nearest armed defence, then the command post.
+      let bs = Infinity;
+      for (const st of this.structs) {
+        if (st.hp <= 0 || st.type === 'hq' || !DEFENCES[st.type].attack) continue;
+        const d = dist2(u.x, u.y, st.x + st.w / 2, st.y + st.h / 2);
+        if (d < bs) {
+          bs = d;
+          best = { x: st.x + st.w / 2, y: st.y + st.h / 2 };
+        }
+      }
       const q = this.hq;
-      if (q && q.hp > 0) return { x: q.x + q.w / 2, y: q.y + q.h / 2 };
+      if (!best && q && q.hp > 0) return { x: q.x + q.w / 2, y: q.y + q.h / 2 };
     }
     return best;
   }
@@ -796,7 +817,8 @@ export class Battle {
 
   wreck(s) {
     this.blockRev++;
-    this.morale.def = clampM(this.morale.def - (s.type === 'hq' ? 0 : 4));
+    if (s.type === 'hq') this.hqLost = true;
+    this.morale.def = clampM(this.morale.def - (s.type === 'hq' ? HQ_LOST : 4));
     this.addFx({ kind: 'wreck', x: s.x + s.w / 2, y: s.y + s.h / 2, r: Math.max(s.w, s.h), life: 1.4 });
   }
 
@@ -859,18 +881,19 @@ export class Battle {
 
   checkEnd() {
     if (this.over) return;
-    const q = this.hq;
-    if (q && q.hp <= 0) return this.finish('att', 'hq');
     const defs = this.units.filter((u) => u.side === 'def' && u.alive && !u.gone);
-    const waiting = this.squads.some((s) => !s.deployed);
+    const waiting = this.squads.some((s) => (s.side || 'def') === 'def' && !s.deployed);
     if (!this.routing && this.hadDefenders && this.morale.def <= ROUT_MORALE) {
       this.routing = true;
       for (const u of defs) u.mode = 'retreat';
       this.addFx({ kind: 'withdraw', side: 'def' });
     }
-    // The defending army is beaten when no soldier is left, none wait in reserve, and every armed defence has fallen.
+    // The defending force is beaten when no soldier is left, none wait in reserve, and every armed
+    // defence has fallen (a base with none of these is beaten as soon as the attack arrives). The
+    // command post isn't part of it: losing it only costs morale (see wreck()).
     const armed = this.structs.some((s) => s.hp > 0 && s.type !== 'hq' && DEFENCES[s.type].attack);
-    if (this.hadDefenders && !defs.length && (this.routing || (!waiting && !armed))) return this.finish('att', this.routing ? 'routed' : 'army');
+    const arrived = this.units.some((u) => u.side === 'att');
+    if (arrived && !defs.length && (this.routing || (!waiting && !armed))) return this.finish('att', this.routing ? 'routed' : 'army');
     const pending = (this.waves.some((w) => !w.spawned) || this.squads.some((s) => s.side === 'att' && !s.deployed)) && !this.withdrawing;
     const atts = this.units.some((u) => u.side === 'att' && u.alive && !u.gone);
     if (!pending && !atts) return this.finish('def', this.withdrawing || this.units.some((u) => u.side === 'att' && u.gone) ? 'withdrew' : 'repelled');
@@ -893,6 +916,7 @@ export class Battle {
       reason,
       time: Math.round(this.t),
       player: this.player,
+      hqLost: !!this.hqLost,
       attacker: { soldiers: sides.att, lost: this.lost.att, total: this.attTotal, spent: this.spent.att, unsent: this.waves.filter((w) => !w.spawned).reduce((n, w) => n + w.units.length, 0) + this.squads.filter((s) => s.side === 'att' && !s.deployed).reduce((n, s) => n + s.members.length, 0) },
       defender: { soldiers: sides.def, lost: this.lost.def, total: this.defTotal, spent: this.spent.def, structures: this.structs.map((s) => ({ id: s.id, type: s.type, hp: Math.round(s.hp), maxHp: s.maxHp, wrecked: s.hp <= 0 })) },
     };

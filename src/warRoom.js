@@ -8,6 +8,11 @@
 //
 // The computer plays by your rules: its troops come out of its own military budget (a share of its
 // income, like yours), they train for the same time, and the same battle rules decide the fight.
+//
+// TEMPORARY, until diplomacy exists (Phase 2): every computer town is hostile to you automatically.
+// It raids your base, and you may attack it, without any declaration of war. Diplomacy will add
+// stances (peace, declared war), treaties and peace terms, and raids and attacks will then need a
+// declared war (planRaid and attackError are where that check goes).
 // Time only passes while the game runs, so nothing is planned or fought while you're away.
 //
 // Saved in your town's city.systems.war = { v, count, raids: [...] } where each entry is a raid on
@@ -425,6 +430,7 @@ export class WarRoom {
       from: raid.fromName,
       outcome,
       reason: res.reason,
+      hqLost: res.hqLost,
       auto,
       time: res.time,
       attackers: { total: res.attacker.total, lost: res.attacker.lost, unsent: res.attacker.unsent },
@@ -491,6 +497,7 @@ export class WarRoom {
       target: entry.targetName,
       outcome,
       reason: res.reason,
+      hqLost: res.hqLost,
       auto,
       time: res.time,
       them: { total: res.defender.total, lost: res.defender.lost, damage },

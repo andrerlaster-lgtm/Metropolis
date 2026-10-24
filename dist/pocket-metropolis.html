@@ -3761,6 +3761,17 @@ button.mil-sq {
     flex: none;
   }
 }
+/* The Base button shows only its shield below 1440px, so the top-right row stays as short as it can. */
+@media (max-width: 1440px) {
+  #btn-base .pill-text {
+    display: none;
+  }
+  #btn-base {
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+}
 
 </style>
 <main id="app">
@@ -20710,10 +20721,12 @@ const __mod_battle = (() => {
 // waves, or attacking the computer's base with your squads (it defends itself). The other side, and
 // both sides in auto-resolve, are commanded by the computer.
 //
-// Who wins: the attacker by destroying the command post, or by defeating the defending army (every
-// soldier down, no reserve left and every armed defence fallen) or making it break and run. The
-// defender by holding until every attacker is beaten or has withdrawn (morale breaks, or the attack
-// runs out of time and supplies). Two forward positions in the middle of the field can be captured
+// Who wins (the locked design: an attack is won only by defeating or routing the defending army):
+// the attacker when the defending force is beaten (every soldier down, no reserve left to send in,
+// and every armed defence fallen) or breaks and runs. Destroying the command post doesn't end the
+// battle by itself; it's a heavy blow to the defenders' morale (HQ_LOST), which often makes them
+// break. The defender wins by holding until every attacker is beaten or has withdrawn (morale
+// breaks, or the attack runs out of time and supplies). Two forward positions in the middle of the field can be captured
 // by standing on them unopposed: the side holding one may send its reinforcements in there.
 
 const { DEFENCES, UNITS, ARTILLERY, SQUAD_SIZE, REINFORCE_COOLDOWN, rankBonus, levelDmg, SURVIVE, SURVIVE_MEDIC } = __mod_militaryData;
@@ -20734,6 +20747,7 @@ const THINK = 0.5; // how often the computer commanders think, in seconds
 const CAPTURE_TIME = 6; // seconds standing unopposed on a forward position to take it
 const CAPTURE_R = 1.4;
 const ZONE_CLEAR = 2.5; // no enemy this close for a forward position to be used to reinforce
+const HQ_LOST = 40; // morale the defenders lose when their command post is destroyed
 const other = (side) => (side === 'att' ? 'def' : 'att');
 
 const dist2 = (ax, ay, bx, by) => (ax - bx) ** 2 + (ay - by) ** 2;
@@ -21213,7 +21227,15 @@ class Battle {
     if (def.heal) this.heal(u, def, dt);
     const tgt = this.fight(u, def, u.mode === 'move');
     if (u.mode === 'advance') {
-      if (!tgt) this.walk(u, def.speed, this.field('hq'), null, dt);
+      // Make for the command post; once it has fallen, go after whoever is still defending.
+      if (!tgt) {
+        const q = this.hq;
+        if (q && q.hp > 0) this.walk(u, def.speed, this.field('hq'), null, dt);
+        else {
+          const foe = this.nearestFoe(u);
+          if (foe) this.walk(u, def.speed, this.field(`p:${Math.floor(foe.x)},${Math.floor(foe.y)}`), foe, dt);
+        }
+      }
     } else if (u.mode === 'move') {
       const d = u.dest;
       if (dist2(u.x, u.y, d.x, d.y) < 0.04) {
@@ -21251,8 +21273,18 @@ class Battle {
       }
     }
     if (!best && u.side === 'att') {
+      // No soldiers left to fight: the nearest armed defence, then the command post.
+      let bs = Infinity;
+      for (const st of this.structs) {
+        if (st.hp <= 0 || st.type === 'hq' || !DEFENCES[st.type].attack) continue;
+        const d = dist2(u.x, u.y, st.x + st.w / 2, st.y + st.h / 2);
+        if (d < bs) {
+          bs = d;
+          best = { x: st.x + st.w / 2, y: st.y + st.h / 2 };
+        }
+      }
       const q = this.hq;
-      if (q && q.hp > 0) return { x: q.x + q.w / 2, y: q.y + q.h / 2 };
+      if (!best && q && q.hp > 0) return { x: q.x + q.w / 2, y: q.y + q.h / 2 };
     }
     return best;
   }
@@ -21491,7 +21523,8 @@ class Battle {
 
   wreck(s) {
     this.blockRev++;
-    this.morale.def = clampM(this.morale.def - (s.type === 'hq' ? 0 : 4));
+    if (s.type === 'hq') this.hqLost = true;
+    this.morale.def = clampM(this.morale.def - (s.type === 'hq' ? HQ_LOST : 4));
     this.addFx({ kind: 'wreck', x: s.x + s.w / 2, y: s.y + s.h / 2, r: Math.max(s.w, s.h), life: 1.4 });
   }
 
@@ -21554,18 +21587,19 @@ class Battle {
 
   checkEnd() {
     if (this.over) return;
-    const q = this.hq;
-    if (q && q.hp <= 0) return this.finish('att', 'hq');
     const defs = this.units.filter((u) => u.side === 'def' && u.alive && !u.gone);
-    const waiting = this.squads.some((s) => !s.deployed);
+    const waiting = this.squads.some((s) => (s.side || 'def') === 'def' && !s.deployed);
     if (!this.routing && this.hadDefenders && this.morale.def <= ROUT_MORALE) {
       this.routing = true;
       for (const u of defs) u.mode = 'retreat';
       this.addFx({ kind: 'withdraw', side: 'def' });
     }
-    // The defending army is beaten when no soldier is left, none wait in reserve, and every armed defence has fallen.
+    // The defending force is beaten when no soldier is left, none wait in reserve, and every armed
+    // defence has fallen (a base with none of these is beaten as soon as the attack arrives). The
+    // command post isn't part of it: losing it only costs morale (see wreck()).
     const armed = this.structs.some((s) => s.hp > 0 && s.type !== 'hq' && DEFENCES[s.type].attack);
-    if (this.hadDefenders && !defs.length && (this.routing || (!waiting && !armed))) return this.finish('att', this.routing ? 'routed' : 'army');
+    const arrived = this.units.some((u) => u.side === 'att');
+    if (arrived && !defs.length && (this.routing || (!waiting && !armed))) return this.finish('att', this.routing ? 'routed' : 'army');
     const pending = (this.waves.some((w) => !w.spawned) || this.squads.some((s) => s.side === 'att' && !s.deployed)) && !this.withdrawing;
     const atts = this.units.some((u) => u.side === 'att' && u.alive && !u.gone);
     if (!pending && !atts) return this.finish('def', this.withdrawing || this.units.some((u) => u.side === 'att' && u.gone) ? 'withdrew' : 'repelled');
@@ -21588,6 +21622,7 @@ class Battle {
       reason,
       time: Math.round(this.t),
       player: this.player,
+      hqLost: !!this.hqLost,
       attacker: { soldiers: sides.att, lost: this.lost.att, total: this.attTotal, spent: this.spent.att, unsent: this.waves.filter((w) => !w.spawned).reduce((n, w) => n + w.units.length, 0) + this.squads.filter((s) => s.side === 'att' && !s.deployed).reduce((n, s) => n + s.members.length, 0) },
       defender: { soldiers: sides.def, lost: this.lost.def, total: this.defTotal, spent: this.spent.def, structures: this.structs.map((s) => ({ id: s.id, type: s.type, hp: Math.round(s.hp), maxHp: s.maxHp, wrecked: s.hp <= 0 })) },
     };
@@ -21680,7 +21715,7 @@ function vsBonus(u, tags) {
   return m - 1;
 }
 
-return { STEP, BATTLE_VERSION, TIME_LIMIT, Battle };
+return { STEP, BATTLE_VERSION, TIME_LIMIT, HQ_LOST, Battle };
 })();
 
 // ---- warRoom.js ----
@@ -21695,6 +21730,11 @@ const __mod_warRoom = (() => {
 //
 // The computer plays by your rules: its troops come out of its own military budget (a share of its
 // income, like yours), they train for the same time, and the same battle rules decide the fight.
+//
+// TEMPORARY, until diplomacy exists (Phase 2): every computer town is hostile to you automatically.
+// It raids your base, and you may attack it, without any declaration of war. Diplomacy will add
+// stances (peace, declared war), treaties and peace terms, and raids and attacks will then need a
+// declared war (planRaid and attackError are where that check goes).
 // Time only passes while the game runs, so nothing is planned or fought while you're away.
 //
 // Saved in your town's city.systems.war = { v, count, raids: [...] } where each entry is a raid on
@@ -22111,6 +22151,7 @@ class WarRoom {
       from: raid.fromName,
       outcome,
       reason: res.reason,
+      hqLost: res.hqLost,
       auto,
       time: res.time,
       attackers: { total: res.attacker.total, lost: res.attacker.lost, unsent: res.attacker.unsent },
@@ -22177,6 +22218,7 @@ class WarRoom {
       target: entry.targetName,
       outcome,
       reason: res.reason,
+      hqLost: res.hqLost,
       auto,
       time: res.time,
       them: { total: res.defender.total, lost: res.defender.lost, damage },
@@ -22593,17 +22635,17 @@ class MilitaryScreen {
       {
         repelled: `Every attacker was beaten back.`,
         withdrew: `Their attack broke and they withdrew.`,
-        hq: `They destroyed the command post.`,
         army: `Your defenders were overwhelmed.`,
         routed: `Your troops' morale broke and they fell back.`,
         retreat: `You ordered the retreat. Nobody else fell.`,
       }[r.reason] || '';
+    const hq = r.hqLost ? (r.outcome === 'held' ? ' They destroyed the command post, but your troops held on.' : ' They destroyed the command post, and it shook your troops.') : '';
     const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
     const you = r.you;
     const damage = you.damage.map((d) => `${d.label}: ${d.wrecked ? 'destroyed' : `${Math.round((d.hp / d.max) * 100)}% left`}`);
     this.card(`
       <h2 class="mil-${r.outcome}">${head}</h2>
-      <p>${why} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
+      <p>${why}${hq} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
       <div class="mil-report">
         <section><h3>${esc(r.from)}</h3><p>${r.attackers.lost} of ${r.attackers.total} soldiers fell${r.attackers.unsent ? `; ${r.attackers.unsent} never came` : ''}.</p></section>
         <section><h3>Your troops</h3><p>${you.fought} fought. ${you.killed.length ? `${you.killed.length} fell:` : 'Nobody fell.'}</p>${list(you.killed)}${you.injured.length ? `<p>Badly hurt, recovering for a few days:</p>${list(you.injured)}` : ''}${you.hurt.length ? `<p>Lightly hurt, back in a day:</p>${list(you.hurt)}` : ''}${you.promoted.length ? `<p>Promoted:</p>${list(you.promoted)}` : ''}</section>
@@ -22621,19 +22663,19 @@ class MilitaryScreen {
     const head = { won: 'Victory!', lost: 'The attack failed', retreated: 'You pulled your troops out' }[r.outcome];
     const why =
       {
-        hq: 'You destroyed their command post and their defenders fled.',
         army: 'Their defenders and their defences were beaten.',
         routed: 'Their defenders broke and fled.',
         withdrew: 'Your troops’ attack broke, or ran out of supplies, and they fell back.',
         repelled: 'Every one of your squads was stopped.',
         retreat: 'You ordered the retreat. Nobody else fell.',
       }[r.reason] || '';
+    const hq = r.hqLost ? ' Their command post was destroyed.' : '';
     const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
     const you = r.you;
     const damage = r.them.damage.map((d) => `${d.label}: ${d.wrecked ? 'destroyed' : `${Math.round((d.hp / d.max) * 100)}% left`}`);
     this.card(`
       <h2 class="mil-${r.outcome === 'won' ? 'held' : r.outcome}">${head}</h2>
-      <p>${why} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
+      <p>${why}${hq} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
       <div class="mil-report">
         <section><h3>${esc(r.target)}</h3><p>${r.them.lost} of their ${r.them.total} defenders fell.</p>${damage.length ? list(damage) : '<p>Their base wasn’t damaged.</p>'}</section>
         <section><h3>Your troops</h3><p>${you.sent} went, ${you.fought} fought. ${you.killed.length ? `${you.killed.length} fell:` : 'Nobody fell.'}</p>${list(you.killed)}${you.injured.length ? `<p>Badly hurt, recovering for a few days:</p>${list(you.injured)}` : ''}${you.hurt.length ? `<p>Lightly hurt, back in a day:</p>${list(you.hurt)}` : ''}${you.promoted.length ? `<p>Promoted:</p>${list(you.promoted)}` : ''}</section>
@@ -22663,7 +22705,7 @@ class MilitaryScreen {
       <p>Their base: about ${intel.soldiers} soldiers (${intel.guards} on guard) and ${intel.defences} defences.</p>
       <p>${party.length ? `You'd send your reserve: ${force}.` : 'Nobody is in your reserve.'}</p>
       ${guards ? `<label class="mil-check"><input type="checkbox" data-with-guards> Send your ${guards} guards too (your base keeps its defences)</label>` : ''}
-      <p class="mil-small">You win by beating their soldiers and defences, making them flee, or destroying their command post. Taking their forward positions lets your squads come in closer. The world waits while you fight.</p>
+      <p class="mil-small">You win by defeating their army (their soldiers, reserve and armed defences) or making it flee. Destroying their command post doesn't win on its own, but it shakes their morale. Taking their forward positions lets your squads come in closer. The world waits while you fight.</p>
       ${err ? `<p class="mil-warn">${esc(err)}</p>` : ''}
       <div class="mil-card-actions">
         <button type="button" class="primary-btn" data-attack-go="${esc(id)}">Command the attack</button>
@@ -23106,6 +23148,7 @@ class MilitaryScreen {
       })
       .join('');
     return `<p class="mil-small">Send your reserve against a neighbour's base. You command the attacking squads; they defend with their guards, reserve and defences. Winning carries off part of their military budget. After any battle a base is left alone for a few days.</p>
+      <p class="mil-small"><b>For now every neighbour is hostile</b>: they raid you and you may attack them without declaring war. Diplomacy (peace, declared war, treaties) comes in a later update.</p>
       <ul class="mil-repairs">${rows}</ul>
       <p class="mil-small">Your reserve: ${party} ready soldiers.${intel.attackReadyIn > 0 ? ` Your troops rest for another ${forDays(intel.attackReadyIn)}.` : ''}</p>
       ${intel.coming ? `<p class="mil-warn">⚔ ${esc(intel.coming.from)} attacks ${inDays(intel.coming.in)}.</p>` : ''}`;
@@ -24448,7 +24491,6 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const coming = warRoom.coming();
     const badge = baseBtn.querySelector('.badge');
     badge.hidden = !coming && !warRoom.pending();
-    badge.textContent = '!';
     baseBtn.classList.toggle('is-alert', !!coming || !!warRoom.pending());
     baseBtn.title = coming ? `${coming.fromName} attacks ${inDays(coming.at - city.day - city.clock)}` : 'Military base';
   }

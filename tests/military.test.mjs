@@ -17,7 +17,7 @@ const { generateTown } = await import('../src/generator.js');
 const { Simulation } = await import('../src/simulation.js');
 const { World } = await import('../src/world.js');
 const { Military, START_FUNDS } = await import('../src/military.js');
-const { Battle, TIME_LIMIT } = await import('../src/battle.js');
+const { Battle, TIME_LIMIT, HQ_LOST } = await import('../src/battle.js');
 const { WarRoom, WARN_DAYS } = await import('../src/warRoom.js');
 const D = await import('../src/militaryData.js');
 const { mulberry32 } = await import('../src/utils.js');
@@ -216,14 +216,16 @@ test('who wins: holding the base, losing the command post, and pulling out', () 
   assert.equal(held.winner, 'def');
   assert.ok(['repelled', 'withdrew'].includes(held.reason));
   assert.ok(held.attacker.lost > 0);
-  // No soldiers at all: the raid must still destroy the command post to win.
+  // No soldiers and no armed defences: there is no defending army, so the raid wins as soon as it
+  // arrives, without having to touch the command post.
   const empty = base(3);
   empty.m.state.soldiers = [];
   const b = new Battle(spec(empty.m, { waves: [{ at: 0, units: party(['grenadier', 'grenadier', 'grenadier', 'rifleman', 'rifleman', 'gunner']) }] }));
   const lost = b.resolve();
   assert.equal(lost.winner, 'att');
-  assert.equal(lost.reason, 'hq');
-  assert.equal(b.hq.hp, 0);
+  assert.equal(lost.reason, 'army');
+  assert.equal(lost.hqLost, false);
+  assert.ok(b.hq.hp > 0);
   // Retreat ends it at once: lost, but nobody else falls.
   const r = base(4);
   const rb = new Battle(spec(r.m, { waves: [{ at: 0, units: party(['rifleman', 'rifleman']) }], auto: false }));
@@ -321,7 +323,7 @@ test('a raid that wins carries money off to the raider', () => {
   assert.equal(Math.round(cpu.sim.economy.money - theirs), report.you.loot);
   assert.ok(war.military.funds < 1000);
   assert.ok(sim.economy.money <= ours);
-  assert.ok(report.you.damage.some((d) => d.label === 'Command post'));
+  assert.equal(report.reason, 'army', 'an undefended base is lost to the raid, command post or not');
 });
 
 test('the base, the army and a battle in progress survive saving and loading', () => {
@@ -442,4 +444,42 @@ test('you attack a computer base: your squads from their edge, and the result fo
   assert.ok(cm.state.soldiers.length <= theirs);
   if (report.outcome === 'won') assert.ok(m.funds >= funds - report.you.spent);
   assert.equal(cm.state.log[0].kind, 'attacked');
+});
+
+test('destroying the command post never wins a battle by itself: only defeating or routing the army does', () => {
+  // A raid on your base: the command post falls while your guards still stand.
+  const { m } = base(11);
+  const raid = new Battle(spec(m, { waves: [{ at: 0, units: party(['rifleman', 'rifleman']) }], auto: false }));
+  raid.step();
+  const morale = raid.morale.def;
+  raid.damage(raid.hq, 1e6, null, null);
+  raid.step();
+  assert.equal(raid.hq.hp, 0);
+  assert.equal(raid.over, false, 'the battle goes on');
+  assert.ok(raid.morale.def <= morale - HQ_LOST + 1, 'but the defenders are badly shaken');
+  const r1 = raid.resolve();
+  assert.notEqual(r1.reason, 'hq');
+  assert.equal(r1.hqLost, true);
+  // Your attack: wrecking their command post leaves their army to beat.
+  const { world, war } = homeWorld(12);
+  const cpu = world.neighbours[0];
+  const am = war.military;
+  am.state.funds = 3000;
+  for (let i = 0; i < 4; i++) am.recruit('rifleman', { emergency: true });
+  const { attack } = war.launchAttack(cpu);
+  const b = war.fight(attack);
+  b.step();
+  b.damage(b.hq, 1e6, null, null);
+  b.step();
+  assert.equal(b.over, false);
+  assert.ok(b.units.some((u) => u.side === 'def' && u.alive) || b.routing, 'their soldiers fight on (or are breaking)');
+  // Across many battles, no result is ever "the command post fell".
+  for (let seed = 1; seed <= 12; seed++) {
+    const t = base(seed);
+    t.m.state.funds = 1000;
+    t.m.place('mg', ...spot(t.m, 'mg', 6, 10));
+    const r = new Battle(spec(t.m, { seed, waves: [{ at: 0, units: party(['grenadier', 'grenadier', 'gunner', 'rifleman', 'rifleman', 'grenadier', 'gunner']) }, { at: 20, units: party(['grenadier', 'rifleman', 'gunner', 'rifleman'], 700) }] })).resolve();
+    assert.ok(['army', 'routed', 'repelled', 'withdrew'].includes(r.reason), r.reason);
+  }
+  void war.autoResolve(attack, b);
 });

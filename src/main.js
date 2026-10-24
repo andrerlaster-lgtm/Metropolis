@@ -1192,7 +1192,6 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const coming = warRoom.coming();
     const badge = baseBtn.querySelector('.badge');
     badge.hidden = !coming && !warRoom.pending();
-    badge.textContent = '!';
     baseBtn.classList.toggle('is-alert', !!coming || !!warRoom.pending());
     baseBtn.title = coming ? `${coming.fromName} attacks ${inDays(coming.at - city.day - city.clock)}` : 'Military base';
   }

@@ -364,17 +364,17 @@ export class MilitaryScreen {
       {
         repelled: `Every attacker was beaten back.`,
         withdrew: `Their attack broke and they withdrew.`,
-        hq: `They destroyed the command post.`,
         army: `Your defenders were overwhelmed.`,
         routed: `Your troops' morale broke and they fell back.`,
         retreat: `You ordered the retreat. Nobody else fell.`,
       }[r.reason] || '';
+    const hq = r.hqLost ? (r.outcome === 'held' ? ' They destroyed the command post, but your troops held on.' : ' They destroyed the command post, and it shook your troops.') : '';
     const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
     const you = r.you;
     const damage = you.damage.map((d) => `${d.label}: ${d.wrecked ? 'destroyed' : `${Math.round((d.hp / d.max) * 100)}% left`}`);
     this.card(`
       <h2 class="mil-${r.outcome}">${head}</h2>
-      <p>${why} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
+      <p>${why}${hq} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
       <div class="mil-report">
         <section><h3>${esc(r.from)}</h3><p>${r.attackers.lost} of ${r.attackers.total} soldiers fell${r.attackers.unsent ? `; ${r.attackers.unsent} never came` : ''}.</p></section>
         <section><h3>Your troops</h3><p>${you.fought} fought. ${you.killed.length ? `${you.killed.length} fell:` : 'Nobody fell.'}</p>${list(you.killed)}${you.injured.length ? `<p>Badly hurt, recovering for a few days:</p>${list(you.injured)}` : ''}${you.hurt.length ? `<p>Lightly hurt, back in a day:</p>${list(you.hurt)}` : ''}${you.promoted.length ? `<p>Promoted:</p>${list(you.promoted)}` : ''}</section>
@@ -392,19 +392,19 @@ export class MilitaryScreen {
     const head = { won: 'Victory!', lost: 'The attack failed', retreated: 'You pulled your troops out' }[r.outcome];
     const why =
       {
-        hq: 'You destroyed their command post and their defenders fled.',
         army: 'Their defenders and their defences were beaten.',
         routed: 'Their defenders broke and fled.',
         withdrew: 'Your troops’ attack broke, or ran out of supplies, and they fell back.',
         repelled: 'Every one of your squads was stopped.',
         retreat: 'You ordered the retreat. Nobody else fell.',
       }[r.reason] || '';
+    const hq = r.hqLost ? ' Their command post was destroyed.' : '';
     const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
     const you = r.you;
     const damage = r.them.damage.map((d) => `${d.label}: ${d.wrecked ? 'destroyed' : `${Math.round((d.hp / d.max) * 100)}% left`}`);
     this.card(`
       <h2 class="mil-${r.outcome === 'won' ? 'held' : r.outcome}">${head}</h2>
-      <p>${why} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
+      <p>${why}${hq} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
       <div class="mil-report">
         <section><h3>${esc(r.target)}</h3><p>${r.them.lost} of their ${r.them.total} defenders fell.</p>${damage.length ? list(damage) : '<p>Their base wasn’t damaged.</p>'}</section>
         <section><h3>Your troops</h3><p>${you.sent} went, ${you.fought} fought. ${you.killed.length ? `${you.killed.length} fell:` : 'Nobody fell.'}</p>${list(you.killed)}${you.injured.length ? `<p>Badly hurt, recovering for a few days:</p>${list(you.injured)}` : ''}${you.hurt.length ? `<p>Lightly hurt, back in a day:</p>${list(you.hurt)}` : ''}${you.promoted.length ? `<p>Promoted:</p>${list(you.promoted)}` : ''}</section>
@@ -434,7 +434,7 @@ export class MilitaryScreen {
       <p>Their base: about ${intel.soldiers} soldiers (${intel.guards} on guard) and ${intel.defences} defences.</p>
       <p>${party.length ? `You'd send your reserve: ${force}.` : 'Nobody is in your reserve.'}</p>
       ${guards ? `<label class="mil-check"><input type="checkbox" data-with-guards> Send your ${guards} guards too (your base keeps its defences)</label>` : ''}
-      <p class="mil-small">You win by beating their soldiers and defences, making them flee, or destroying their command post. Taking their forward positions lets your squads come in closer. The world waits while you fight.</p>
+      <p class="mil-small">You win by defeating their army (their soldiers, reserve and armed defences) or making it flee. Destroying their command post doesn't win on its own, but it shakes their morale. Taking their forward positions lets your squads come in closer. The world waits while you fight.</p>
       ${err ? `<p class="mil-warn">${esc(err)}</p>` : ''}
       <div class="mil-card-actions">
         <button type="button" class="primary-btn" data-attack-go="${esc(id)}">Command the attack</button>
@@ -877,6 +877,7 @@ export class MilitaryScreen {
       })
       .join('');
     return `<p class="mil-small">Send your reserve against a neighbour's base. You command the attacking squads; they defend with their guards, reserve and defences. Winning carries off part of their military budget. After any battle a base is left alone for a few days.</p>
+      <p class="mil-small"><b>For now every neighbour is hostile</b>: they raid you and you may attack them without declaring war. Diplomacy (peace, declared war, treaties) comes in a later update.</p>
       <ul class="mil-repairs">${rows}</ul>
       <p class="mil-small">Your reserve: ${party} ready soldiers.${intel.attackReadyIn > 0 ? ` Your troops rest for another ${forDays(intel.attackReadyIn)}.` : ''}</p>
       ${intel.coming ? `<p class="mil-warn">⚔ ${esc(intel.coming.from)} attacks ${inDays(intel.coming.in)}.</p>` : ''}`;
