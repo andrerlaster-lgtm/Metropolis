@@ -2997,3 +2997,174 @@ button:focus-visible {
     padding: 0 11px;
   }
 }
+
+/* The world: your town and the computer's (world.js, worldUI.js) */
+#btn-world {
+  --owner: #8a6cc4;
+}
+#btn-world svg {
+  color: var(--owner);
+}
+#app.mode-watch .toolbar,
+#app.mode-watch .tray,
+#app.mode-watch .history-btns,
+#app.mode-watch #btn-random,
+#app.mode-watch #btn-follow,
+#app.mode-watch .stats .tier {
+  display: none !important;
+}
+.world-sheet {
+  width: min(600px, calc(100vw - 24px));
+}
+.wt-intro {
+  margin: 0;
+  color: var(--ink-soft);
+  font: 700 13px/1.4 var(--font-body);
+}
+.wt-map {
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  background: #cfe6c4;
+}
+.wt-cards {
+  display: grid;
+  gap: 8px;
+}
+.wt-card {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border-left: 5px solid var(--owner);
+}
+.wt-card.is-here {
+  box-shadow: 0 0 0 2px var(--owner);
+}
+.wt-card header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.wt-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font: 600 17px/1.2 var(--font-display, var(--font-body));
+}
+.wt-owner,
+.wb-owner {
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: var(--owner);
+  color: #fff;
+  font: 800 11.5px/1.2 var(--font-body);
+}
+.wt-here {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font: 800 11.5px/1 var(--font-body);
+}
+.wt-stats {
+  margin: 6px 0;
+  color: var(--ink);
+  font: 700 13px/1.45 var(--font-body);
+}
+.wt-log {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font: 700 12.5px/1.45 var(--font-body);
+}
+.wt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wt-actions .pill,
+.watch-banner .pill {
+  height: 34px;
+  padding: 0 14px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+}
+.wt-actions .pill[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+.watch-banner {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 8px 10px 8px 12px;
+  border-radius: 20px;
+  z-index: 4;
+}
+.watch-banner[hidden] {
+  display: none;
+}
+.wb-text {
+  color: var(--ink);
+  font: 700 13px/1.35 var(--font-body);
+}
+.wb-text small {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.wb-home {
+  white-space: nowrap;
+}
+/* In 3D the bottom belongs to the camera controls: the banner moves under the top bar. */
+#app.mode-3d .watch-banner {
+  bottom: auto;
+  top: calc(env(safe-area-inset-top, 0px) + 72px);
+  left: auto;
+  right: 16px;
+  transform: none;
+}
+@media (max-width: 560px) {
+  .watch-banner {
+    left: 8px;
+    right: 8px;
+    transform: none;
+    max-width: none;
+    flex-wrap: wrap;
+  }
+  #btn-world .pill-text {
+    max-width: 88px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+/* Phones: the world's buttons keep their words; the corner stacks so the stats bubble has room. */
+@media (max-width: 560px) {
+  .watch-banner .pill,
+  .wt-actions .pill {
+    width: auto;
+    padding: 0 12px;
+  }
+  .watch-banner [data-world] {
+    display: none;
+  }
+  .watch-banner {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .wb-home {
+    margin-left: auto;
+  }
+  #app.mode-watch .toast {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 150px);
+  }
+  .corner {
+    flex-direction: column;
+  }
+  .stats {
+    max-width: calc(100vw - 88px);
+  }
+}

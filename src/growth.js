@@ -12,6 +12,8 @@
 //
 // Homes and businesses are built by residents (free); roads, services, parks and trees are paid
 // from the town's budget, and are skipped when it can't afford them. The player can keep building too.
+// A computer-run town (cpuPlanner.js) sets `payAll`: then everything is paid for at the player's prices,
+// and a `reserve` of money is kept back for upkeep.
 //
 // Saved in city.systems.growth = { on, timer, boosts: [{ mult, until, label }], built }.
 
@@ -52,6 +54,9 @@ export class Growth {
     this.economy = economy;
     this.milestones = milestones;
     this.rng = rng;
+    this.payAll = false; // pay for homes and businesses too (computer-run towns)
+    this.reserve = 0; // with payAll: money kept back, never spent on building
+    this.onBuilt = null; // (what) → called after each change the town makes
   }
 
   get state() {
@@ -109,9 +114,13 @@ export class Growth {
     return this.count([type]) < 1 + Math.floor(pop / per);
   }
 
-  canPay(type) {
-    if (!PUBLIC.has(type) || !this.economy) return true;
-    return this.economy.canAfford(this.economy.costOf(type));
+  paid(type) {
+    return !!this.economy && (this.payAll || PUBLIC.has(type));
+  }
+
+  canPay(type, n = 1) {
+    if (!this.paid(type)) return true;
+    return this.economy.canAfford(this.economy.costOf(type) * n + (this.payAll ? this.reserve : 0));
   }
 
   // ---- Demand ------------------------------------------------------------------------------
@@ -171,6 +180,7 @@ export class Growth {
       const done = this.act(pickd[0]);
       if (done) {
         this.state.built = (this.state.built || 0) + 1;
+        this.onBuilt?.(done);
         return done;
       }
       order.splice(order.indexOf(pickd), 1);
@@ -251,7 +261,7 @@ export class Growth {
     if (!t || !this.allowed(type) || !this.canPay(type)) return null;
     if (t.structure?.type === 'tree') this.city.apply('bulldoze', t.x, t.y, { delay: 0.6 });
     if (!this.city.apply(type, t.x, t.y, { delay: 0.6 })) return null;
-    if (PUBLIC.has(type) && this.economy) this.economy.spend(this.economy.costOf(type));
+    if (this.paid(type)) this.economy.spend(this.economy.costOf(type));
     this.city.dirty = true;
     if (FIRSTS[type] && this.count([type]) === 1) addChronicle(this.city, `${FIRSTS[type]}.`, t, 'first');
     this.city.emit('grew', { type, x: t.x, y: t.y });
@@ -293,7 +303,9 @@ export class Growth {
     const residents = h.structure.residents;
     const variant = h.structure.variant;
     const type = UP[h.structure.type];
+    if (this.payAll && !this.canPay(type)) return null;
     if (!this.city.apply(type, h.x, h.y, { delay: 0.6 })) return null;
+    if (this.payAll) this.economy.spend(this.economy.costOf(type));
     h.structure.residents = Math.min(residents, STRUCTURES[type].capacity);
     if (variant) h.structure.variant = variant;
     this.city.dirty = true;
@@ -407,7 +419,7 @@ export class Growth {
     if (!lot) return null;
     if (lot.structure?.type === 'tree') this.city.apply('bulldoze', lot.x, lot.y, { delay: 0.3 });
     if (!this.city.apply(type, lot.x, lot.y, { delay: 0.3 })) return null;
-    if (!free && PUBLIC.has(type) && this.economy) this.economy.spend(this.economy.costOf(type));
+    if (!free && this.paid(type)) this.economy.spend(this.economy.costOf(type));
     this.city.dirty = true;
     if (FIRSTS[type] && this.count([type]) === 1) addChronicle(this.city, `${FIRSTS[type]}.`, lot, 'first');
     this.city.emit('grew', { type, x: lot.x, y: lot.y });
@@ -468,7 +480,7 @@ export class Growth {
       candidates.splice(candidates.indexOf(cand), 1);
       const path = this.trace(cand.from, cand.dx, cand.dy, 3 + Math.floor(this.rng() * 4));
       if (!path) continue;
-      if (this.economy && !this.economy.canAfford(this.economy.costOf('road') * path.length)) return null;
+      if (this.economy && !this.canPay('road', path.length)) return null;
       let built = 0;
       for (const t of path) {
         if (t.structure?.type === 'tree') city.apply('bulldoze', t.x, t.y, { delay: 0.6 });

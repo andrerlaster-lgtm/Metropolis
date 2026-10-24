@@ -43,6 +43,10 @@
       <div class="minimap-wrap glass" id="minimap" hidden><canvas aria-label="Minimap. Tap to move the view there."></canvas></div>
 
       <div class="corner">
+        <button type="button" id="btn-world" class="pill glass" aria-label="The world: your town and its neighbours" title="The world: your town and its neighbours" aria-haspopup="dialog" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5S9.4 5.9 12 3.5z"/></svg>
+          <span class="pill-text">World</span>
+        </button>
         <button type="button" id="btn-life" class="pill glass" aria-label="Life Story">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c.8-4 3.6-6.5 7-6.5s6.2 2.5 7 6.5"/></svg>
           <span class="pill-text">Life</span><span class="badge" hidden></span>
@@ -73,6 +77,8 @@
       <section class="more-sheet glass" id="more-sheet" role="dialog" aria-label="City controls" hidden></section>
       <section class="more-sheet glass" id="newtown-sheet" role="dialog" aria-label="New town" hidden></section>
       <section class="more-sheet glass" id="slots-sheet" role="dialog" aria-label="Save slots" hidden></section>
+      <section class="more-sheet glass world-sheet" id="world-sheet" role="dialog" aria-label="The world" hidden></section>
+      <div class="watch-banner glass" id="watch-banner" role="status" hidden></div>
       <section class="decision-card glass" id="decision-card" role="dialog" aria-label="Town decision" hidden></section>
       <aside class="inspector glass" id="inspector" aria-live="polite" hidden></aside>
       <aside class="city-panel glass" id="city-panel" aria-label="Your town" hidden></aside>

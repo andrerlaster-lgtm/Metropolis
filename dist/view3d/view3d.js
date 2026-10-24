@@ -22,6 +22,14 @@ const QUALITY = {
   high: { ratio: 2, shadows: 2048, lamps: 6, label: 'High' },
 };
 const PREFS_KEY = 'pocket-metropolis:view3d';
+// A stable key per town (CityState), for its chunks.
+const TOWN_KEYS = new WeakMap();
+let townCount = 0;
+const townKey = (city) => {
+  let k = TOWN_KEYS.get(city);
+  if (!k) TOWN_KEYS.set(city, (k = `t${++townCount}`));
+  return k;
+};
 const TYPE_CODES = new Map();
 const touchFirst = () => globalThis.matchMedia?.('(pointer: coarse)').matches;
 
@@ -59,7 +67,10 @@ class View3D {
     this.canvas = canvas;
     this.gl = gl;
     this.deps = deps;
-    this.city = deps.city;
+    this.city = null; // the town in focus (see setWorld)
+    this.focus = null;
+    this.sources = [];
+    this.area = { x0: 0, z0: 0, x1: 32, z1: 32 };
     this.active = false;
     this.time = 0;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -118,6 +129,103 @@ class View3D {
     this.bindInput();
     this.applyQuality();
     window.addEventListener('resize', () => this.resize());
+    this.setWorld(deps.world);
+  }
+
+  // Which towns to show. The one in focus sits at the origin and gets everything: people, cars,
+  // signs, effects and the street camera. The others are drawn where they sit in the world, relative
+  // to it, with countryside in between. Chunks belong to a town, so changing focus only moves them.
+  setWorld({ focus, others = [] }) {
+    const changed = !this.focus || this.focus.city !== focus.city;
+    this.focus = focus;
+    this.city = focus.city;
+    this.sources = [{ ...focus, offset: { x: 0, z: 0 } }, ...others];
+    const live = new Map(this.sources.map((src) => [townKey(src.city), src]));
+    for (const [key, c] of this.chunks) {
+      const src = live.get(c.town);
+      if (!src) this.dropChunk(key, c);
+      else for (const m of c.meshes) m.position.set(src.offset.x, 0, src.offset.z);
+    }
+    this.signs.key = '';
+    this.heights = null;
+    let x0 = 0;
+    let z0 = 0;
+    let x1 = focus.city.width;
+    let z1 = focus.city.height;
+    for (const src of others) {
+      x0 = Math.min(x0, src.offset.x);
+      z0 = Math.min(z0, src.offset.z);
+      x1 = Math.max(x1, src.offset.x + src.city.width);
+      z1 = Math.max(z1, src.offset.z + src.city.height);
+    }
+    this.area = { x0, z0, x1, z1 };
+    this.rig.area = { x0: x0 - 2, z0: z0 - 2, x1: x1 + 2, z1: z1 + 2 };
+    this.makeCountryside();
+    this.syncTimer = 0;
+    if (changed) {
+      this.subjectWalker = null;
+      this.lastHero = null;
+      if (this.active) {
+        this.rig.setBounds(focus.city.width, focus.city.height);
+        this.rig.lookFrom(focus.city.width / 2, focus.city.height / 2, Math.min(this.rig.o.dist, 18));
+        this.syncChunks(Infinity);
+        this.updateHud();
+      }
+    }
+  }
+
+  // Grass and meadow between the towns, a little below their ground so their edges sit on it.
+  makeCountryside() {
+    if (this.countryside) {
+      this.scene.remove(this.countryside);
+      this.countryside.geometry.dispose();
+    }
+    const a = this.area;
+    const pad = 30;
+    const geo = new THREE.PlaneGeometry(a.x1 - a.x0 + pad * 2, a.z1 - a.z0 + pad * 2).rotateX(-Math.PI / 2);
+    this.countryside = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: this.deps.PALETTE.grass }));
+    this.countryside.position.set((a.x0 + a.x1) / 2, -0.006, (a.z0 + a.z1) / 2);
+    this.countryside.receiveShadow = true;
+    this.countryside.visible = this.sources.length > 1;
+    this.scene.add(this.countryside);
+    // Copses of trees out in the country, never on a town.
+    if (this.wilds) {
+      this.scene.remove(this.wilds);
+      this.wilds.dispose();
+    }
+    if (this.sources.length < 2) return;
+    const towns = this.sources.map((src) => ({ x0: src.offset.x - 1, z0: src.offset.z - 1, x1: src.offset.x + src.city.width + 1, z1: src.offset.z + src.city.height + 1 }));
+    const spots = [];
+    const rand = (i, k) => Math.abs(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1;
+    for (let i = 0; i < 1600 && spots.length < 420; i++) {
+      const x = a.x0 - pad * 0.8 + rand(i, 1) * (a.x1 - a.x0 + pad * 1.6);
+      const z = a.z0 - pad * 0.8 + rand(i, 2) * (a.z1 - a.z0 + pad * 1.6);
+      if (towns.some((t) => x > t.x0 && x < t.x1 && z > t.z0 && z < t.z1)) continue;
+      if (rand(Math.floor(x / 6) * 31 + Math.floor(z / 6), 3) < 0.45) continue; // in clumps, with meadows between
+      spots.push([x, z, 0.8 + rand(i, 4) * 0.6]);
+    }
+    if (!this._wildTree) {
+      const md = new MeshData();
+      md.prism(0, 0, 0.022, 0.016, 0, 0.2, 5, linear('#b99679'), { top: false });
+      md.blob(0, 0.3, 0, 0.17, 0.15, linear(this.deps.PALETTE.leafDeep), linear(this.deps.PALETTE.leaf), 1);
+      md.blob(0.04, 0.42, -0.03, 0.12, 0.11, linear(this.deps.PALETTE.leaf), linear(this.deps.PALETTE.leafLight), 2);
+      const arr = md.arrays();
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(arr.position, 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(arr.normal, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(arr.color, 3));
+      this._wildTree = geo;
+    }
+    this.wilds = new THREE.InstancedMesh(this._wildTree, this.mats.solid, spots.length);
+    const m = new THREE.Matrix4();
+    spots.forEach(([x, z, k], i) => this.wilds.setMatrixAt(i, m.makeScale(k, k, k).setPosition(x, 0, z)));
+    this.wilds.castShadow = true;
+    this.scene.add(this.wilds);
+  }
+
+  // Lives near the town in focus: your main person only walks in your own town.
+  lifeChar() {
+    return this.focus?.home ? this.lifeChar() : null;
   }
 
   // ---- entering and leaving ----------------------------------------------------------
@@ -185,8 +293,7 @@ class View3D {
   // ---- the town's meshes ----------------------------------------------------------
 
   // A fingerprint of everything a chunk's meshes depend on, so they're rebuilt only on change.
-  chunkSig(x0, y0, x1, y1, g) {
-    const city = this.city;
+  chunkSig(city, x0, y0, x1, y1, g) {
     const { growthOf, crosswalkMask, STRUCTURES } = this.deps;
     let h = 2166136261 ^ g;
     const mixIn = (v) => (h = Math.imul(h ^ v, 16777619));
@@ -227,49 +334,56 @@ class View3D {
     return 0.5;
   }
 
-  // Rebuild changed chunks, at most `budget` of them this frame. Returns how many still need it.
+  // Rebuild changed chunks, at most `budget` of them this frame, the town in focus first. Returns
+  // how many still need it.
   syncChunks(budget = 2) {
-    const city = this.city;
     const d = this.deps;
-    const r = d.renderer;
-    const w = city.derived.weather || {};
-    const era = city.systems.era?.index ?? 3;
-    const snow = Math.round((w.snowCover || 0) * 10) / 10;
-    const season = w.season || 'spring';
-    const open = city.clock > 0.29 && city.clock < 0.92;
-    // The overhead renderer owns the season's colours; let it know what's current.
-    r.era = era;
-    r.season = season;
-    r.snowCover = snow;
-    const g = era * 1000 + Math.round(snow * 10) * 10 + ['spring', 'summer', 'autumn', 'winter'].indexOf(season) + (open ? 500000 : 0) + city.width * 7919;
-    this.rig.setBounds(city.width, city.height); // a different town may have been loaded
-    const cw = Math.ceil(city.width / CHUNK);
-    const ch = Math.ceil(city.height / CHUNK);
     const live = new Set();
     let built = 0;
     let pending = 0;
-    for (let cz = 0; cz < ch; cz++) {
-      for (let cx = 0; cx < cw; cx++) {
-        const key = cz * 1000 + cx;
-        live.add(key);
-        const x0 = cx * CHUNK;
-        const y0 = cz * CHUNK;
-        const x1 = Math.min(city.width, x0 + CHUNK);
-        const y1 = Math.min(city.height, y0 + CHUNK);
-        const sig = this.chunkSig(x0, y0, x1, y1, g);
-        const c = this.chunks.get(key);
-        if (c && c.sig === sig) continue;
-        if (built >= budget) {
-          pending++;
-          continue;
+    for (const src of this.sources) {
+      const city = src.city;
+      const r = src.renderer;
+      const w = city.derived.weather || {};
+      const era = city.systems.era?.index ?? 3;
+      const snow = Math.round((w.snowCover || 0) * 10) / 10;
+      const season = w.season || 'spring';
+      const open = city.clock > 0.29 && city.clock < 0.92;
+      // Each town's overhead renderer owns its colours (its era, the season); let it know what's current.
+      r.era = era;
+      r.season = season;
+      r.snowCover = snow;
+      // A lone town stands on its diorama base; among others it sits in the countryside.
+      const edges = this.sources.length === 1;
+      const g = era * 1000 + Math.round(snow * 10) * 10 + ['spring', 'summer', 'autumn', 'winter'].indexOf(season) + (open ? 500000 : 0) + city.width * 7919 + (edges ? 3 : 0);
+      const town = townKey(city);
+      const cw = Math.ceil(city.width / CHUNK);
+      const ch = Math.ceil(city.height / CHUNK);
+      for (let cz = 0; cz < ch; cz++) {
+        for (let cx = 0; cx < cw; cx++) {
+          const key = `${town}:${cz}:${cx}`;
+          live.add(key);
+          const x0 = cx * CHUNK;
+          const y0 = cz * CHUNK;
+          const x1 = Math.min(city.width, x0 + CHUNK);
+          const y1 = Math.min(city.height, y0 + CHUNK);
+          const sig = this.chunkSig(city, x0, y0, x1, y1, g);
+          const c = this.chunks.get(key);
+          if (c && c.sig === sig) continue;
+          if (built >= budget) {
+            pending++;
+            continue;
+          }
+          built++;
+          this.buildChunk(key, src, x0, y0, x1, y1, sig, { era, snow, season, open, edges });
         }
-        built++;
-        this.buildChunk(key, x0, y0, x1, y1, sig, { era, snow, season, open });
       }
     }
     for (const [key, c] of this.chunks) if (!live.has(key)) this.dropChunk(key, c);
     this.heights = null;
-    this.signs.sync(city, { footArms: (t) => d.footArms(city, t), shortName: d.shortName, era });
+    const city = this.city;
+    this.rig.setBounds(city.width, city.height); // a different town may have been loaded
+    this.signs.sync(city, { footArms: (t) => d.footArms(city, t), shortName: d.shortName, era: city.systems.era?.index ?? 3 });
     return pending;
   }
 
@@ -282,10 +396,10 @@ class View3D {
     this.chunks.delete(key);
   }
 
-  buildChunk(key, x0, y0, x1, y1, sig, env) {
-    const city = this.city;
+  buildChunk(key, src, x0, y0, x1, y1, sig, env) {
+    const city = src.city;
     const d = this.deps;
-    const r = d.renderer;
+    const r = src.renderer;
     const old = this.chunks.get(key);
     if (old) this.dropChunk(key, old);
     const out = { ground: new MeshData(), water: new MeshData(), solid: new MeshData(), glass: new MeshData(), lit: new MeshData(), glow: new MeshData(), lamps: [], smoke: [] };
@@ -300,6 +414,7 @@ class View3D {
       hash: d.hash2,
       crossMask: (x, y) => d.crosswalkMask(city, x, y),
       lamp: (t) => r.lampSpot(t),
+      edges: env.edges,
     });
     const ctx = {
       era: env.era,
@@ -315,7 +430,7 @@ class View3D {
       for (let x = x0; x < x1; x++) {
         const t = city.getTile(x, y);
         if (!t.structure || t.structure.type === 'road' || t.terrain !== 'grass') continue;
-        const rot = this.frontOf(t);
+        const rot = this.frontOf(t, city);
         for (const md of [out.solid, out.glass, out.lit, out.glow]) md.place(x + 0.5, y + 0.5, rot);
         ctx.x = x;
         ctx.y = y;
@@ -375,7 +490,8 @@ class View3D {
       this.root.add(m);
       meshes.push(m);
     }
-    this.chunks.set(key, { sig, meshes, lamps: out.lamps, smoke: out.smoke, tops });
+    for (const m of meshes) m.position.set(src.offset.x, 0, src.offset.z);
+    this.chunks.set(key, { sig, meshes, lamps: out.lamps, smoke: out.smoke, tops, town: townKey(city), offset: src.offset });
   }
 
   shadowQuad() {
@@ -384,15 +500,22 @@ class View3D {
 
   // How tall the town is at (x, z): the top of whatever stands on that tile.
   heightAt(x, z) {
-    const city = this.city;
     if (!this.heights) {
-      this.heights = new Float32Array(city.width * city.height);
-      for (const c of this.chunks.values()) for (const [k, h] of c.tops) if (k < this.heights.length) this.heights[k] = h;
+      this.heights = new Map();
+      for (const src of this.sources) this.heights.set(townKey(src.city), new Float32Array(src.city.width * src.city.height));
+      for (const c of this.chunks.values()) {
+        const hs = this.heights.get(c.town);
+        if (hs) for (const [k, h] of c.tops) if (k < hs.length) hs[k] = h;
+      }
     }
-    const tx = Math.floor(x);
-    const tz = Math.floor(z);
-    if (tx < 0 || tz < 0 || tx >= city.width || tz >= city.height) return 0;
-    return this.heights[tz * city.width + tx];
+    for (const src of this.sources) {
+      const tx = Math.floor(x - src.offset.x);
+      const tz = Math.floor(z - src.offset.z);
+      const city = src.city;
+      if (tx < 0 || tz < 0 || tx >= city.width || tz >= city.height) continue;
+      return this.heights.get(townKey(city))?.[tz * city.width + tx] || 0;
+    }
+    return 0;
   }
 
   // A few soft low-poly clouds drifting over the town; more and greyer on cloudy days.
@@ -436,13 +559,14 @@ class View3D {
   updateClouds(w, L) {
     const amount = 0.35 + 0.65 * Math.max(w.cloud || 0, w.rain || 0, w.snow || 0);
     const n = this.clouds.children.length;
-    const W = this.city.width;
-    const H = this.city.height;
+    const a = this.area;
+    const W = a.x1 - a.x0;
+    const H = a.z1 - a.z0;
     this.clouds.children.forEach((m, i) => {
       const c = m.userData;
       m.visible = i < Math.round(n * amount);
       const span = W + 24;
-      m.position.set(((c.x * span + this.time * c.speed) % span) - 12, c.y, c.z * (H + 16) - 8);
+      m.position.set(a.x0 + ((c.x * span + this.time * c.speed) % span) - 12, c.y, a.z0 + c.z * (H + 16) - 8);
     });
     const grey = 1 - 0.35 * Math.max(w.rain || 0, w.cloud || 0) * 0.8;
     this.clouds.children[0].material.color.setRGB(grey * L.ambient[0], grey * L.ambient[1], grey * L.ambient[2]);
@@ -466,13 +590,17 @@ class View3D {
     let n = 0;
     const t = this.time;
     for (const c of this.chunks.values()) {
+      const ox = c.offset?.x || 0;
+      const oz = c.offset?.z || 0;
       for (const s of c.smoke) {
-        if ((s.x - focus.x) ** 2 + (s.z - focus.z) ** 2 > 900) continue;
+        const sx = s.x + ox;
+        const sz = s.z + oz;
+        if ((sx - focus.x) ** 2 + (sz - focus.z) ** 2 > 900) continue;
         const puffs = s.big ? 5 : 3;
         for (let i = 0; i < puffs && n < 240; i++) {
           const life = (t * (s.big ? 0.35 : 0.28) + i / puffs + s.x * 0.37) % 1;
           const k = (s.big ? 1 : 0.6) * (0.5 + life * 1.6) * (life > 0.85 ? (1 - life) / 0.15 : 1);
-          mx.compose(v.set(s.x + life * 0.35, s.y + life * (s.big ? 0.7 : 0.4), s.z - life * 0.15), q, sc.set(k, k, k));
+          mx.compose(v.set(sx + life * 0.35, s.y + life * (s.big ? 0.7 : 0.4), sz - life * 0.15), q, sc.set(k, k, k));
           m.setMatrixAt(n++, mx);
         }
       }
@@ -482,8 +610,7 @@ class View3D {
   }
 
   // Buildings face their street: the side with a road, preferring the ones toward the camera.
-  frontOf(t) {
-    const city = this.city;
+  frontOf(t, city = this.city) {
     const road = (x, y) => city.getTile(x, y)?.structure?.type === 'road';
     if (road(t.x, t.y + 1)) return 0;
     if (road(t.x + 1, t.y)) return 1;
@@ -625,7 +752,7 @@ class View3D {
     const city = this.city;
     const d = this.deps;
     const w = city.derived.weather || { rain: 0, snow: 0, fog: 0, cloud: 0 };
-    const L = d.renderer.weatherLight(d.lightingAt(city.clock), w);
+    const L = this.focus.renderer.weatherLight(d.lightingAt(city.clock), w);
     this.L = L;
     this.paintSky(L.skyTop, L.skyBottom);
     const amb = L.ambient;
@@ -680,9 +807,11 @@ class View3D {
     const near = [];
     if (on) {
       for (const c of this.chunks.values()) {
+        const ox = c.offset?.x || 0;
+        const oz = c.offset?.z || 0;
         for (const lp of c.lamps) {
-          const d = (lp.x - focus.x) ** 2 + (lp.z - focus.z) ** 2;
-          if (d < 64) near.push([d, lp]);
+          const d = (lp.x + ox - focus.x) ** 2 + (lp.z + oz - focus.z) ** 2;
+          if (d < 64) near.push([d, { x: lp.x + ox, y: lp.y, z: lp.z + oz }]);
         }
       }
       near.sort((a, b) => a[0] - b[0]);
@@ -730,7 +859,7 @@ class View3D {
     const focus = this.rig.focus();
     const { L, w } = this.light(focus, span);
     this.lightLamps(focus, L);
-    const agents = this.deps.agents;
+    const agents = this.focus.agents;
     this.people.update(agents.walkers, this.time, { wet: Math.max(w.rain || 0, w.snow || 0), softShadows: !QUALITY[this.level].shadows, paused: this.deps.isPaused() });
     this.updateSmoke(focus);
     this.updateClouds(w, L);
@@ -779,18 +908,18 @@ class View3D {
   followLabel() {
     if (this.rig.mode !== 'follow') return '';
     const w = this.subjectWalker;
-    const name = w === 'hero' || w?.hero ? this.deps.lifeChar()?.first : w && this.deps.nameOf(w);
+    const name = w === 'hero' || w?.hero ? this.lifeChar()?.first : w && this.deps.nameOf(w);
     return name ? `Following ${name}` : 'Following a resident';
   }
 
   followHero() {
-    const char = this.deps.lifeChar();
+    const char = this.lifeChar();
     if (!char?.alive) {
       // No Life character yet: follow someone out walking near the middle of the view.
       const f = this.rig.focus();
       let best = null;
       let bestD = Infinity;
-      for (const w of this.deps.agents.walkers) {
+      for (const w of this.focus.agents.walkers) {
         if (w.alpha < 0.5 || w.leaving) continue;
         const d = (w.gx - f.x) ** 2 + (w.gy - f.z) ** 2;
         if (d < bestD) {
@@ -809,12 +938,12 @@ class View3D {
 
   subjectPos() {
     if (this.subjectWalker === 'hero') {
-      const h = this.deps.agents.hero;
+      const h = this.focus.agents.hero;
       if (h && !h.dead && h.alpha > 0.2) {
         this.lastHero = { x: h.gx, z: h.gy, heading: h.heading || 0 };
         return this.lastHero;
       }
-      const c = this.deps.lifeChar();
+      const c = this.lifeChar();
       if (this.lastHero) return this.lastHero;
       return c?.home ? { x: c.home.x + 0.5, z: c.home.y + 0.5, heading: 0 } : null;
     }
@@ -830,7 +959,7 @@ class View3D {
     if (!w.dead && w.alpha > 0.1) return;
     let best = null;
     let bestD = 9;
-    for (const o of this.deps.agents.walkers) {
+    for (const o of this.focus.agents.walkers) {
       if (o === w || o.alpha < 0.5 || o.leaving) continue;
       const d = (o.gx - w.gx) ** 2 + (o.gy - w.gy) ** 2;
       if (d < bestD) {
