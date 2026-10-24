@@ -33,6 +33,7 @@ export class CameraRig {
     this.f = { yaw: 0, dist: 0.7, pitch: 0.62, x: 0, y: 0, z: 0, lx: 0, ly: 0, lz: 0, ready: false };
     this.fg = { yaw: 0, dist: 0.7, pitch: 0.62 };
     this.blocked = () => false; // (x, z) → true when the street camera may not stand there
+    this.area = null; // { x0, z0, x1, z1 }: how far the orbit camera may roam (the whole world)
     this.from = null;
     this.blend = 1;
   }
@@ -133,8 +134,9 @@ export class CameraRig {
     const fz = -Math.sin(yaw);
     const rx = Math.sin(yaw);
     const rz = -Math.cos(yaw);
-    this.og.x = clamp(this.og.x + (rx * right + fx * forward) * k, -2, this.w + 2);
-    this.og.z = clamp(this.og.z + (rz * right + fz * forward) * k, -2, this.h + 2);
+    const a = this.area || { x0: -2, z0: -2, x1: this.w + 2, z1: this.h + 2 };
+    this.og.x = clamp(this.og.x + (rx * right + fx * forward) * k, a.x0, a.x1);
+    this.og.z = clamp(this.og.z + (rz * right + fz * forward) * k, a.z0, a.z1);
   }
 
   // Walk the street camera (forward and right in grid units), sliding along walls.

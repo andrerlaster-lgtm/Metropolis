@@ -56,7 +56,8 @@ function slab(md, x, y, s, u0, u1, v1, top, kerb) {
   else md.quad(p1, p0, p3, p2, kerb);
 }
 
-// ctx: grass(hex), snow (0..1), era, roadMask/crossMask per tile, lamp(t), hash(x, y, k), palette.
+// ctx: grass(hex), snow (0..1), era, roadMask/crossMask per tile, lamp(t), hash(x, y, k), palette,
+// edges (false: no diorama sides, for a town standing in the countryside among others).
 export function buildGround(out, city, x0, y0, x1, y1, ctx) {
   const g = out.ground;
   const P = ctx.palette;
@@ -120,9 +121,9 @@ export function buildGround(out, city, x0, y0, x1, y1, ctx) {
           const ny = y + DY[sd];
           const nb = city.getTile(nx, ny);
           if (nb && nb.terrain === 'water') bank(g, x, y, sd, 0, BED_Y, earth);
-          else if (!nb) bank(g, x, y, sd, 0, -SLAB, earthDark, true);
+          else if (!nb && ctx.edges !== false) bank(g, x, y, sd, 0, -SLAB, earthDark, true);
         }
-      } else {
+      } else if (ctx.edges !== false) {
         for (let sd = 0; sd < 4; sd++) if (!city.getTile(x + DX[sd], y + DY[sd])) bank(g, x, y, sd, BED_Y, -SLAB, earthDark, true);
       }
     }

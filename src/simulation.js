@@ -67,10 +67,12 @@ export class Simulation {
     if (this._notableRates && this.notables.update(step / DAY_LENGTH_SECONDS, this._notableRates)) city.dirty = true; // their bonuses apply now
     this.weather.update(step);
     this.disasters.update(step);
-    this.agents.update(step, daylightAt(city.clock));
+    // Walkers and cars only show what's happening, so a town nobody is looking at can skip them.
+    const watched = this.agentsActive !== false;
+    if (watched) this.agents.update(step, daylightAt(city.clock));
     this.life.update(step);
     // Townsfolk live hour by hour; the trips they make show up as walkers.
-    if (city.stats) for (const trip of this.townsfolk.update()) this.agents.townTrip(trip, this.townsfolk.byId(trip.id));
+    if (city.stats) for (const trip of this.townsfolk.update()) if (watched) this.agents.townTrip(trip, this.townsfolk.byId(trip.id));
   }
 
   tick() {
@@ -93,7 +95,7 @@ export class Simulation {
       recomputeDesirability(city);
       this.economy.assess();
       this._notableRates = this.notables.rates();
-      this._marketTimer = 1;
+      this._marketTimer = this.refreshEvery || 1; // computer-run towns look less often (world.js)
     }
     this.updateHousing();
     this.updateStats();

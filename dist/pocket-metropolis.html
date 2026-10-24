@@ -3003,6 +3003,150 @@ button:focus-visible {
   }
 }
 
+/* The world: your town and the computer's (world.js, worldUI.js) */
+#btn-world {
+  --owner: #8a6cc4;
+}
+#btn-world svg {
+  color: var(--owner);
+}
+#app.mode-watch .toolbar,
+#app.mode-watch .tray,
+#app.mode-watch .history-btns,
+#app.mode-watch #btn-random,
+#app.mode-watch #btn-follow,
+#app.mode-watch .stats .tier {
+  display: none !important;
+}
+.world-sheet {
+  width: min(600px, calc(100vw - 24px));
+}
+.wt-intro {
+  margin: 0;
+  color: var(--ink-soft);
+  font: 700 13px/1.4 var(--font-body);
+}
+.wt-map {
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  background: #cfe6c4;
+}
+.wt-cards {
+  display: grid;
+  gap: 8px;
+}
+.wt-card {
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border-left: 5px solid var(--owner);
+}
+.wt-card.is-here {
+  box-shadow: 0 0 0 2px var(--owner);
+}
+.wt-card header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.wt-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font: 600 17px/1.2 var(--font-display, var(--font-body));
+}
+.wt-owner,
+.wb-owner {
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: var(--owner);
+  color: #fff;
+  font: 800 11.5px/1.2 var(--font-body);
+}
+.wt-here {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font: 800 11.5px/1 var(--font-body);
+}
+.wt-stats {
+  margin: 6px 0;
+  color: var(--ink);
+  font: 700 13px/1.45 var(--font-body);
+}
+.wt-log {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font: 700 12.5px/1.45 var(--font-body);
+}
+.wt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wt-actions .pill,
+.watch-banner .pill {
+  height: 34px;
+  padding: 0 14px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+}
+.wt-actions .pill[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+.watch-banner {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 8px 10px 8px 12px;
+  border-radius: 20px;
+  z-index: 4;
+}
+.watch-banner[hidden] {
+  display: none;
+}
+.wb-text {
+  color: var(--ink);
+  font: 700 13px/1.35 var(--font-body);
+}
+.wb-text small {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.wb-home {
+  white-space: nowrap;
+}
+/* In 3D the bottom belongs to the camera controls: the banner moves under the top bar. */
+#app.mode-3d .watch-banner {
+  bottom: auto;
+  top: calc(env(safe-area-inset-top, 0px) + 72px);
+  left: auto;
+  right: 16px;
+  transform: none;
+}
+@media (max-width: 560px) {
+  .watch-banner {
+    left: 8px;
+    right: 8px;
+    transform: none;
+    max-width: none;
+    flex-wrap: wrap;
+  }
+  #btn-world .pill-text {
+    max-width: 88px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 </style>
 <main id="app">
       <canvas id="city" aria-label="Your city. Tap a tile to build, drag to pan, pinch or scroll to zoom."></canvas>
@@ -3036,6 +3180,10 @@ button:focus-visible {
       <div class="minimap-wrap glass" id="minimap" hidden><canvas aria-label="Minimap. Tap to move the view there."></canvas></div>
 
       <div class="corner">
+        <button type="button" id="btn-world" class="pill glass" aria-label="The world: your town and its neighbours" title="The world: your town and its neighbours" aria-haspopup="dialog" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5S9.4 5.9 12 3.5z"/></svg>
+          <span class="pill-text">World</span>
+        </button>
         <button type="button" id="btn-life" class="pill glass" aria-label="Life Story">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c.8-4 3.6-6.5 7-6.5s6.2 2.5 7 6.5"/></svg>
           <span class="pill-text">Life</span><span class="badge" hidden></span>
@@ -3066,6 +3214,8 @@ button:focus-visible {
       <section class="more-sheet glass" id="more-sheet" role="dialog" aria-label="City controls" hidden></section>
       <section class="more-sheet glass" id="newtown-sheet" role="dialog" aria-label="New town" hidden></section>
       <section class="more-sheet glass" id="slots-sheet" role="dialog" aria-label="Save slots" hidden></section>
+      <section class="more-sheet glass world-sheet" id="world-sheet" role="dialog" aria-label="The world" hidden></section>
+      <div class="watch-banner glass" id="watch-banner" role="status" hidden></div>
       <section class="decision-card glass" id="decision-card" role="dialog" aria-label="Town decision" hidden></section>
       <aside class="inspector glass" id="inspector" aria-live="polite" hidden></aside>
       <aside class="city-panel glass" id="city-panel" aria-label="Your town" hidden></aside>
@@ -9525,6 +9675,8 @@ const __mod_growth = (() => {
 //
 // Homes and businesses are built by residents (free); roads, services, parks and trees are paid
 // from the town's budget, and are skipped when it can't afford them. The player can keep building too.
+// A computer-run town (cpuPlanner.js) sets `payAll`: then everything is paid for at the player's prices,
+// and a `reserve` of money is kept back for upkeep.
 //
 // Saved in city.systems.growth = { on, timer, boosts: [{ mult, until, label }], built }.
 
@@ -9564,6 +9716,9 @@ class Growth {
     this.economy = economy;
     this.milestones = milestones;
     this.rng = rng;
+    this.payAll = false; // pay for homes and businesses too (computer-run towns)
+    this.reserve = 0; // with payAll: money kept back, never spent on building
+    this.onBuilt = null; // (what) → called after each change the town makes
   }
 
   get state() {
@@ -9621,9 +9776,13 @@ class Growth {
     return this.count([type]) < 1 + Math.floor(pop / per);
   }
 
-  canPay(type) {
-    if (!PUBLIC.has(type) || !this.economy) return true;
-    return this.economy.canAfford(this.economy.costOf(type));
+  paid(type) {
+    return !!this.economy && (this.payAll || PUBLIC.has(type));
+  }
+
+  canPay(type, n = 1) {
+    if (!this.paid(type)) return true;
+    return this.economy.canAfford(this.economy.costOf(type) * n + (this.payAll ? this.reserve : 0));
   }
 
   // ---- Demand ------------------------------------------------------------------------------
@@ -9683,6 +9842,7 @@ class Growth {
       const done = this.act(pickd[0]);
       if (done) {
         this.state.built = (this.state.built || 0) + 1;
+        this.onBuilt?.(done);
         return done;
       }
       order.splice(order.indexOf(pickd), 1);
@@ -9763,7 +9923,7 @@ class Growth {
     if (!t || !this.allowed(type) || !this.canPay(type)) return null;
     if (t.structure?.type === 'tree') this.city.apply('bulldoze', t.x, t.y, { delay: 0.6 });
     if (!this.city.apply(type, t.x, t.y, { delay: 0.6 })) return null;
-    if (PUBLIC.has(type) && this.economy) this.economy.spend(this.economy.costOf(type));
+    if (this.paid(type)) this.economy.spend(this.economy.costOf(type));
     this.city.dirty = true;
     if (FIRSTS[type] && this.count([type]) === 1) addChronicle(this.city, `${FIRSTS[type]}.`, t, 'first');
     this.city.emit('grew', { type, x: t.x, y: t.y });
@@ -9805,7 +9965,9 @@ class Growth {
     const residents = h.structure.residents;
     const variant = h.structure.variant;
     const type = UP[h.structure.type];
+    if (this.payAll && !this.canPay(type)) return null;
     if (!this.city.apply(type, h.x, h.y, { delay: 0.6 })) return null;
+    if (this.payAll) this.economy.spend(this.economy.costOf(type));
     h.structure.residents = Math.min(residents, STRUCTURES[type].capacity);
     if (variant) h.structure.variant = variant;
     this.city.dirty = true;
@@ -9919,7 +10081,7 @@ class Growth {
     if (!lot) return null;
     if (lot.structure?.type === 'tree') this.city.apply('bulldoze', lot.x, lot.y, { delay: 0.3 });
     if (!this.city.apply(type, lot.x, lot.y, { delay: 0.3 })) return null;
-    if (!free && PUBLIC.has(type) && this.economy) this.economy.spend(this.economy.costOf(type));
+    if (!free && this.paid(type)) this.economy.spend(this.economy.costOf(type));
     this.city.dirty = true;
     if (FIRSTS[type] && this.count([type]) === 1) addChronicle(this.city, `${FIRSTS[type]}.`, lot, 'first');
     this.city.emit('grew', { type, x: lot.x, y: lot.y });
@@ -9980,7 +10142,7 @@ class Growth {
       candidates.splice(candidates.indexOf(cand), 1);
       const path = this.trace(cand.from, cand.dx, cand.dy, 3 + Math.floor(this.rng() * 4));
       if (!path) continue;
-      if (this.economy && !this.economy.canAfford(this.economy.costOf('road') * path.length)) return null;
+      if (this.economy && !this.canPay('road', path.length)) return null;
       let built = 0;
       for (const t of path) {
         if (t.structure?.type === 'tree') city.apply('bulldoze', t.x, t.y, { delay: 0.6 });
@@ -10958,10 +11120,12 @@ class Simulation {
     if (this._notableRates && this.notables.update(step / DAY_LENGTH_SECONDS, this._notableRates)) city.dirty = true; // their bonuses apply now
     this.weather.update(step);
     this.disasters.update(step);
-    this.agents.update(step, daylightAt(city.clock));
+    // Walkers and cars only show what's happening, so a town nobody is looking at can skip them.
+    const watched = this.agentsActive !== false;
+    if (watched) this.agents.update(step, daylightAt(city.clock));
     this.life.update(step);
     // Townsfolk live hour by hour; the trips they make show up as walkers.
-    if (city.stats) for (const trip of this.townsfolk.update()) this.agents.townTrip(trip, this.townsfolk.byId(trip.id));
+    if (city.stats) for (const trip of this.townsfolk.update()) if (watched) this.agents.townTrip(trip, this.townsfolk.byId(trip.id));
   }
 
   tick() {
@@ -10984,7 +11148,7 @@ class Simulation {
       recomputeDesirability(city);
       this.economy.assess();
       this._notableRates = this.notables.rates();
-      this._marketTimer = 1;
+      this._marketTimer = this.refreshEvery || 1; // computer-run towns look less often (world.js)
     }
     this.updateHousing();
     this.updateStats();
@@ -18530,6 +18694,565 @@ class Audio {
 return { zzfxG, SOUNDS, Audio };
 })();
 
+// ---- cpuPlanner.js ----
+const __mod_cpuPlanner = (() => {
+// The computer's mayor: a small rule-based planner that runs a town on its own.
+//
+// It doesn't invent buildings. It drives the town's own systems, under the player's rules:
+//   - growth.js decides what the town needs (homes when they fill up, work when people are idle,
+//     cafés and parks where townsfolk lack them, schools and clinics where families have none, new
+//     streets when lots run out), at the pace a growing town builds;
+//   - everything is paid for from the town's own budget at the player's prices (growth `payAll`),
+//     keeping a reserve back for upkeep, and nothing is built while the money isn't there;
+//   - eras and milestones decide what may be built, and every placement goes through city.apply,
+//     the same placement rules as the player's tools;
+//   - when families need a school or clinic it can't afford yet, it saves up for it (other building
+//     waits, except new businesses while many people are out of work, since they bring in taxes) and
+//     builds it as soon as the money is there;
+//   - town decisions are answered by weighing their effects against what the town can afford.
+// It only ever touches its own town.
+//
+// Saved in the town's city.systems.cpu = { log: [{ day, type, x, y, n, rebuilt }], built,
+// goal: { kind, type, cost, since } | null }.
+
+const { decisionById } = __mod_decisions;
+const LOG_KEEP = 12;
+const RESERVE_MIN = 250;
+const LOOK_EVERY = 20; // game seconds between looks at what the town needs most
+const SAVE_DAYS = 30; // never save for longer than this (at today's income); give up after 1.5× the plan
+// Essentials worth saving up for: growth demand → building.
+const ESSENTIALS = [
+  ['school', 'school'],
+  ['clinic', 'clinic'],
+];
+
+class CpuPlanner {
+  constructor(sim) {
+    this.sim = sim;
+    this.city = sim.city;
+    const g = sim.growth;
+    g.on = true;
+    g.payAll = true;
+    g.onBuilt = (what) => this.note(what);
+  }
+
+  get state() {
+    const s = this.city.systems;
+    if (!s.cpu) s.cpu = { log: [], built: 0 };
+    return s.cpu;
+  }
+
+  dispose() {
+    if (this.sim.growth.onBuilt) this.sim.growth.onBuilt = null;
+  }
+
+  // Money kept back: a couple of days of upkeep, and never less than a small float.
+  reserve() {
+    const out = this.city.derived.economy?.totalOut || 0;
+    return Math.max(RESERVE_MIN, Math.round(out * 2));
+  }
+
+  // Called after the town's simulation has run for `step` game seconds.
+  update(step = 0) {
+    const sim = this.sim;
+    const g = sim.growth;
+    g.on = true;
+    g.payAll = true;
+    const base = this.reserve();
+    g.reserve = base;
+    if (sim.decisions.pending) this.decide();
+    this._look = (this._look ?? 0) - step;
+    if (this._look <= 0) {
+      this._look = LOOK_EVERY;
+      this.plan();
+    }
+    const goal = this.state.goal;
+    if (!goal) return;
+    // Saving up: other building waits until the money for the goal is there, except new jobs when
+    // many people are out of work (they pay taxes, so the saving goes faster).
+    if (sim.economy.money < goal.cost + base) {
+      g.reserve = goal.cost + base;
+      const today = this.city.day;
+      if (this.jobsWanted && this.state.jobDay !== today && sim.economy.money >= 300 + base) {
+        g.reserve = base;
+        const done = g.act('work');
+        if (done) {
+          this.note(done);
+          this.state.jobDay = today; // one new business a day while saving
+        }
+        g.reserve = goal.cost + base;
+      }
+      return;
+    }
+    const done = g.act(goal.kind);
+    this.state.goal = null;
+    if (done) this.note(done);
+  }
+
+  // What the town needs most that it can't yet afford: start (or give up) saving for it.
+  plan() {
+    const st = this.state;
+    const g = this.sim.growth;
+    const now = this.city.day + this.city.clock;
+    if (st.goal && now - st.goal.since > (st.goal.days || SAVE_DAYS) * 1.5) {
+      st.resting = now + 3; // it didn't work out (no money coming in, or nowhere to put it); later
+      st.goal = null;
+    }
+    if (st.goal || (st.resting && now < st.resting)) return;
+    const net = this.city.derived.economy?.net || 0;
+    if (net <= 0) return; // no income: saving would never end
+    const d = g.demand();
+    this.jobsWanted = (d.work || 0) >= 1.5;
+    const want = ESSENTIALS.filter(([kind, type]) => (d[kind] || 0) >= 0.7 && g.allowed(type)).sort((a, b) => d[b[0]] - d[a[0]])[0];
+    if (!want) return;
+    const cost = this.sim.economy.costOf(want[1]);
+    const short = cost + this.reserve() - this.sim.economy.money;
+    if (short <= 0) return; // affordable now: growth will get to it
+    const days = short / net;
+    if (days > SAVE_DAYS) return; // too far off at today's income
+    st.goal = { kind: want[0], type: want[1], cost, since: now, days: Math.max(2, days) };
+  }
+
+  // Answer a town decision: the choice with the best effects the town can afford with money to spare.
+  decide() {
+    const p = this.sim.decisions.pending;
+    const d = p && decisionById(p.id);
+    if (!d) return null;
+    const money = this.sim.economy.money;
+    const spare = money - this.reserve();
+    let best = d.choices.length - 1;
+    let bestScore = -Infinity;
+    d.choices.forEach((c, i) => {
+      if (c.cost && c.cost > spare) return;
+      const s = scoreChoice(c, money);
+      if (s > bestScore) {
+        bestScore = s;
+        best = i;
+      }
+    });
+    return this.sim.decisions.choose(best);
+  }
+
+  note(ev) {
+    const st = this.state;
+    st.built = (st.built || 0) + 1;
+    st.log.unshift({ day: this.city.day, type: ev.type, x: ev.x, y: ev.y, n: ev.n || 1, rebuilt: !!ev.rebuilt });
+    if (st.log.length > LOG_KEEP) st.log.length = LOG_KEEP;
+  }
+}
+
+// How good a choice looks to a careful mayor: growth and happiness are good, spending is weighed
+// against what the town has, and income helps a poor town most.
+function scoreChoice(c, money) {
+  let s = 0;
+  if (c.growth) s += (c.growth[0] - 1) * 6 * Math.min(c.growth[1], 6);
+  if (c.spirit) s += c.spirit[0] * 40 * Math.min(c.spirit[1], 8);
+  if (c.cost) s -= (c.cost / Math.max(500, money)) * 6;
+  if (c.gain) s += (c.gain / Math.max(500, money)) * 6;
+  if (c.build) s += 1.5;
+  if (c.fun) s += c.fun * 3;
+  if (c.tax) s += (c.tax - 1) * (money < 1500 ? 8 : -4);
+  if (c.prepare || c.levee || c.resilience) s += 1;
+  if (c.hurry) s += 0.5;
+  return s;
+}
+
+return { CpuPlanner, scoreChoice };
+})();
+
+// ---- world.js ----
+const __mod_world = (() => {
+// The world: your town and its neighbours. Each town is a whole town of its own (its own map, people,
+// budget, era and simulation), placed side by side in one world with countryside between them.
+// Your town is run by you; neighbours are run by the computer (cpuPlanner.js). They share the calendar
+// and the clock, so day, night and the seasons are the same everywhere, and they never touch each
+// other's tiles, people or money.
+//
+// Saved inside your town, in city.systems.world:
+//   { version, home: { name, at: { x, y } },
+//     cities: [{ id, name, owner: 'cpu', at: { x, y }, seed, data: <the town, as CityState.toJSON> }] }
+// `at` is where a town's top-left corner sits in world tiles. A save from before the world existed
+// gets a neighbour the first time it's opened; older versions of the game keep the data untouched.
+// More neighbours can be added with addNeighbour().
+
+const { CityState } = __mod_state;
+const { Simulation } = __mod_simulation;
+const { generateSeed } = __mod_generator;
+const { CpuPlanner } = __mod_cpuPlanner;
+const WORLD_VERSION = 1;
+const NEIGHBOUR_SIZE = 32;
+const GAP = 8; // countryside between towns, in tiles
+const MIN_SIZE = 8;
+const MAX_SIZE = 128;
+
+const FIRST = ['Maple', 'Willow', 'River', 'Clover', 'Hazel', 'Stone', 'Brook', 'Elder', 'Fern', 'Linden', 'Ash', 'Oak', 'Meadow', 'Sparrow', 'Juniper', 'Cedar', 'Amber', 'Bramble', 'Thistle', 'Heather'];
+const LAST = ['field', 'ford', 'bury', 'ton', 'wick', 'dale', 'mere', 'brook', 'haven', 'stead', 'worth', 'vale', 'gate', 'well'];
+
+function townName(rand = Math.random, avoid = []) {
+  for (let i = 0; i < 20; i++) {
+    const name = FIRST[Math.floor(rand() * FIRST.length)] + LAST[Math.floor(rand() * LAST.length)];
+    if (!avoid.includes(name)) return name;
+  }
+  return `New Town ${avoid.length + 1}`;
+}
+
+const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+const validAt = (at) => !!at && finite(at.x) && finite(at.y);
+
+function validWorld(st) {
+  return !!st && typeof st === 'object' && Array.isArray(st.cities) && !!st.home && typeof st.home.name === 'string' && validAt(st.home.at);
+}
+
+class World {
+  // home: your town's CityState; homeSim: its Simulation.
+  constructor(home, homeSim, { rand = Math.random } = {}) {
+    this.home = home;
+    this.homeSim = homeSim;
+    this.rand = rand;
+    this.cities = [];
+    this.load();
+  }
+
+  get state() {
+    return this.home.systems.world;
+  }
+
+  get neighbours() {
+    return this.cities.filter((c) => c.owner !== 'player');
+  }
+
+  byId(id) {
+    return this.cities.find((c) => c.id === id) || null;
+  }
+
+  // (Re)build the world from your town's saved data: after loading a save, a new town or a visit.
+  load() {
+    this.dispose();
+    const home = this.home;
+    if (!validWorld(home.systems.world)) home.systems.world = { version: WORLD_VERSION, home: { name: townName(this.rand), at: { x: 0, y: 0 } }, cities: [] };
+    const st = home.systems.world;
+    st.version = WORLD_VERSION;
+    this.cities = [{ id: 'home', owner: 'player', entry: st.home, city: home, sim: this.homeSim, planner: null }];
+    for (const e of st.cities) {
+      if (!e || typeof e !== 'object' || e.owner !== 'cpu') continue; // kinds a later version may add are kept, not run
+      this.cities.push(this.open(e));
+    }
+    if (!this.neighbours.length) this.addNeighbour();
+  }
+
+  // A computer-run town from its saved entry, or founded fresh if it has none (or it's unreadable).
+  open(e) {
+    if (typeof e.id !== 'string') e.id = `cpu-${this.cities.length}`;
+    if (typeof e.name !== 'string' || !e.name) e.name = townName(this.rand, this.cities.map((c) => c.entry.name));
+    if (!validAt(e.at)) e.at = this.freeSpot(NEIGHBOUR_SIZE);
+    if (!finite(e.seed)) e.seed = Math.floor(this.rand() * 2 ** 31);
+    let city = null;
+    const d = e.data;
+    if (d && typeof d === 'object' && finite(d.width) && finite(d.height) && d.width >= MIN_SIZE && d.height >= MIN_SIZE && d.width <= MAX_SIZE && d.height <= MAX_SIZE) {
+      try {
+        city = CityState.fromJSON(d);
+      } catch {
+        city = null;
+      }
+    }
+    const sim = new Simulation(city || new CityState(NEIGHBOUR_SIZE, NEIGHBOUR_SIZE));
+    if (!city) this.found(sim, e);
+    sim.city.day = this.home.day;
+    sim.city.clock = this.home.clock;
+    sim.agentsActive = false; // walkers and cars only while someone is looking
+    sim.refreshEvery = 2.5; // jobs, traffic and appeal are refreshed every 2.5 game seconds, not every one
+    sim.refresh();
+    const planner = new CpuPlanner(sim);
+    // The saved entry always holds the town as it is now (read when the save is written).
+    Object.defineProperty(e, 'data', {
+      get: () => sim.city.toJSON(),
+      set: (v) => Object.defineProperty(e, 'data', { value: v, writable: true, enumerable: true, configurable: true }),
+      enumerable: true,
+      configurable: true,
+    });
+    return { id: e.id, owner: 'cpu', entry: e, city: sim.city, sim, planner };
+  }
+
+  // A small settlement: a crossroads with a few homes, the land's starting budget, and the same
+  // calendar and know-how (era) as the rest of the world.
+  found(sim, e) {
+    const city = sim.city;
+    generateSeed(city, e.seed >>> 0);
+    city.systems.mode = 'milestones';
+    city.day = this.home.day;
+    city.clock = this.home.clock;
+    sim.economy.reset('land');
+    sim.refresh();
+    sim.eras.found();
+    const era = this.home.systems.era; // read only: the world never writes to your town
+    if (era && finite(era.startYear) && finite(era.index)) {
+      const st = city.systems.era;
+      st.startYear = era.startYear;
+      st.index = era.index;
+      st.history = [{ index: era.index, year: sim.eras.year }];
+    }
+  }
+
+  // Add one more computer-run town in the next free spot around yours. Returns it.
+  addNeighbour({ name, size = NEIGHBOUR_SIZE } = {}) {
+    const st = this.state;
+    const e = {
+      id: `cpu-${st.cities.length + 1}`,
+      name: name || townName(this.rand, this.cities.map((c) => c.entry.name)),
+      owner: 'cpu',
+      at: this.freeSpot(size),
+      seed: Math.floor(this.rand() * 2 ** 31),
+    };
+    while (this.byId(e.id)) e.id += '+';
+    e.data = null;
+    st.cities.push(e);
+    const c = this.open(e);
+    this.cities.push(c);
+    return c;
+  }
+
+  // Beside your town: east, south, west, north, then further out.
+  freeSpot(size) {
+    const h = this.home;
+    const taken = this.cities.filter((c) => c.owner !== 'player').map((c) => c.entry.at);
+    for (let ring = 1; ring < 8; ring++) {
+      const d = ring * GAP + (ring - 1) * size;
+      const spots = [
+        { x: h.width + d, y: Math.round((h.height - size) / 2) },
+        { x: Math.round((h.width - size) / 2), y: h.height + d },
+        { x: -size - d, y: Math.round((h.height - size) / 2) },
+        { x: Math.round((h.width - size) / 2), y: -size - d },
+      ];
+      const free = spots.find((p) => !taken.some((t) => t && Math.abs(t.x - p.x) < size && Math.abs(t.y - p.y) < size));
+      if (free) return free;
+    }
+    return { x: h.width + GAP, y: 0 };
+  }
+
+  // Run every neighbour for the same time as your town, then keep the shared clock in step.
+  update(dt, speed) {
+    for (const c of this.cities) {
+      if (!c.planner) continue;
+      c.sim.speed = speed;
+      c.sim.update(dt);
+      c.city.day = this.home.day;
+      c.city.clock = this.home.clock;
+      c.planner.update(Math.min(dt, 0.25) * speed);
+    }
+  }
+
+  // Each town's place in the world, for the world map and the 3D view.
+  layout() {
+    return this.cities.map((c) => ({ id: c.id, name: c.entry.name, owner: c.owner, x: c.entry.at.x, y: c.entry.at.y, w: c.city.width, h: c.city.height }));
+  }
+
+  dispose() {
+    for (const c of this.cities) c.planner?.dispose();
+    this.cities = [];
+  }
+}
+
+return { WORLD_VERSION, NEIGHBOUR_SIZE, townName, World };
+})();
+
+// ---- worldUI.js ----
+const __mod_worldUI = (() => {
+// The world on screen: the World button, the World sheet (a map of every town with who runs it, its
+// people, money and era, and what the computer built lately) and the banner shown while you watch a
+// town you don't run.
+
+const { STRUCTURES, MILESTONES } = __mod_config;
+const { ERAS } = __mod_eras;
+const { money } = __mod_economy;
+const OWNER = {
+  player: { label: 'You', long: 'Run by you', color: '#8a6cc4' },
+  cpu: { label: 'Computer', long: 'Run by the computer', color: '#e9846f' },
+};
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+const TILE_COLORS = { water: '#7ec8e3', road: '#b9b3bd', green: '#a8d5a2', park: '#8fcf95', home: '#f2a191', work: '#9cc4ea', service: '#cdb4db', rubble: '#b9ae9f' };
+
+function tileColor(t) {
+  if (t.terrain === 'water') return TILE_COLORS.water;
+  const s = t.structure;
+  if (!s) return null;
+  if (s.type === 'road') return TILE_COLORS.road;
+  if (s.type === 'rubble') return TILE_COLORS.rubble;
+  const def = STRUCTURES[s.type];
+  if (def.walkable) return TILE_COLORS.park;
+  if (def.capacity) return TILE_COLORS.home;
+  if (def.service) return TILE_COLORS.service;
+  return TILE_COLORS.work;
+}
+
+// What one entry of the computer's build log says, in words.
+function describeBuild(city, b) {
+  const name = (STRUCTURES[b.type]?.label || b.type).toLowerCase();
+  const what = b.type === 'road' ? `${b.n > 1 ? `${b.n} tiles of ` : ''}road` : b.rebuilt ? `rebuilt a home as ${name === 'apartments' ? 'apartments' : `a ${name}`}` : `${/^[aeiou]/.test(name) ? 'an' : 'a'} ${name}`;
+  const t = city.getTile(b.x, b.y);
+  const where = t?.address || (t?.street ? `on ${t.street}` : '');
+  return `${b.rebuilt ? what[0].toUpperCase() + what.slice(1) : `Built ${what}`}${where ? ` · ${where}` : ''}`;
+}
+
+function townSummary(c) {
+  const city = c.city;
+  const s = city.stats || {};
+  let buildings = 0;
+  for (const t of city.tiles) if (t.structure && t.structure.type !== 'road' && t.structure.type !== 'tree') buildings++;
+  return {
+    name: c.entry.name,
+    owner: OWNER[c.owner] || OWNER.cpu,
+    population: s.population || 0,
+    happiness: s.homes ? s.happiness : null,
+    money: c.sim.economy.money,
+    sandbox: c.sim.economy.sandbox,
+    era: ERAS[city.systems.era?.index ?? 0]?.label || '',
+    tier: MILESTONES[c.sim.milestones.reached]?.label || '',
+    buildings,
+    log: city.systems.cpu?.log || [],
+  };
+}
+
+class WorldPanel {
+  // world: World; h: { onView(id), on3D(id), viewing() → town, toast }
+  constructor(world, h) {
+    this.world = world;
+    this.h = h;
+    this.el = document.getElementById('world-sheet');
+    this.btn = document.getElementById('btn-world');
+    this.banner = document.getElementById('watch-banner');
+    this.open = false;
+    this._key = '';
+    this.btn.addEventListener('click', () => this.toggle());
+    this.el.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.close != null) return this.toggle(false);
+      if (b.dataset.view) {
+        this.toggle(false);
+        this.h.onView(b.dataset.view);
+      } else if (b.dataset.view3d) {
+        this.toggle(false);
+        this.h.on3D(b.dataset.view3d);
+      }
+    });
+    this.banner.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (b?.dataset.home != null) this.h.onView('home');
+      else if (b?.dataset.world != null) this.toggle(true);
+    });
+  }
+
+  toggle(force = !this.open) {
+    this.open = force;
+    this.el.hidden = !force;
+    this.btn.setAttribute('aria-expanded', String(force));
+    if (force) {
+      this.h.onOpen?.();
+      this._key = '';
+      this.render();
+    }
+  }
+
+  // Called a few times a second.
+  tick() {
+    const viewing = this.h.viewing();
+    this.btn.querySelector('.pill-text').textContent = viewing.entry.name;
+    this.btn.style.setProperty('--owner', (OWNER[viewing.owner] || OWNER.cpu).color);
+    this.renderBanner(viewing);
+    if (this.open) this.render();
+  }
+
+  renderBanner(c) {
+    const watching = c.owner !== 'player';
+    this.banner.hidden = !watching;
+    if (!watching) return;
+    const s = townSummary(c);
+    const last = s.log[0];
+    const home = this.world.cities[0].entry.name;
+    const key = `${c.id}|${s.population}|${Math.round(s.money)}|${last ? last.day + last.type + last.x + last.y : ''}|${s.tier}`;
+    if (key === this._bannerKey) return;
+    this._bannerKey = key;
+    this.banner.innerHTML = `
+      <span class="wb-owner" style="--owner:${s.owner.color}">${esc(s.owner.label)}</span>
+      <span class="wb-text"><b>${esc(s.name)}</b> · ${esc(s.owner.long)}${s.tier ? ` · ${esc(s.tier)}` : ''}<br>
+        <small>${s.population.toLocaleString()} people · ${money(s.money)}${last ? ` · ${esc(describeBuild(c.city, last))}` : ''}</small></span>
+      <button type="button" class="pill" data-world>World</button>
+      <button type="button" class="pill wb-home" data-home>Back to ${esc(home)}</button>`;
+  }
+
+  render() {
+    const towns = this.world.cities.map((c) => ({ c, s: townSummary(c) }));
+    const viewing = this.h.viewing();
+    const key = towns.map(({ c, s }) => `${c.id}${s.population}${Math.round(s.money)}${s.buildings}${s.log[0]?.day}${s.log.length}`).join('|') + viewing.id;
+    if (key === this._key) return;
+    this._key = key;
+    const cards = towns
+      .map(
+        ({ c, s }) => `
+      <article class="wt-card${c === viewing ? ' is-here' : ''}" style="--owner:${s.owner.color}">
+        <header><span class="wt-owner">${esc(s.owner.label)}</span><h3>${esc(s.name)}</h3>${c === viewing ? '<span class="wt-here">On screen</span>' : ''}</header>
+        <p class="wt-stats">${s.population.toLocaleString()} people · ${s.buildings} buildings · ${s.happiness == null ? 'no one yet' : `${s.happiness}% happy`}<br>${esc(s.era)}${s.tier ? ` · ${esc(s.tier)}` : ''} · ${s.sandbox ? 'Sandbox' : money(s.money)}</p>
+        ${c.owner !== 'player' && s.log.length ? `<ul class="wt-log">${s.log.slice(0, 3).map((b) => `<li>${esc(describeBuild(c.city, b))} <small>(day ${b.day})</small></li>`).join('')}</ul>` : ''}
+        <div class="wt-actions">
+          <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : 'Watch'}</button>
+          <button type="button" class="pill" data-view3d="${esc(c.id)}">See in 3D</button>
+        </div>
+      </article>`
+      )
+      .join('');
+    this.el.innerHTML = `
+      <header><h2>The world</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>
+      <p class="wt-intro">Each town has its own people, money and buildings. The computer runs its towns by the same rules as yours: it pays for what it builds, and only what its era and milestones allow.</p>
+      <canvas class="wt-map" width="560" height="220" aria-label="Map of the world"></canvas>
+      <div class="wt-cards">${cards}</div>`;
+    this.drawMap(this.el.querySelector('canvas'), viewing);
+  }
+
+  // A little top-down map: every town's tiles, its border in its owner's colour, and its name.
+  drawMap(canvas, viewing) {
+    const g = canvas.getContext('2d');
+    const lay = this.world.cities.map((c) => ({ c, x: c.entry.at.x, y: c.entry.at.y, w: c.city.width, h: c.city.height }));
+    const x0 = Math.min(...lay.map((l) => l.x)) - 4;
+    const y0 = Math.min(...lay.map((l) => l.y)) - 4;
+    const x1 = Math.max(...lay.map((l) => l.x + l.w)) + 4;
+    const y1 = Math.max(...lay.map((l) => l.y + l.h)) + 4;
+    const k = Math.min(canvas.width / (x1 - x0), canvas.height / (y1 - y0));
+    const ox = (canvas.width - (x1 - x0) * k) / 2;
+    const oy = (canvas.height - (y1 - y0) * k) / 2;
+    g.clearRect(0, 0, canvas.width, canvas.height);
+    g.fillStyle = '#cfe6c4';
+    g.fillRect(ox, oy, (x1 - x0) * k, (y1 - y0) * k);
+    for (const l of lay) {
+      const px = ox + (l.x - x0) * k;
+      const py = oy + (l.y - y0) * k;
+      g.fillStyle = TILE_COLORS.green;
+      g.fillRect(px, py, l.w * k, l.h * k);
+      for (const t of l.c.city.tiles) {
+        const col = tileColor(t);
+        if (!col) continue;
+        g.fillStyle = col;
+        g.fillRect(px + t.x * k, py + t.y * k, Math.ceil(k), Math.ceil(k));
+      }
+      const owner = OWNER[l.c.owner] || OWNER.cpu;
+      g.strokeStyle = owner.color;
+      g.lineWidth = l.c === viewing ? 4 : 2;
+      g.strokeRect(px, py, l.w * k, l.h * k);
+      g.font = '800 13px Nunito, system-ui, sans-serif';
+      const label = `${l.c.entry.name} · ${owner.label}`;
+      const tw = g.measureText(label).width + 12;
+      g.fillStyle = 'rgba(255,255,255,0.9)';
+      g.fillRect(px + 4, py + 4, tw, 20);
+      g.fillStyle = owner.color;
+      g.fillText(label, px + 10, py + 18);
+    }
+  }
+}
+
+return { OWNER, describeBuild, townSummary, WorldPanel };
+})();
+
 // ---- main.js ----
 const __mod_main = (() => {
 // Wiring: creates each system, connects input to state, and runs the frame loop.
@@ -18567,6 +19290,8 @@ const { History, lPath, tileLine } = __mod_history;
 const { Audio } = __mod_audio;
 const { daylightAt, sunHeight } = __mod_time;
 const { lightingAt } = __mod_lighting;
+const { World } = __mod_world;
+const { WorldPanel } = __mod_worldUI;
 const { crosswalkMask, footArms } = __mod_sidewalks;
 const { hash2 } = __mod_utils;
 const { mixHex } = __mod_color;
@@ -18669,6 +19394,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   let framing = 'town'; // what the recenter button framed last
   let stroke = null; // drag-to-build in progress: { start, last, tiles }
   let following = false; // the camera follows the main person
+  // The world (world.js): your town and its computer-run neighbours. `viewing` is the town on screen;
+  // you build only in your own, and watch the others.
+  let world = null;
+  let viewing = null;
+  const townViews = new Map(); // town id → its own Renderer (your town uses `renderer`)
+  const shownCity = () => viewing?.city || city;
+  const shownSim = () => viewing?.sim || sim;
+  const watching = () => !!viewing && viewing.owner !== 'player';
   let carryTimer = null; // the family story moves on to the next generation shortly after a death
 
   const tileAt = (sx, sy) => {
@@ -18676,7 +19409,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const g = worldToGrid(w.x, w.y);
     const x = Math.floor(g.gx);
     const y = Math.floor(g.gy);
-    return city.inBounds(x, y) ? { x, y } : null;
+    return shownCity().inBounds(x, y) ? { x, y } : null;
   };
 
   const ui = new Interface({
@@ -18701,7 +19434,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       unlockLabel: (id) => MILESTONES[unlockTier(id)]?.label || '',
     },
     costOf: (tool) => sim.economy.costOf(tool),
-    budget: () => ({ money: sim.economy.money, net: city.derived.economy?.net || 0, sandbox: sim.economy.sandbox }),
+    budget: () => ({ money: shownSim().economy.money, net: shownCity().derived.economy?.net || 0, sandbox: shownSim().economy.sandbox }),
     onShare: () => shareTown(),
     onBackHome: () => backHome(),
     onSlots: () => slotsSheet.toggle(true),
@@ -18844,6 +19577,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     },
   });
   function focusTile(x, y) {
+    if (watching()) showTown(world.cities[0], { immediate: true }); // it's a place in your own town
     const w = gridToWorld(x + 0.5, y + 0.5);
     camera.tx = w.x;
     camera.ty = w.y - 20;
@@ -18925,10 +19659,12 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   history.on(syncHistoryButtons);
   syncHistoryButtons();
   const doUndo = () => {
+    if (watching()) return ui.toast('Go back to your town to undo', 2000);
     const label = history.undo();
     if (label) ui.toast(`Undid ${label}`, 1600);
   };
   const doRedo = () => {
+    if (watching()) return ui.toast('Go back to your town to redo', 2000);
     const label = history.redo();
     if (label) ui.toast(`Redid ${label}`, 1600);
   };
@@ -18961,11 +19697,12 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   // The part of the map that is built up: homes, workplaces and services.
   function townBounds() {
+    const town = shownCity();
     let x0 = Infinity;
     let y0 = Infinity;
     let x1 = -Infinity;
     let y1 = -Infinity;
-    for (const t of city.tiles) {
+    for (const t of town.tiles) {
       const s = t.structure;
       if (!s || s.type === 'tree' || s.type === 'road') continue;
       x0 = Math.min(x0, t.x);
@@ -18985,11 +19722,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       y1 = Math.round(cy + r);
     }
     const pad = 1;
-    return tileRectBounds(Math.max(0, x0 - pad), Math.max(0, y0 - pad), Math.min(city.width - 1, x1 + pad), Math.min(city.height - 1, y1 + pad));
+    return tileRectBounds(Math.max(0, x0 - pad), Math.max(0, y0 - pad), Math.min(town.width - 1, x1 + pad), Math.min(town.height - 1, y1 + pad));
   }
 
   function fitView(immediate, target = 'town') {
-    camera.setBounds(mapBounds(city.width, city.height));
+    camera.setBounds(mapBounds(shownCity().width, shownCity().height));
     const rect = target === 'town' ? townBounds() : null;
     camera.fit(uiInsets(), immediate, rect || camera.bounds);
     framing = rect ? 'town' : 'map';
@@ -19209,6 +19946,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   onSettings(() => {
     minimap.setVisible(minimapOn());
     renderer.textScale = settings.largeText ? 1.2 : 1;
+    for (const v of townViews.values()) v.textScale = renderer.textScale;
     ui.renderMore();
   });
 
@@ -19216,8 +19954,9 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     renderer.resize(w, h);
+    for (const v of townViews.values()) v.resize(w, h);
     camera.setViewport(w, h);
-    camera.setBounds(mapBounds(city.width, city.height));
+    camera.setBounds(mapBounds(shownCity().width, shownCity().height));
     if (!fitted) {
       fitView(true);
       fitted = true;
@@ -19497,6 +20236,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     // Not while this tab is waiting for another tab to finish playing.
     canKeyPan: () => document.getElementById('tab-guard')?.hidden !== false,
     onTap: (sx, sy) => {
+      if (watching()) {
+        // Someone else's town: look, don't touch. A tap shows what's on the tile.
+        const t = tileAt(sx, sy);
+        selected = t && !(selected && selected.x === t.x && selected.y === t.y) ? t : null;
+        ui.inspect(shownCity(), selected);
+        if (selected) audio.play('click');
+        return;
+      }
       const th = renderer.thoughtAt(sx, sy);
       if (th) {
         audio.play('click');
@@ -19516,20 +20263,23 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y);
     },
     onBulldoze: (sx, sy) => {
+      if (watching()) return;
       const t = tileAt(sx, sy);
       if (t && !build('bulldozing', [t], () => city.apply('bulldoze', t.x, t.y))) nope(t.x, t.y);
     },
     onHover: (sx, sy) => {
-      hover = sx == null ? null : tileAt(sx, sy);
+      hover = sx == null || watching() ? null : tileAt(sx, sy);
     },
     // Drag to build: roads follow an L from where the drag started; other tools paint as a brush.
-    canPaint: () => tool !== 'inspect' && sim.milestones.isUnlocked(tool),
+    canPaint: () => !watching() && tool !== 'inspect' && sim.milestones.isUnlocked(tool),
     onPaintStart: (sx, sy) => {
+      if (watching()) return;
       const t = tileAt(sx, sy);
       stroke = t ? { tool, start: t, last: t, tiles: [t] } : null;
       hover = null;
     },
     onPaintMove: (sx, sy) => {
+      if (watching()) return;
       const t = tileAt(sx, sy);
       if (!t) return;
       if (!stroke) {
@@ -19555,7 +20305,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onPaintEnd: (commit) => {
       const s = stroke;
       stroke = null;
-      if (!commit || !s) return;
+      if (!commit || !s || watching()) return;
       const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
       if (!coords.length) return nope(s.start.x, s.start.y);
       if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
@@ -19583,6 +20333,97 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     city.emit('loaded');
     ui.toast(visiting ? `You're visiting a shared town. Your own town is in save slot ${activeSlot()}: ☰ → Back to my town` : 'Welcome back to your town', visiting ? 5000 : 2400);
   }
+  // ---- The world -------------------------------------------------------------------------------
+  // Your town and the computer's (world.js). Every town runs all the time; you see one at a time.
+  world = new World(city, sim);
+  viewing = world.cities[0];
+  const watchSpots = new Map(); // town id → where the camera was when you last looked
+  function rendererFor(c) {
+    if (c.owner === 'player') return renderer;
+    let r = townViews.get(c.id);
+    if (!r || r.city !== c.city) {
+      r = new Renderer(canvas, c.city, camera, c.sim.agents);
+      r.resize(canvas.clientWidth, canvas.clientHeight);
+      r.textScale = renderer.textScale;
+      townViews.set(c.id, r);
+    }
+    return r;
+  }
+  // Put another town on screen (yours or the computer's). Its walkers and cars come out while you look.
+  function showTown(c, { immediate = false } = {}) {
+    if (!c || c === viewing) return;
+    watchSpots.set(viewing.id, { tx: camera.tx, ty: camera.ty, zoom: camera.tzoom });
+    if (viewing.owner !== 'player') viewing.sim.agentsActive = false;
+    viewing = c;
+    c.sim.agentsActive = true;
+    stopFollow();
+    selected = null;
+    hover = null;
+    stroke = null;
+    ui.closeTray();
+    ui.inspect(c.city, null);
+    app.classList.toggle('mode-watch', watching());
+    minimap.city = c.city;
+    minimap.key = '';
+    const spot = watchSpots.get(c.id);
+    camera.setBounds(mapBounds(c.city.width, c.city.height));
+    if (spot) {
+      camera.tx = spot.tx;
+      camera.ty = spot.ty;
+      camera.tzoom = spot.zoom;
+      camera.clampTarget();
+      if (immediate) camera.update(10);
+    } else fitView(immediate);
+    if (in3D()) view3d.setWorld(worldFor3D());
+    worldPanel.tick();
+    if (watching()) ui.toast(`Watching ${c.entry.name}, run by the computer. You can look around, but only build in your own town`, 4200);
+  }
+  // The towns as the 3D view needs them: the one on screen, and the others where they sit in the world.
+  function worldFor3D() {
+    const at = viewing.entry.at;
+    return {
+      focus: { city: viewing.city, agents: viewing.sim.agents, renderer: rendererFor(viewing), home: viewing.owner === 'player' },
+      others: world.cities.filter((c) => c !== viewing).map((c) => ({ city: c.city, renderer: rendererFor(c), offset: { x: c.entry.at.x - at.x, z: c.entry.at.y - at.y } })),
+    };
+  }
+  function reloadWorld() {
+    if (watching()) showTown(world.cities[0], { immediate: true });
+    world.load();
+    viewing = world.cities[0];
+    townViews.clear();
+    watchSpots.clear();
+    if (in3D()) view3d.setWorld(worldFor3D());
+    worldPanel.tick();
+  }
+  city.on((ev) => {
+    if (ev.type === 'loaded') reloadWorld(); // another slot, a new town or a shared visit: its own world
+  });
+  const worldPanel = new WorldPanel(world, {
+    viewing: () => viewing,
+    onView: (id) => showTown(world.byId(id)),
+    on3D: (id) => {
+      showTown(world.byId(id), { immediate: true });
+      open3D();
+    },
+    onOpen: () => {
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      ui.closeTray();
+    },
+  });
+  // While you watch another town, the stats bubble opens the world, not your town's panel.
+  document.getElementById('stats').addEventListener(
+    'click',
+    (e) => {
+      if (!watching()) return;
+      e.stopImmediatePropagation();
+      worldPanel.toggle(true);
+    },
+    true
+  );
+  worldPanel.tick();
+
   // Say what happened to a save that couldn't be opened, after the welcome toast has had its turn.
   const notes = [startNote, rescued?.slot ? `Your town from before a shared visit was kept, in save slot ${rescued.slot}.` : rescued ? 'A town saved before a shared visit is kept safe. Free up a save slot to get it back.' : null].filter(Boolean);
   if (notes.length) setTimeout(() => ui.toast(notes.join(' '), 9000), 6500);
@@ -19591,6 +20432,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   hot?.snapshot?.(() => ({ city: city.toJSON() }));
 
   function viewState() {
+    if (watching()) return { overlay, selected, plan: null, issues: [] };
     const plan = stroke ? { tool: stroke.tool, tiles: stroke.tiles.map((c) => ({ ...c, valid: city.canApply(stroke.tool, c.x, c.y) })) } : null;
     const issues = cityPanel.issues();
     if (!hover) return { overlay, selected, plan, issues };
@@ -19621,9 +20463,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       loading3d = load3d()
         .then((m) =>
           m.createView3D({
-            city,
-            agents: sim.agents,
-            renderer,
+            world: worldFor3D(),
             STRUCTURES,
             PALETTE,
             growthOf,
@@ -19644,7 +20484,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
             onExit: () => close3D(),
             onPick: (x, y) => {
               selected = { x, y };
-              ui.inspect(city, selected);
+              ui.inspect(shownCity(), selected);
               audio.play('click');
             },
           })
@@ -19660,6 +20500,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       return ui.toast('The 3D view can’t run in this browser', 3000);
     }
     view3d = v;
+    view3d.setWorld(worldFor3D());
     ui.closeTray();
     const g = worldToGrid(camera.x, camera.y);
     const followHero = following;
@@ -19696,6 +20537,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // the first frame can be stamped before `last`
     last = now;
     sim.update(dt);
+    world.update(dt, sim.speed); // the computer's towns live on at the same pace, in step with yours
     if (in3D()) view3d.frame(dt);
     else {
       input.edgeScroll(dt);
@@ -19710,17 +20552,18 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
         }
       }
       camera.update(dt);
-      renderer.render(dt, viewState());
+      rendererFor(viewing).render(dt, viewState());
       minimap.render();
     }
     audio.ambient(dt, { daylight: daylightAt(city.clock), rain: city.derived.weather?.rain || 0 });
     saver.tick(dt);
     uiTimer -= dt;
     if (uiTimer <= 0) {
-      ui.update(city);
-      ui.inspect(city, selected);
+      ui.update(shownCity());
+      ui.inspect(shownCity(), selected);
       lifeUI.tick();
-      cityPanel.update(city);
+      if (!watching()) cityPanel.update(city);
+      worldPanel.tick();
       decisionCard.tick();
       syncFollowUI();
       uiTimer = 0.2;
@@ -19776,7 +20619,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

@@ -33,6 +33,8 @@ import { History, lPath, tileLine } from './history.js';
 import { Audio } from './audio.js';
 import { daylightAt, sunHeight } from './time.js';
 import { lightingAt } from './lighting.js';
+import { World } from './world.js';
+import { WorldPanel } from './worldUI.js';
 import { crosswalkMask, footArms } from './sidewalks.js';
 import { hash2 } from './utils.js';
 import { mixHex } from './color.js';
@@ -136,6 +138,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   let framing = 'town'; // what the recenter button framed last
   let stroke = null; // drag-to-build in progress: { start, last, tiles }
   let following = false; // the camera follows the main person
+  // The world (world.js): your town and its computer-run neighbours. `viewing` is the town on screen;
+  // you build only in your own, and watch the others.
+  let world = null;
+  let viewing = null;
+  const townViews = new Map(); // town id → its own Renderer (your town uses `renderer`)
+  const shownCity = () => viewing?.city || city;
+  const shownSim = () => viewing?.sim || sim;
+  const watching = () => !!viewing && viewing.owner !== 'player';
   let carryTimer = null; // the family story moves on to the next generation shortly after a death
 
   const tileAt = (sx, sy) => {
@@ -143,7 +153,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const g = worldToGrid(w.x, w.y);
     const x = Math.floor(g.gx);
     const y = Math.floor(g.gy);
-    return city.inBounds(x, y) ? { x, y } : null;
+    return shownCity().inBounds(x, y) ? { x, y } : null;
   };
 
   const ui = new Interface({
@@ -168,7 +178,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       unlockLabel: (id) => MILESTONES[unlockTier(id)]?.label || '',
     },
     costOf: (tool) => sim.economy.costOf(tool),
-    budget: () => ({ money: sim.economy.money, net: city.derived.economy?.net || 0, sandbox: sim.economy.sandbox }),
+    budget: () => ({ money: shownSim().economy.money, net: shownCity().derived.economy?.net || 0, sandbox: shownSim().economy.sandbox }),
     onShare: () => shareTown(),
     onBackHome: () => backHome(),
     onSlots: () => slotsSheet.toggle(true),
@@ -311,6 +321,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     },
   });
   function focusTile(x, y) {
+    if (watching()) showTown(world.cities[0], { immediate: true }); // it's a place in your own town
     const w = gridToWorld(x + 0.5, y + 0.5);
     camera.tx = w.x;
     camera.ty = w.y - 20;
@@ -392,10 +403,12 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   history.on(syncHistoryButtons);
   syncHistoryButtons();
   const doUndo = () => {
+    if (watching()) return ui.toast('Go back to your town to undo', 2000);
     const label = history.undo();
     if (label) ui.toast(`Undid ${label}`, 1600);
   };
   const doRedo = () => {
+    if (watching()) return ui.toast('Go back to your town to redo', 2000);
     const label = history.redo();
     if (label) ui.toast(`Redid ${label}`, 1600);
   };
@@ -428,11 +441,12 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   // The part of the map that is built up: homes, workplaces and services.
   function townBounds() {
+    const town = shownCity();
     let x0 = Infinity;
     let y0 = Infinity;
     let x1 = -Infinity;
     let y1 = -Infinity;
-    for (const t of city.tiles) {
+    for (const t of town.tiles) {
       const s = t.structure;
       if (!s || s.type === 'tree' || s.type === 'road') continue;
       x0 = Math.min(x0, t.x);
@@ -452,11 +466,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       y1 = Math.round(cy + r);
     }
     const pad = 1;
-    return tileRectBounds(Math.max(0, x0 - pad), Math.max(0, y0 - pad), Math.min(city.width - 1, x1 + pad), Math.min(city.height - 1, y1 + pad));
+    return tileRectBounds(Math.max(0, x0 - pad), Math.max(0, y0 - pad), Math.min(town.width - 1, x1 + pad), Math.min(town.height - 1, y1 + pad));
   }
 
   function fitView(immediate, target = 'town') {
-    camera.setBounds(mapBounds(city.width, city.height));
+    camera.setBounds(mapBounds(shownCity().width, shownCity().height));
     const rect = target === 'town' ? townBounds() : null;
     camera.fit(uiInsets(), immediate, rect || camera.bounds);
     framing = rect ? 'town' : 'map';
@@ -676,6 +690,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   onSettings(() => {
     minimap.setVisible(minimapOn());
     renderer.textScale = settings.largeText ? 1.2 : 1;
+    for (const v of townViews.values()) v.textScale = renderer.textScale;
     ui.renderMore();
   });
 
@@ -683,8 +698,9 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     renderer.resize(w, h);
+    for (const v of townViews.values()) v.resize(w, h);
     camera.setViewport(w, h);
-    camera.setBounds(mapBounds(city.width, city.height));
+    camera.setBounds(mapBounds(shownCity().width, shownCity().height));
     if (!fitted) {
       fitView(true);
       fitted = true;
@@ -964,6 +980,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     // Not while this tab is waiting for another tab to finish playing.
     canKeyPan: () => document.getElementById('tab-guard')?.hidden !== false,
     onTap: (sx, sy) => {
+      if (watching()) {
+        // Someone else's town: look, don't touch. A tap shows what's on the tile.
+        const t = tileAt(sx, sy);
+        selected = t && !(selected && selected.x === t.x && selected.y === t.y) ? t : null;
+        ui.inspect(shownCity(), selected);
+        if (selected) audio.play('click');
+        return;
+      }
       const th = renderer.thoughtAt(sx, sy);
       if (th) {
         audio.play('click');
@@ -983,20 +1007,23 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y);
     },
     onBulldoze: (sx, sy) => {
+      if (watching()) return;
       const t = tileAt(sx, sy);
       if (t && !build('bulldozing', [t], () => city.apply('bulldoze', t.x, t.y))) nope(t.x, t.y);
     },
     onHover: (sx, sy) => {
-      hover = sx == null ? null : tileAt(sx, sy);
+      hover = sx == null || watching() ? null : tileAt(sx, sy);
     },
     // Drag to build: roads follow an L from where the drag started; other tools paint as a brush.
-    canPaint: () => tool !== 'inspect' && sim.milestones.isUnlocked(tool),
+    canPaint: () => !watching() && tool !== 'inspect' && sim.milestones.isUnlocked(tool),
     onPaintStart: (sx, sy) => {
+      if (watching()) return;
       const t = tileAt(sx, sy);
       stroke = t ? { tool, start: t, last: t, tiles: [t] } : null;
       hover = null;
     },
     onPaintMove: (sx, sy) => {
+      if (watching()) return;
       const t = tileAt(sx, sy);
       if (!t) return;
       if (!stroke) {
@@ -1022,7 +1049,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onPaintEnd: (commit) => {
       const s = stroke;
       stroke = null;
-      if (!commit || !s) return;
+      if (!commit || !s || watching()) return;
       const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
       if (!coords.length) return nope(s.start.x, s.start.y);
       if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
@@ -1050,6 +1077,97 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     city.emit('loaded');
     ui.toast(visiting ? `You're visiting a shared town. Your own town is in save slot ${activeSlot()}: ☰ → Back to my town` : 'Welcome back to your town', visiting ? 5000 : 2400);
   }
+  // ---- The world -------------------------------------------------------------------------------
+  // Your town and the computer's (world.js). Every town runs all the time; you see one at a time.
+  world = new World(city, sim);
+  viewing = world.cities[0];
+  const watchSpots = new Map(); // town id → where the camera was when you last looked
+  function rendererFor(c) {
+    if (c.owner === 'player') return renderer;
+    let r = townViews.get(c.id);
+    if (!r || r.city !== c.city) {
+      r = new Renderer(canvas, c.city, camera, c.sim.agents);
+      r.resize(canvas.clientWidth, canvas.clientHeight);
+      r.textScale = renderer.textScale;
+      townViews.set(c.id, r);
+    }
+    return r;
+  }
+  // Put another town on screen (yours or the computer's). Its walkers and cars come out while you look.
+  function showTown(c, { immediate = false } = {}) {
+    if (!c || c === viewing) return;
+    watchSpots.set(viewing.id, { tx: camera.tx, ty: camera.ty, zoom: camera.tzoom });
+    if (viewing.owner !== 'player') viewing.sim.agentsActive = false;
+    viewing = c;
+    c.sim.agentsActive = true;
+    stopFollow();
+    selected = null;
+    hover = null;
+    stroke = null;
+    ui.closeTray();
+    ui.inspect(c.city, null);
+    app.classList.toggle('mode-watch', watching());
+    minimap.city = c.city;
+    minimap.key = '';
+    const spot = watchSpots.get(c.id);
+    camera.setBounds(mapBounds(c.city.width, c.city.height));
+    if (spot) {
+      camera.tx = spot.tx;
+      camera.ty = spot.ty;
+      camera.tzoom = spot.zoom;
+      camera.clampTarget();
+      if (immediate) camera.update(10);
+    } else fitView(immediate);
+    if (in3D()) view3d.setWorld(worldFor3D());
+    worldPanel.tick();
+    if (watching()) ui.toast(`Watching ${c.entry.name}, run by the computer. You can look around, but only build in your own town`, 4200);
+  }
+  // The towns as the 3D view needs them: the one on screen, and the others where they sit in the world.
+  function worldFor3D() {
+    const at = viewing.entry.at;
+    return {
+      focus: { city: viewing.city, agents: viewing.sim.agents, renderer: rendererFor(viewing), home: viewing.owner === 'player' },
+      others: world.cities.filter((c) => c !== viewing).map((c) => ({ city: c.city, renderer: rendererFor(c), offset: { x: c.entry.at.x - at.x, z: c.entry.at.y - at.y } })),
+    };
+  }
+  function reloadWorld() {
+    if (watching()) showTown(world.cities[0], { immediate: true });
+    world.load();
+    viewing = world.cities[0];
+    townViews.clear();
+    watchSpots.clear();
+    if (in3D()) view3d.setWorld(worldFor3D());
+    worldPanel.tick();
+  }
+  city.on((ev) => {
+    if (ev.type === 'loaded') reloadWorld(); // another slot, a new town or a shared visit: its own world
+  });
+  const worldPanel = new WorldPanel(world, {
+    viewing: () => viewing,
+    onView: (id) => showTown(world.byId(id)),
+    on3D: (id) => {
+      showTown(world.byId(id), { immediate: true });
+      open3D();
+    },
+    onOpen: () => {
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      ui.closeTray();
+    },
+  });
+  // While you watch another town, the stats bubble opens the world, not your town's panel.
+  document.getElementById('stats').addEventListener(
+    'click',
+    (e) => {
+      if (!watching()) return;
+      e.stopImmediatePropagation();
+      worldPanel.toggle(true);
+    },
+    true
+  );
+  worldPanel.tick();
+
   // Say what happened to a save that couldn't be opened, after the welcome toast has had its turn.
   const notes = [startNote, rescued?.slot ? `Your town from before a shared visit was kept, in save slot ${rescued.slot}.` : rescued ? 'A town saved before a shared visit is kept safe. Free up a save slot to get it back.' : null].filter(Boolean);
   if (notes.length) setTimeout(() => ui.toast(notes.join(' '), 9000), 6500);
@@ -1058,6 +1176,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   hot?.snapshot?.(() => ({ city: city.toJSON() }));
 
   function viewState() {
+    if (watching()) return { overlay, selected, plan: null, issues: [] };
     const plan = stroke ? { tool: stroke.tool, tiles: stroke.tiles.map((c) => ({ ...c, valid: city.canApply(stroke.tool, c.x, c.y) })) } : null;
     const issues = cityPanel.issues();
     if (!hover) return { overlay, selected, plan, issues };
@@ -1088,9 +1207,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       loading3d = load3d()
         .then((m) =>
           m.createView3D({
-            city,
-            agents: sim.agents,
-            renderer,
+            world: worldFor3D(),
             STRUCTURES,
             PALETTE,
             growthOf,
@@ -1111,7 +1228,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
             onExit: () => close3D(),
             onPick: (x, y) => {
               selected = { x, y };
-              ui.inspect(city, selected);
+              ui.inspect(shownCity(), selected);
               audio.play('click');
             },
           })
@@ -1127,6 +1244,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       return ui.toast('The 3D view can’t run in this browser', 3000);
     }
     view3d = v;
+    view3d.setWorld(worldFor3D());
     ui.closeTray();
     const g = worldToGrid(camera.x, camera.y);
     const followHero = following;
@@ -1163,6 +1281,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // the first frame can be stamped before `last`
     last = now;
     sim.update(dt);
+    world.update(dt, sim.speed); // the computer's towns live on at the same pace, in step with yours
     if (in3D()) view3d.frame(dt);
     else {
       input.edgeScroll(dt);
@@ -1177,17 +1296,18 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
         }
       }
       camera.update(dt);
-      renderer.render(dt, viewState());
+      rendererFor(viewing).render(dt, viewState());
       minimap.render();
     }
     audio.ambient(dt, { daylight: daylightAt(city.clock), rain: city.derived.weather?.rain || 0 });
     saver.tick(dt);
     uiTimer -= dt;
     if (uiTimer <= 0) {
-      ui.update(city);
-      ui.inspect(city, selected);
+      ui.update(shownCity());
+      ui.inspect(shownCity(), selected);
       lifeUI.tick();
-      cityPanel.update(city);
+      if (!watching()) cityPanel.update(city);
+      worldPanel.tick();
       decisionCard.tick();
       syncFollowUI();
       uiTimer = 0.2;
@@ -1243,7 +1363,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.
