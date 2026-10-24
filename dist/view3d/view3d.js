@@ -774,8 +774,8 @@ class View3D {
   // Who is being followed, for the chip at the top of the screen.
   followLabel() {
     if (this.rig.mode !== 'follow') return '';
-    const w = this.subjectWalker === 'hero' ? this.deps.agents.hero || 'hero' : this.subjectWalker;
-    const name = w === 'hero' ? this.deps.lifeChar()?.first : w && this.deps.nameOf(w);
+    const w = this.subjectWalker;
+    const name = w === 'hero' || w?.hero ? this.deps.lifeChar()?.first : w && this.deps.nameOf(w);
     return name ? `Following ${name}` : 'Following a resident';
   }
 
@@ -995,8 +995,8 @@ class View3D {
       }
     }
     if (best) {
-      this.follow(best.hero ? best : best);
-      if (best.hero) this.subjectWalker = 'hero';
+      if (best.hero) this.followHero();
+      else this.follow(best);
       return;
     }
     const ndc = new THREE.Vector2((sx / window.innerWidth) * 2 - 1, -(sy / window.innerHeight) * 2 + 1);

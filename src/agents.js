@@ -358,7 +358,8 @@ export class AgentSystem {
     }
     if (!route) route = this.findOuting(homeTile, { child, leisure: true });
     if (!route || route.points.length < 2) return;
-    const look = makeLook(child, { shirt: c.look?.outfit || SHIRT_COLORS[0], skin: c.look?.skin || SKIN_TONES[0], hair: c.look?.hair || '#5b3a29' });
+    // Your main person looks as they do in the Life panel: no random hat.
+    const look = makeLook(child, { shirt: c.look?.outfit || SHIRT_COLORS[0], skin: c.look?.skin || SKIN_TONES[0], hair: c.look?.hair || '#5b3a29', hat: null });
     const w = this.walker(route, { home, dest, look, child, speed: 0.85, hero: true, lane: 0.02, phase: 0 });
     this.hero = w;
     this.walkers.push(w);
