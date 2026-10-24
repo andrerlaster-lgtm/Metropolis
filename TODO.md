@@ -126,10 +126,25 @@ From [isometric-city](https://github.com/uxcaleb/isometric-city) (originally ami
 
 A battle mode in the spirit of GUNS UP!: defend your town from a computer town, or attack one, with battles fought over the real towns (their owners, budgets, troops and lasting damage). Notes on four open-source games (djpav/threejs-tower-defense and atxgreene/Ugh-Guys- first, then cola-runner/frostmarch and Casmo/tower-defense), their licences and asset rights, the ideas ranked, and questions to settle first are in [docs/references/battle-mode.md](docs/references/battle-mode.md). Patterns only, rewritten in our own code; no art or content from them or from GUNS UP!.
 
-- [ ] Andre decides the open questions (homes and residents, what a win takes, the default raid setting, troops by era)
-- [ ] Foundation: `systems.military` (troops, defences, barracks supply) with a save migration, and the computer planner budgeting for it
-- [ ] `battle.js`: a rules-only battle over the defender's real tiles (flow field, defence targeting, projectiles, damage written back), with Node tests and auto-resolve
-- [ ] The 3D battle view, computer attacks with a warning ahead, then attacking the computer town
+Direction approved by Andre: a separate, permanent military base; GUNS UP!-style real-time battles with an angled and a free camera; strategic CPU waves; garrisons plus reinforcements; squad orders; play or auto-resolve; the world pauses during battle; tactical pause; save and resume; nothing happens offline. Then diplomacy, trade and espionage.
+
+Phase 1 (done): a playable base and battle, integrated with the two-town world.
+
+- [x] Military budget: automatic share of income (adjustable), emergency transfers, soldiers' pay, unpaid morale (`military.js`)
+- [x] The base: command post, sandbags, MG nests, bunkers, mortar pits; protected routes; three upgrade levels; lasting damage; prioritised repair crews and rush repairs
+- [x] Soldiers: regular training, emergency recruitment, hired specialists (medic); guard posts and reserve; experience and ranks; injuries and recovery; the fallen remembered
+- [x] `battle.js`: waves, garrison, reinforcement squads with a cooldown, orders (move, hold, charge, fall back), artillery, cover, morale and withdrawal, retreat, wave pull-backs, deterministic, save and resume, auto-resolve
+- [x] Computer raids (`warRoom.js`): its own funded army, counters to your defences, warning ahead, world pauses, consequences for both towns (casualties, damage, loot, protection), town history
+- [x] The base and battle screens with the 3D field (`militaryUI.js`, `view3d/battle3d.js`), phone layout
+
+Next slices:
+
+- [ ] Attack the computer's base: its own laid-out base (built by its planner), deployment zones, capturable forward positions, victory by defeating or routing its army
+- [ ] More troop types and specialist abilities with manual triggers; elite units and temporary hires; research and military building upgrades (barracks, hospital, depot); modern-to-futuristic tiers
+- [ ] Supply: production, purchase, depots, battlefield resupply, convoys (play or auto-resolve)
+- [ ] Diplomacy: stances (peace, war declared), personalities that change with events, negotiations with counteroffers, treaties and alliances, trust and reputation, peace terms and recovery protection
+- [ ] Trade: visible deliveries, dynamic prices, raids on shipments only during declared wars, trade suspended in war
+- [ ] Espionage: fog of war and reconnaissance, last-known positions, intelligence funding from the military budget, counterintelligence, captured spies, then playable rescue missions
 
 ## 4. Deploy and tooling
 - [ ] Move the code to `andrerlaster-lgtm/Metropolis` and link it to Vercel so every push redeploys (until then each deploy is started by hand)

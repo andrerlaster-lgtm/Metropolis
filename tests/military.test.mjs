@@ -1,0 +1,370 @@
+// Run with: node --test tests/
+// The military: a permanent base with defences and soldiers paid from a military budget, battles
+// that are the same every time from the same start (so they can be saved half-way and fought out
+// with nobody watching), and raids from the computer's town that leave real consequences.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+const store = new Map();
+globalThis.localStorage = {
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
+  setItem: (k, v) => store.set(k, String(v)),
+  removeItem: (k) => store.delete(k),
+};
+
+const { CityState } = await import('../src/state.js');
+const { generateTown } = await import('../src/generator.js');
+const { Simulation } = await import('../src/simulation.js');
+const { World } = await import('../src/world.js');
+const { Military, START_FUNDS } = await import('../src/military.js');
+const { Battle, TIME_LIMIT } = await import('../src/battle.js');
+const { WarRoom, WARN_DAYS } = await import('../src/warRoom.js');
+const D = await import('../src/militaryData.js');
+const { mulberry32 } = await import('../src/utils.js');
+const P = await import('../src/persistence.js');
+
+function base(seed = 1) {
+  const city = new CityState(24, 24);
+  const sim = new Simulation(city);
+  const m = new Military(city, { economy: sim.economy, rand: mulberry32(seed) });
+  return { city, sim, m };
+}
+
+function homeWorld(seed = 3) {
+  const city = new CityState(32, 32);
+  generateTown(city, seed);
+  const sim = new Simulation(city);
+  sim.refresh();
+  const world = new World(city, sim, { rand: mulberry32(seed) });
+  const war = new WarRoom(world, { rand: mulberry32(seed + 1) });
+  return { city, sim, world, war };
+}
+
+// The first spot where a defence may go, scanning from (x, y).
+function spot(m, type, x = 2, y = 4) {
+  for (let yy = y; yy < D.BASE_H - 2; yy++) for (let xx = x; xx < D.BASE_W; xx++) if (!m.placeError(type, xx, yy)) return [xx, yy];
+  return null;
+}
+
+// A raid party of the given types, as the battle needs it.
+const party = (types, from = 500) => types.map((type, i) => ({ id: from + i, type, xp: 0 }));
+function spec(m, { waves, seed = 7, auto = true, budget = 0 }) {
+  const fit = m.fit();
+  return {
+    seed,
+    auto,
+    name: 'Test raid',
+    map: m.layout(),
+    attacker: { name: 'Them', waves },
+    defender: {
+      name: 'Us',
+      budget,
+      garrison: fit.filter((s) => s.post).map((s) => ({ id: s.id, type: s.type, xp: s.xp, x: s.post.x, y: s.post.y })),
+      reserve: fit.filter((s) => !s.post).map((s) => ({ id: s.id, type: s.type, xp: s.xp })),
+    },
+  };
+}
+
+test('every town gets a base the first time it is needed, with a way in for attackers', () => {
+  const { m, city } = base();
+  assert.equal(city.systems.military, undefined, 'nothing is added until the base is used');
+  const st = m.state;
+  assert.equal(st.v, 1);
+  assert.equal(st.funds, START_FUNDS);
+  assert.equal(st.structures.length, 1);
+  assert.equal(st.structures[0].type, 'hq');
+  assert.ok(st.rocks.length > 0);
+  assert.equal(st.soldiers.length, 3, 'three riflemen stand guard to begin with');
+  assert.ok(st.soldiers.every((s) => s.post && s.status === 'ready'));
+  assert.ok(m.routeOpen());
+  // Plain data: it survives the save format unchanged.
+  assert.deepEqual(JSON.parse(JSON.stringify(st)), st);
+});
+
+test('defences go where the rules allow, and the last way in can never be closed', () => {
+  const { m } = base();
+  m.state.funds = 10000;
+  assert.match(m.placeError('mg', 4, 0), /edge the enemy comes from/);
+  assert.match(m.placeError('mg', 4, D.BASE_H - 1), /reinforcement area/);
+  const [rx, ry] = m.state.rocks[0];
+  assert.match(m.placeError('mg', rx, ry), /rock/);
+  assert.match(m.placeError('mg', D.HQ_AT.x, D.HQ_AT.y), /already built/);
+  const post = m.state.soldiers[0].post;
+  assert.match(m.placeError('mg', Math.floor(post.x), Math.floor(post.y)), /stands guard/);
+  m.state.funds = 10;
+  assert.match(m.placeError('mg', 4, 4), /Needs 160/);
+  m.state.funds = 10000;
+  // Wall off row 2 from side to side: the last gap is refused.
+  const row = 2;
+  const refused = [];
+  for (let x = 0; x < D.BASE_W; x++) {
+    if (m.occupied(x, row)) continue;
+    const r = m.place('sandbags', x, row);
+    if (r.error) refused.push(r.error);
+  }
+  assert.equal(refused.length, 1);
+  assert.match(refused[0], /last way in/);
+  assert.ok(m.routeOpen());
+});
+
+test('upgrades, repairs in the order you choose, and crews paid from the military budget', () => {
+  const { m, city } = base();
+  m.state.funds = 5000;
+  const a = m.place('mg', ...spot(m, 'mg', 2, 6)).structure;
+  const b = m.place('bunker', ...spot(m, 'bunker', 9, 6)).structure;
+  const before = m.funds;
+  assert.ok(!m.upgrade(a.id).error);
+  assert.equal(a.level, 2);
+  assert.equal(a.hp, D.maxHpOf('mg', 2));
+  assert.equal(m.funds, before - D.upgradeCost('mg', 1));
+  // Damage both; put the bunker first.
+  a.hp = 50;
+  b.hp = 100;
+  assert.deepEqual(m.damaged().map((s) => s.id), [a.id, b.id], 'the worst first by default');
+  m.prioritize(b.id, -Infinity);
+  assert.deepEqual(m.damaged().map((s) => s.id), [b.id, a.id]);
+  const funds = m.funds;
+  city.clock += 0.25;
+  m.update(0.25);
+  assert.ok(b.hp > 100, 'the bunker is repaired first');
+  assert.equal(a.hp, 50, 'the nest waits its turn');
+  assert.ok(m.funds < funds, 'repairs cost money');
+  // Rushing a repair costs half as much again.
+  const cost = m.repairCost(a, true);
+  assert.equal(cost, Math.ceil((D.maxHpOf('mg', 2) - 50) * D.repairRate('mg') * D.RUSH_REPAIR));
+  assert.ok(!m.repairNow(a.id).error);
+  assert.equal(a.hp, D.maxHpOf('mg', 2));
+  // Taking something down gives half back.
+  const r = m.remove(a.id);
+  assert.ok(r.refund > 0);
+  assert.ok(m.remove(m.hq.id).error, 'the command post stays');
+});
+
+test('the military budget: an automatic share of income, emergency transfers, and pay', () => {
+  const { m, city, sim } = base();
+  city.derived.economy = { net: 400, totalIn: 600, totalOut: 200 };
+  sim.economy.state.money = 1000;
+  const funds = m.funds;
+  m.update(1);
+  const pay = m.upkeep();
+  assert.equal(Math.round(m.funds), Math.round(funds + 400 * 0.2 - pay));
+  assert.equal(Math.round(sim.economy.money), 1000 - 80);
+  m.setShare(0.9);
+  assert.equal(m.state.share, 0.5, 'never more than half');
+  assert.equal(m.transfer(250), 250);
+  assert.equal(Math.round(sim.economy.money), 920 - 250);
+  assert.equal(m.transfer(1e6), 670, 'only what the town has');
+  // Nobody paid: wages fall behind and morale will suffer.
+  m.state.funds = 0;
+  m.setShare(0);
+  m.update(2);
+  assert.ok(m.state.unpaid >= 2);
+  assert.ok(m.unpaidPenalty() > 0);
+});
+
+test('recruits train for a while; emergency recruits and specialists are ready at once; the army has a cap', () => {
+  const { m, city } = base();
+  m.state.funds = 10000;
+  const t = m.recruit('rifleman').soldier;
+  assert.equal(t.status, 'training');
+  const t2 = m.recruit('rifleman').soldier;
+  assert.ok(t2.until > t.until, 'one recruit after another');
+  const e = m.recruit('gunner', { emergency: true }).soldier;
+  assert.equal(e.status, 'ready');
+  const medic = m.recruit('medic').soldier;
+  assert.equal(medic.status, 'ready');
+  assert.equal(m.recruitCost('gunner', { emergency: true }), Math.round(D.UNITS.gunner.cost * D.EMERGENCY));
+  city.day += 2;
+  m.update(0.01);
+  assert.equal(t.status, 'ready');
+  assert.equal(t2.status, 'ready');
+  while (m.state.soldiers.length < m.armyCap) m.recruit('rifleman', { emergency: true });
+  assert.match(m.recruitError('rifleman'), /holds/);
+  // Posting soldiers on guard: limited by the command post too.
+  const reserve = m.fit().filter((s) => !s.post);
+  let posted = 0;
+  for (const s of reserve) if (!m.station(s.id, 2 + posted, 8).error) posted++;
+  assert.equal(m.garrison().length, m.garrisonCap);
+});
+
+test('a battle is the same every time from the same start, and resumes exactly from a save', () => {
+  const { m } = base();
+  m.state.funds = 5000;
+  m.place('mg', 7, 10);
+  m.recruit('rifleman', { emergency: true });
+  m.recruit('medic');
+  const s = spec(m, { waves: [{ at: 0, units: party(['rifleman', 'gunner', 'grenadier', 'rifleman']) }, { at: 30, units: party(['rifleman', 'grenadier', 'gunner'], 600) }], budget: 500 });
+  const one = new Battle(s).resolve();
+  const two = new Battle(s).resolve();
+  assert.deepEqual(one, two);
+  const b = new Battle(s);
+  for (let i = 0; i < 500; i++) b.step();
+  const saved = JSON.parse(JSON.stringify(b.toJSON()));
+  const resumed = Battle.fromJSON(saved);
+  assert.equal(resumed.paused, true, 'a resumed battle waits for the commander');
+  assert.deepEqual(resumed.resolve(), b.resolve());
+  assert.equal(Battle.fromJSON({ v: 99 }), null);
+});
+
+test('who wins: holding the base, losing the command post, and pulling out', () => {
+  // A small raid against a garrison and a machine-gun nest: the base holds.
+  const strong = base(2);
+  strong.m.state.funds = 5000;
+  strong.m.place('mg', 7, 11);
+  strong.m.place('bunker', 9, 11);
+  const held = new Battle(spec(strong.m, { waves: [{ at: 0, units: party(['rifleman', 'rifleman', 'rifleman']) }] })).resolve();
+  assert.equal(held.winner, 'def');
+  assert.ok(['repelled', 'withdrew'].includes(held.reason));
+  assert.ok(held.attacker.lost > 0);
+  // No soldiers at all: the raid must still destroy the command post to win.
+  const empty = base(3);
+  empty.m.state.soldiers = [];
+  const b = new Battle(spec(empty.m, { waves: [{ at: 0, units: party(['grenadier', 'grenadier', 'grenadier', 'rifleman', 'rifleman', 'gunner']) }] }));
+  const lost = b.resolve();
+  assert.equal(lost.winner, 'att');
+  assert.equal(lost.reason, 'hq');
+  assert.equal(b.hq.hp, 0);
+  // Retreat ends it at once: lost, but nobody else falls.
+  const r = base(4);
+  const rb = new Battle(spec(r.m, { waves: [{ at: 0, units: party(['rifleman', 'rifleman']) }], auto: false }));
+  for (let i = 0; i < 20; i++) rb.step();
+  rb.retreat();
+  assert.equal(rb.over, true);
+  assert.equal(rb.result.winner, 'att');
+  assert.equal(rb.result.reason, 'retreat');
+  assert.equal(rb.result.defender.lost, 0);
+  // Every battle ends: an attack that can't win runs out of time and withdraws.
+  assert.ok(held.time <= TIME_LIMIT + 120);
+});
+
+test('reinforcements come one squad at a time, and orders given while paused wait', () => {
+  const { m } = base(5);
+  m.state.funds = 5000;
+  for (let i = 0; i < 6; i++) m.recruit('rifleman', { emergency: true });
+  const b = new Battle(spec(m, { waves: [{ at: 5, units: party(['rifleman']) }], auto: false }));
+  const squads = b.squads.filter((q) => !q.deployed);
+  assert.equal(squads.length, 2, 'six in reserve make two squads');
+  assert.ok(!b.deploy(squads[0].id).error);
+  assert.match(b.deployError(squads[1].id), /Next squad in/);
+  assert.match(b.order(squads[1].id, { kind: 'hold' }).error, /Send the squad in first/);
+  for (let i = 0; i < 60; i++) b.step();
+  b.paused = true;
+  const sq = squads[0];
+  assert.ok(!b.order(sq.id, { kind: 'move', x: 3, y: 6 }).error);
+  const where = b.livingIn(sq).map((u) => [u.x, u.y]);
+  b.advance(2);
+  assert.deepEqual(b.livingIn(sq).map((u) => [u.x, u.y]), where, 'nothing moves while paused');
+  assert.ok(b.livingIn(sq).every((u) => u.mode === 'move'));
+  b.paused = false;
+  b.advance(0.5);
+  b.advance(0.5);
+  assert.notDeepEqual(b.livingIn(sq).map((u) => [u.x, u.y]), where, 'they set off when the battle resumes');
+  // Artillery: paid from the budget the battle started with, then a cooldown.
+  assert.match(b.strikeError(5, 5), /Needs 120/);
+  b.budget = 500;
+  assert.ok(!b.strike(5, 5).error);
+  assert.match(b.strikeError(5, 5), /reloading/);
+  assert.equal(b.spent, D.ARTILLERY.cost);
+});
+
+test('the computer raids with troops it paid for, warns ahead, and both towns live with the result', () => {
+  const { city, sim, world, war } = homeWorld(5);
+  const cpu = world.neighbours[0];
+  assert.ok(cpu.military, 'the neighbour has a military too');
+  assert.equal(cpu.military.state.share, 0.35);
+  let warned = null;
+  let arrived = null;
+  war.onWarn = (r) => (warned = r);
+  war.onArrive = (r) => (arrived = r);
+  // Let the world run until the first raid arrives (gentle: not before day 3 of your base).
+  sim.speed = 3;
+  for (let i = 0; i < 40000 && !arrived; i++) {
+    sim.update(0.1);
+    world.update(0.1, sim.speed);
+    war.update((0.1 * 3) / 300);
+  }
+  assert.ok(warned, 'a raid was announced');
+  assert.ok(arrived === warned);
+  assert.ok(city.day + city.clock >= war.military.state.since + 3);
+  assert.ok(arrived.at - arrived.warnedAt >= WARN_DAYS - 1e-9);
+  assert.ok(war.busy, 'the world waits while the raid is at the gates');
+  const raiders = new Set(arrived.waves.flatMap((w) => w.units.map((u) => u.id)));
+  assert.ok(cpu.military.state.soldiers.filter((s) => raiders.has(s.id)).every((s) => s.status === 'raiding'));
+  const day = city.day;
+  const report = war.autoResolve(arrived);
+  assert.equal(war.busy, false);
+  assert.equal(war.state.raids.length, 0);
+  assert.ok(['held', 'lost'].includes(report.outcome));
+  assert.equal(report.auto, true);
+  // Their dead are gone from their army; the rest are home again.
+  assert.equal(cpu.military.state.soldiers.filter((s) => s.status === 'raiding').length, 0);
+  const back = cpu.military.state.soldiers.filter((s) => raiders.has(s.id)).length;
+  assert.ok(back >= report.attackers.total - report.attackers.lost && back <= report.attackers.total, 'the fallen are gone, survivors and the wounded come home');
+  assert.ok(war.military.state.protectedUntil > day, 'your base is protected for a while');
+  assert.equal(war.military.state.log[0].kind, 'raid');
+  assert.match(city.systems.chronicle.at(-1).text, /raided the military base/);
+});
+
+test('a raid that wins carries money off to the raider', () => {
+  const { sim, world, war } = homeWorld(6);
+  const cpu = world.neighbours[0];
+  war.military.state.soldiers = []; // nobody home
+  war.military.state.funds = 1000;
+  for (let i = 0; i < 8; i++) cpu.military.addSoldier('grenadier');
+  const raid = war.launch(cpu, cpu.military.fit());
+  raid.status = 'arrived';
+  const theirs = cpu.sim.economy.money;
+  const ours = sim.economy.money;
+  const report = war.autoResolve(raid);
+  assert.equal(report.outcome, 'lost');
+  assert.ok(report.you.loot > 0);
+  assert.equal(Math.round(cpu.sim.economy.money - theirs), report.you.loot);
+  assert.ok(war.military.funds < 1000);
+  assert.ok(sim.economy.money <= ours);
+  assert.ok(report.you.damage.some((d) => d.label === 'Command post'));
+});
+
+test('the base, the army and a battle in progress survive saving and loading', () => {
+  const { city, sim, world, war } = homeWorld(7);
+  const m = war.military;
+  m.state.funds = 3000;
+  m.place('mortar', 6, 9);
+  m.recruit('gunner', { emergency: true });
+  const cpu = world.neighbours[0];
+  while (cpu.military.fit().length < 4) cpu.military.addSoldier('rifleman');
+  const raid = war.launch(cpu, cpu.military.fit());
+  raid.status = 'arrived';
+  const battle = war.fight(raid);
+  for (let i = 0; i < 200; i++) battle.step();
+  m.state.battle = battle.toJSON();
+  P.setActiveSlot(1);
+  assert.ok(P.saveCity(city, 1));
+  const back = P.loadCity(1);
+  const sim2 = new Simulation(back);
+  sim2.refresh();
+  const world2 = new World(back, sim2);
+  const war2 = new WarRoom(world2);
+  assert.equal(war2.military.state.structures.length, m.state.structures.length);
+  assert.equal(war2.military.state.soldiers.length, m.state.soldiers.length);
+  assert.equal(world2.neighbours[0].military.state.soldiers.length, cpu.military.state.soldiers.length);
+  const pending = war2.pending();
+  assert.equal(pending?.id, raid.id);
+  assert.equal(pending.status, 'fighting');
+  const resumed = war2.fight(pending);
+  assert.equal(resumed.t, battle.t, 'picks up where it stopped');
+  void sim;
+});
+
+test('balance: every troop and defence does about the same damage per dollar', () => {
+  const dps = (a) => a.dmg * a.rate * (a.splash ? 1.6 : 1);
+  const rows = [];
+  for (const [k, u] of Object.entries(D.UNITS)) if (!u.heal) rows.push([k, dps(u.attack) / u.cost]);
+  for (const k of D.BUILDABLE) {
+    const d = D.DEFENCES[k];
+    if (d.attack) rows.push([k, dps(d.attack) / d.cost]);
+  }
+  const values = rows.map((r) => r[1]);
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  assert.ok(hi / lo < 4, `damage per dollar spread too wide: ${rows.map(([k, v]) => `${k} ${v.toFixed(3)}`).join(', ')}`);
+});

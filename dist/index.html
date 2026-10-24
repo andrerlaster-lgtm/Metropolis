@@ -3180,6 +3180,594 @@ button:focus-visible {
   }
 }
 
+/* The military base and its battles (military.js, battle.js, militaryUI.js, view3d/battle3d.js) */
+#btn-base svg {
+  color: #6f8fd8;
+}
+#btn-base.is-alert {
+  box-shadow: 0 0 0 2px #ef6461, var(--shadow);
+}
+#btn-base.is-alert svg {
+  color: #ef6461;
+}
+#app.mode-military > :not(#military):not(#toast) {
+  display: none !important;
+}
+.military {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: #cfe6ee;
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+.military[hidden] {
+  display: none;
+}
+.mil-stage,
+.mil-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.mil-top {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 10px;
+  right: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 20px;
+  z-index: 2;
+}
+.mil-title {
+  font: 600 17px/1.1 var(--font-display);
+  white-space: nowrap;
+}
+.mil-title span {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.mil-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.mil-chip {
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+  font: 800 12.5px/1.3 var(--font-body);
+  white-space: nowrap;
+}
+.mil-chip.warn {
+  background: #ffe0dc;
+  color: #a33a33;
+}
+.mil-chip.ok {
+  background: #dff3e6;
+  color: #2f7a50;
+}
+.mil-cam button {
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.military .pill {
+  height: 34px;
+  padding: 0 12px;
+  background: var(--press);
+  border: 1px solid var(--panel-edge);
+  font: 800 13px/1 var(--font-body);
+  color: var(--ink);
+}
+.military .pill[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+.military .pill.is-on {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.military .pill.danger {
+  background: #fde1de;
+  color: #a33a33;
+}
+.military .pill.icon {
+  padding: 0 9px;
+}
+.military .primary-btn[disabled] {
+  opacity: 0.5;
+}
+.military .seg button[aria-pressed='true'] {
+  background: var(--focus);
+  color: #fff;
+}
+.mil-panel {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 74px);
+  right: 10px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  width: min(380px, calc(100vw - 20px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  overflow: hidden;
+  z-index: 2;
+}
+.mil-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 8px 0;
+  overflow-x: auto;
+}
+.mil-tabs button {
+  flex: 1;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 800 13px/1 var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mil-tabs button[aria-selected='true'] {
+  background: var(--press);
+  color: var(--ink);
+}
+.mil-dot {
+  display: inline-block;
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 8px;
+  background: #ef6461;
+  color: #fff;
+  font-size: 10.5px;
+}
+.mil-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  background: var(--press);
+}
+.mil-body h3 {
+  margin: 12px 0 6px;
+  font: 600 15px/1.2 var(--font-display);
+}
+.mil-small {
+  margin: 4px 0;
+  color: var(--ink-soft);
+  font: 700 12.5px/1.4 var(--font-body);
+}
+.mil-bad,
+.mil-warn {
+  color: #c94a47;
+}
+.mil-warn {
+  font: 800 13px/1.4 var(--font-body);
+}
+.mil-list {
+  display: grid;
+  gap: 6px;
+}
+.mil-item,
+.mil-recruit,
+.mil-soldier {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.mil-recruit {
+  flex-wrap: wrap;
+  cursor: default;
+}
+.mil-recruit .mil-row {
+  width: 100%;
+  justify-content: flex-end;
+}
+.mil-item.is-on,
+.mil-roster li.is-on .mil-soldier {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.mil-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #e7e0f5;
+  color: #51407c;
+  font: 800 14px/1 var(--font-body);
+}
+.mil-item-text {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.mil-item-text small,
+.mil-soldier small {
+  display: block;
+  color: var(--ink-soft);
+  font: 700 12px/1.35 var(--font-body);
+}
+.mil-cost {
+  font: 800 13px/1 var(--font-body);
+}
+.mil-cost.short {
+  color: #c94a47;
+}
+.mil-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.mil-sel {
+  margin-bottom: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+}
+.mil-sel h3 {
+  margin: 0 0 6px;
+}
+.mil-sel h3 small {
+  color: var(--ink-soft);
+  font: 700 12px var(--font-body);
+}
+.mil-hp,
+.mil-morale {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--meter-track);
+  overflow: hidden;
+}
+.mil-hp span,
+.mil-morale span {
+  display: block;
+  height: 100%;
+  background: #5cbf88;
+}
+.mil-roster,
+.mil-repairs,
+.mil-log,
+.mil-fallen,
+.mil-intel {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.mil-roster li {
+  display: grid;
+  gap: 6px;
+}
+.mil-repairs li,
+.mil-log li {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+}
+.mil-log small,
+.mil-fallen small,
+.mil-intel small {
+  color: var(--ink-soft);
+  font: 700 12px/1.4 var(--font-body);
+}
+.mil-budget {
+  display: grid;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--panel);
+}
+.mil-budget b {
+  font: 600 26px/1.1 var(--font-display);
+}
+.mil-budget small {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.mil-slider {
+  display: grid;
+  gap: 4px;
+  font: 800 13px var(--font-body);
+}
+.mil-slider input {
+  width: 100%;
+  accent-color: #8a6cc4;
+}
+.mil-hint {
+  position: absolute;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 74px);
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100vw - 420px));
+  padding: 7px 14px;
+  border-radius: 16px;
+  font: 800 13px/1.35 var(--font-body);
+  z-index: 3;
+  pointer-events: none;
+}
+.mil-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.mil-hud > * {
+  pointer-events: auto;
+}
+.mil-hud-top {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 66px);
+  left: 10px;
+  right: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 18px;
+}
+.mil-hud-top .mil-row {
+  margin-left: auto;
+}
+.mil-side {
+  display: grid;
+  gap: 3px;
+  min-width: 96px;
+  font: 800 12.5px/1 var(--font-body);
+}
+.mil-side.def .mil-morale span {
+  background: #8a6cc4;
+}
+.mil-side.att .mil-morale span {
+  background: #e9846f;
+}
+.mil-paused {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 124px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 14px;
+  font: 800 13px var(--font-body);
+}
+.mil-hud-bottom {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 20px;
+}
+.mil-squads {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+.mil-sq {
+  flex: none;
+  display: grid;
+  gap: 4px;
+  min-width: 112px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--panel-edge);
+  background: var(--press);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+}
+button.mil-sq {
+  cursor: pointer;
+}
+.mil-sq.is-on {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.mil-sq.is-out {
+  opacity: 0.45;
+}
+.mil-sq small {
+  color: var(--ink-soft);
+  font: 700 12px/1.2 var(--font-body);
+}
+.mil-sq .primary-btn {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+.mil-orders {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.mil-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100% - 40px);
+  overflow-y: auto;
+  padding: 18px 20px;
+  border-radius: 24px;
+  z-index: 5;
+  animation: card-in 0.3s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.mil-card h2 {
+  margin: 0 0 6px;
+  font: 600 22px/1.2 var(--font-display);
+}
+.mil-card h2.mil-held {
+  color: #3a8f60;
+}
+.mil-card h2.mil-lost {
+  color: #c94a47;
+}
+.mil-card p {
+  margin: 6px 0;
+  font: 700 14px/1.45 var(--font-body);
+}
+.mil-report {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+}
+.mil-report section {
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--press);
+}
+.mil-report h3 {
+  margin: 0 0 4px;
+  font: 600 15px/1.2 var(--font-display);
+}
+.mil-report ul {
+  margin: 2px 0 4px;
+  padding-left: 18px;
+  font: 700 13px/1.45 var(--font-body);
+}
+.mil-report p {
+  font-size: 13px;
+}
+.mil-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.mil-card-actions .primary-btn,
+.mil-card-actions .pill {
+  min-height: 44px;
+  flex: 1 1 180px;
+}
+.mil-no3d {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  max-width: calc(100vw - 420px);
+  padding: 10px 14px;
+  border-radius: 16px;
+  font: 700 13px/1.4 var(--font-body);
+}
+@media (max-width: 760px) {
+  .mil-top {
+    left: 6px;
+    right: 6px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .mil-title {
+    font-size: 15px;
+  }
+  .mil-title span {
+    display: none;
+  }
+  .mil-panel {
+    top: auto;
+    left: 6px;
+    right: 6px;
+    width: auto;
+    height: min(46%, 420px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+  }
+  .mil-hint {
+    top: auto;
+    bottom: calc(min(46%, 420px) + env(safe-area-inset-bottom, 0px) + 14px);
+    max-width: calc(100vw - 24px);
+  }
+  .mil-hud-top {
+    top: calc(env(safe-area-inset-top, 0px) + 92px);
+    left: 6px;
+    right: 6px;
+    gap: 6px;
+  }
+  .mil-hud-top .mil-row {
+    margin-left: 0;
+  }
+  .mil-side {
+    min-width: 76px;
+  }
+  .mil-hud-bottom {
+    left: 6px;
+    right: 6px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+  }
+  .mil-no3d {
+    max-width: calc(100vw - 24px);
+    bottom: calc(min(46%, 420px) + 20px);
+  }
+}
+.military .pill {
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .mil-top {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+  }
+  .mil-chips {
+    grid-column: 1 / -1;
+    order: 3;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .mil-cam button {
+    padding: 6px 8px;
+  }
+  .mil-hud-top {
+    top: calc(env(safe-area-inset-top, 0px) + 96px);
+  }
+  .mil-side {
+    min-width: 64px;
+  }
+  .mil-hud-top .mil-chip {
+    font-size: 11.5px;
+  }
+}
+@media (max-width: 760px) {
+  .military .pill {
+    width: auto;
+    padding: 0 10px;
+  }
+  .mil-hud-top {
+    gap: 6px 8px;
+  }
+  .mil-hud-bottom .mil-row .pill {
+    flex: none;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -3218,6 +3806,10 @@ button:focus-visible {
         <button type="button" id="btn-world" class="pill glass" aria-label="The world: your town and its neighbours" title="The world: your town and its neighbours" aria-haspopup="dialog" aria-expanded="false">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5S9.4 5.9 12 3.5z"/></svg>
           <span class="pill-text">World</span>
+        </button>
+        <button type="button" id="btn-base" class="pill glass" aria-label="Military base" title="Military base" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19 6v5.4c0 4.3-2.9 7.8-7 9.4-4.1-1.6-7-5.1-7-9.4V6z"/><path d="m9 12 2 2 4-4"/></svg>
+          <span class="pill-text">Base</span><span class="badge" hidden></span>
         </button>
         <button type="button" id="btn-life" class="pill glass" aria-label="Life Story">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20.5c.8-4 3.6-6.5 7-6.5s6.2 2.5 7 6.5"/></svg>
@@ -3266,6 +3858,7 @@ button:focus-visible {
         </button>
       </div>
       <nav class="toolbar glass" id="toolbar" aria-label="Build tools"></nav>
+      <section class="military" id="military" aria-label="Military base" hidden></section>
       <div class="toast glass" id="toast" role="status"></div>
     </main>
 <script>
@@ -19288,11 +19881,2891 @@ class WorldPanel {
 return { OWNER, describeBuild, townSummary, WorldPanel };
 })();
 
+// ---- militaryData.js ----
+const __mod_militaryData = (() => {
+// What the military is made of: the base map, the defences you can build on it, the troops you can
+// recruit, and the ranks they earn. Plain data, read by military.js (the base and roster), battle.js
+// (the fighting) and the screens. Stats are tuned by tests/military.test.mjs, which keeps every
+// troop's and defence's damage per dollar inside one band.
+
+// The base map, in tiles. The enemy arrives along the top rows; your command post sits near the
+// bottom, and reinforcements come in from the bottom rows.
+const BASE_W = 16;
+const BASE_H = 20;
+const ENTRY_ROWS = 2; // rows 0–1: where attackers arrive (nothing may be built there)
+const DEPLOY_ROWS = 2; // the last two rows: where your reinforcements come in
+const HQ_AT = { x: 7, y: 15 }; // top-left of the 2×2 command post
+
+// Defences. `blocks`: troops can't walk through it (every structure blocks; the route check keeps a
+// way open from the enemy's edge to the command post). `attack.kind`: bullet (hits at once),
+// shell (lobbed, lands later, splash). `vs`: damage multipliers against a target's tags.
+const DEFENCES = {
+  hq: {
+    label: 'Command post',
+    short: 'HQ',
+    w: 2,
+    h: 2,
+    hp: 1400,
+    armor: 4,
+    cost: 0,
+    fixed: true,
+    tags: ['structure'],
+    attack: { dmg: 6, rate: 1.4, range: 4, kind: 'bullet' },
+    desc: 'Your headquarters. If it falls, the battle is lost. Upgrading it lets you keep a bigger army.',
+  },
+  sandbags: {
+    label: 'Sandbag wall',
+    short: 'Sandbags',
+    w: 1,
+    h: 1,
+    hp: 260,
+    armor: 2,
+    cost: 30,
+    tags: ['structure', 'wall'],
+    cover: true,
+    desc: 'Cheap walls that steer the enemy the long way round. Your soldiers beside them take less damage.',
+  },
+  mg: {
+    label: 'Machine-gun nest',
+    short: 'MG nest',
+    w: 1,
+    h: 1,
+    hp: 340,
+    armor: 3,
+    cost: 160,
+    tags: ['structure'],
+    cover: true,
+    attack: { dmg: 6, rate: 4, range: 4.5, kind: 'bullet', vs: { infantry: 1.15 } },
+    desc: 'Fast fire at anyone in range. Good against groups of soldiers.',
+  },
+  bunker: {
+    label: 'Bunker',
+    short: 'Bunker',
+    w: 1,
+    h: 1,
+    hp: 760,
+    armor: 7,
+    cost: 300,
+    tags: ['structure'],
+    cover: true,
+    attack: { dmg: 15, rate: 1.3, range: 4, kind: 'bullet' },
+    desc: 'Thick concrete that soaks up a lot of punishment and keeps firing.',
+  },
+  mortar: {
+    label: 'Mortar pit',
+    short: 'Mortar',
+    w: 1,
+    h: 1,
+    hp: 230,
+    armor: 1,
+    cost: 240,
+    tags: ['structure'],
+    attack: { dmg: 34, rate: 0.32, range: 8, min: 2, kind: 'shell', splash: 1.3 },
+    desc: 'Lobs shells a long way. Hits a whole group, but can’t fire at anyone close by.',
+  },
+};
+const BUILDABLE = ['sandbags', 'mg', 'bunker', 'mortar'];
+const MAX_LEVEL = 3;
+// Each level above the first: more health and more damage.
+const levelHp = (level) => 1 + 0.35 * (level - 1);
+const levelDmg = (level) => 1 + 0.3 * (level - 1);
+// Upgrading from `level` to `level + 1`.
+function upgradeCost(type, level) {
+  if (type === 'hq') return level === 1 ? 450 : 900;
+  return Math.round(DEFENCES[type].cost * 0.6 * level);
+}
+const maxHpOf = (type, level = 1) => Math.round(DEFENCES[type].hp * levelHp(level));
+// Repairs: dollars per point of health. Crews fix damage over time; "repair now" costs half as much again.
+const repairRate = (type) => Math.max(0.3, (DEFENCES[type].cost || 400) / DEFENCES[type].hp) * 0.5;
+const REPAIR_HP_PER_DAY = 700; // what the base's repair crews get through in a day
+const RUSH_REPAIR = 1.5;
+
+// The command post's level sets how many soldiers the base can hold, and how many stand guard.
+const ARMY_CAP = [0, 10, 16, 24];
+const GARRISON_CAP = [0, 4, 6, 8];
+
+// Troops. Everyone is infantry for now. `attack.kind`: bullet or grenade (thrown, lands later,
+// splash). `train`: days of regular training; emergency recruits arrive at once for EMERGENCY× the price.
+const UNITS = {
+  rifleman: {
+    label: 'Rifleman',
+    plural: 'Riflemen',
+    hp: 100,
+    armor: 0,
+    speed: 1.5,
+    cost: 60,
+    upkeep: 3,
+    train: 0.4,
+    tags: ['infantry'],
+    attack: { dmg: 9, rate: 1.1, range: 3.6, kind: 'bullet' },
+    desc: 'Dependable all-rounder.',
+  },
+  gunner: {
+    label: 'Machine gunner',
+    plural: 'Machine gunners',
+    hp: 120,
+    armor: 1,
+    speed: 1.15,
+    cost: 110,
+    upkeep: 5,
+    train: 0.6,
+    tags: ['infantry'],
+    attack: { dmg: 4, rate: 4, range: 4, kind: 'bullet', vs: { infantry: 1.25, structure: 0.5 } },
+    desc: 'Pins down soldiers. Weak against walls and bunkers.',
+  },
+  grenadier: {
+    label: 'Grenadier',
+    plural: 'Grenadiers',
+    hp: 105,
+    armor: 0,
+    speed: 1.35,
+    cost: 130,
+    upkeep: 5,
+    train: 0.6,
+    tags: ['infantry'],
+    attack: { dmg: 26, rate: 0.45, range: 4.2, kind: 'grenade', splash: 0.9, vs: { structure: 2.2 } },
+    desc: 'Throws grenades. Breaks defences and groups.',
+  },
+  medic: {
+    label: 'Medic',
+    plural: 'Medics',
+    specialist: true,
+    hp: 90,
+    armor: 0,
+    speed: 1.5,
+    cost: 170,
+    upkeep: 7,
+    train: 0,
+    tags: ['infantry'],
+    heal: { rate: 7, range: 2.4 },
+    attack: { dmg: 5, rate: 0.8, range: 3, kind: 'bullet' },
+    desc: 'Specialist, hired ready to go. Patches up nearby soldiers, and fewer of the wounded die.',
+  },
+};
+const UNIT_TYPES = Object.keys(UNITS);
+const EMERGENCY = 2.5;
+
+// Ranks from experience: each one adds a little health and damage.
+const RANKS = [
+  { label: 'Private', short: 'Pvt.', xp: 0 },
+  { label: 'Corporal', short: 'Cpl.', xp: 40 },
+  { label: 'Sergeant', short: 'Sgt.', xp: 120 },
+  { label: 'Veteran', short: 'Vet.', xp: 260 },
+];
+function rankOf(xp = 0) {
+  let r = 0;
+  for (let i = 0; i < RANKS.length; i++) if (xp >= RANKS[i].xp) r = i;
+  return r;
+}
+const rankBonus = (xp) => 1 + 0.08 * rankOf(xp);
+
+// The commander's own call: an artillery strike on a spot, paid from the military budget.
+const ARTILLERY = { cost: 120, cooldown: 45, delay: 2.2, shells: 3, radius: 1.5, dmg: 90, spread: 0.9 };
+
+// Reinforcements: squads of up to this many leave the reserve together, one squad every few seconds.
+const SQUAD_SIZE = 4;
+const REINFORCE_COOLDOWN = 10;
+
+// Injuries: the chance that a soldier who goes down survives (more with a medic in the battle), and
+// how long recovery takes in days.
+const SURVIVE = 0.55;
+const SURVIVE_MEDIC = 0.75;
+const INJURY_DAYS = [2, 4];
+const LIGHT_INJURY_DAYS = 1;
+
+const SURNAMES = [
+  'Moreno', 'Okafor', 'Lindqvist', 'Tanaka', 'Brennan', 'Haddad', 'Novak', 'Castillo', 'Mensah', 'Kowalski',
+  'Dubois', 'Patel', 'Ferreira', 'Nakamura', 'Ivanova', 'Osei', 'MacLeod', 'Rossi', 'Andersen', 'Delgado',
+  'Kaur', 'Fischer', 'Mwangi', 'Silva', 'Horvath', 'Quinn', 'Yilmaz', 'Laurent', 'Abara', 'Petrov',
+  'Sato', 'Gallagher', 'Bianchi', 'Nguyen', 'Eriksen', 'Ramos', 'Adeyemi', 'Kim', 'Walsh', 'Romero',
+];
+const INITIALS = 'ABCDEFGHJKLMNPRSTVW';
+
+return { BASE_W, BASE_H, ENTRY_ROWS, DEPLOY_ROWS, HQ_AT, DEFENCES, BUILDABLE, MAX_LEVEL, levelHp, levelDmg, upgradeCost, maxHpOf, repairRate, REPAIR_HP_PER_DAY, RUSH_REPAIR, ARMY_CAP, GARRISON_CAP, UNITS, UNIT_TYPES, EMERGENCY, RANKS, rankOf, rankBonus, ARTILLERY, SQUAD_SIZE, REINFORCE_COOLDOWN, SURVIVE, SURVIVE_MEDIC, INJURY_DAYS, LIGHT_INJURY_DAYS, SURNAMES, INITIALS };
+})();
+
+// ---- flowfield.js ----
+const __mod_flowfield = (() => {
+// Flow fields for the battlefield: one search outward from a goal gives every tile its walking
+// distance to it, and anyone heading there just steps to the neighbour that is closest. One field
+// serves every soldier with the same goal (the pattern from djpav/threejs-tower-defense's distance
+// field and openage's flow fields; our own code). Eight directions, never cutting a blocked corner.
+
+const DIRS = [
+  [1, 0, 1],
+  [-1, 0, 1],
+  [0, 1, 1],
+  [0, -1, 1],
+  [1, 1, Math.SQRT2],
+  [1, -1, Math.SQRT2],
+  [-1, 1, Math.SQRT2],
+  [-1, -1, Math.SQRT2],
+];
+
+// blocked(x, y) → true where nobody can walk; goals: [{ x, y }] tiles at distance 0;
+// cost(x, y) → extra cost of stepping onto a tile (default 0).
+function buildField(w, h, blocked, goals, cost = null) {
+  const n = w * h;
+  const dist = new Float32Array(n).fill(Infinity);
+  const heapK = new Int32Array(n * 8 + 8);
+  const heapP = new Float32Array(n * 8 + 8);
+  let size = 0;
+  const push = (k, p) => {
+    let i = size++;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (heapP[parent] <= p) break;
+      heapK[i] = heapK[parent];
+      heapP[i] = heapP[parent];
+      i = parent;
+    }
+    heapK[i] = k;
+    heapP[i] = p;
+  };
+  const pop = () => {
+    const k = heapK[0];
+    const p = heapP[0];
+    const lk = heapK[--size];
+    const lp = heapP[size];
+    let i = 0;
+    for (;;) {
+      let c = i * 2 + 1;
+      if (c >= size) break;
+      if (c + 1 < size && heapP[c + 1] < heapP[c]) c++;
+      if (heapP[c] >= lp) break;
+      heapK[i] = heapK[c];
+      heapP[i] = heapP[c];
+      i = c;
+    }
+    heapK[i] = lk;
+    heapP[i] = lp;
+    popP = p;
+    return k;
+  };
+  let popP = 0;
+  const open = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !blocked(x, y);
+  for (const g of goals) {
+    if (!open(g.x, g.y)) continue;
+    const k = g.y * w + g.x;
+    if (dist[k] === 0) continue;
+    dist[k] = 0;
+    push(k, 0);
+  }
+  while (size > 0) {
+    const k = pop();
+    const d = popP;
+    if (d > dist[k]) continue;
+    const x = k % w;
+    const y = (k - x) / w;
+    for (const [dx, dy, step] of DIRS) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (!open(nx, ny)) continue;
+      if (dx && dy && (!open(x + dx, y) || !open(x, y + dy))) continue;
+      const nk = ny * w + nx;
+      const nd = d + step + (cost ? cost(nx, ny) : 0);
+      if (nd < dist[nk]) {
+        dist[nk] = nd;
+        push(nk, nd);
+      }
+    }
+  }
+  return { w, h, dist, blocked };
+}
+
+function distanceAt(field, x, y) {
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  if (tx < 0 || ty < 0 || tx >= field.w || ty >= field.h) return Infinity;
+  return field.dist[ty * field.w + tx];
+}
+
+// The neighbouring tile to head for from tile (x, y): the closest to the goal, or null at the goal
+// or when there's no way there.
+function nextTile(field, x, y) {
+  const { w, h, dist, blocked } = field;
+  const here = y * w + x;
+  let best = dist[here];
+  if (best === 0) return null;
+  let out = null;
+  const open = (cx, cy) => cx >= 0 && cy >= 0 && cx < w && cy < h && !blocked(cx, cy);
+  for (const [dx, dy] of DIRS) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (!open(nx, ny)) continue;
+    if (dx && dy && (!open(x + dx, y) || !open(x, y + dy))) continue;
+    const d = dist[ny * w + nx];
+    if (d < best) {
+      best = d;
+      out = { x: nx, y: ny };
+    }
+  }
+  return out;
+}
+
+return { buildField, distanceAt, nextTile };
+})();
+
+// ---- military.js ----
+const __mod_military = (() => {
+// A town's military: its permanent base (a separate map with a command post, defences and rocks),
+// its soldiers, and the military budget that pays for all of it. Pure rules, no screen: the base
+// screen (militaryUI.js) and battles (battle.js, warRoom.js) go through these methods.
+//
+//   Budget: a share of the town's daily income moves into the military budget by itself (adjustable,
+//   0–50%), and the mayor can move money over in an emergency. Building, upgrades, repairs, recruits
+//   and soldiers' pay all come out of it.
+//   Base: defences go anywhere outside the enemy's arrival rows and your reinforcement rows, as long
+//   as a way stays open from the enemy's edge to the command post (protected routes). Damage stays
+//   after a battle; repair crews fix it over time in the order you choose, or you pay to rush it.
+//   Soldiers: trained over a few hours, recruited at once in an emergency for more, or hired ready
+//   (specialists). Stationed soldiers stand guard at their post; the rest are the reserve you send in
+//   as reinforcements. They gain experience, get hurt, recover, and some fall.
+//
+// Saved in city.systems.military (made the first time it's needed, so older saves just gain it):
+//   { v, seed, since, funds, share, unpaid, rocks: [[x, y]], structures: [{ id, type, x, y, level, hp }],
+//     soldiers: [{ id, type, name, xp, kills, battles, status, until, post }], fallen, repairOrder,
+//     trainingUntil, nextId, log, battle, protectedUntil, raids }
+
+const { BASE_W, BASE_H, ENTRY_ROWS, DEPLOY_ROWS, HQ_AT, DEFENCES, BUILDABLE, MAX_LEVEL, upgradeCost, maxHpOf, repairRate, REPAIR_HP_PER_DAY, RUSH_REPAIR, ARMY_CAP, GARRISON_CAP, UNITS, EMERGENCY, rankOf, RANKS, SURNAMES, INITIALS, LIGHT_INJURY_DAYS } = __mod_militaryData;
+const { buildField } = __mod_flowfield;
+const { mulberry32 } = __mod_utils;
+const MILITARY_VERSION = 1;
+const START_FUNDS = 500;
+const DEFAULT_SHARE = 0.2;
+const MAX_SHARE = 0.5;
+const LOG_KEEP = 20;
+const FALLEN_KEEP = 30;
+const ROCKS = 7;
+const RAID_LEVELS = ['off', 'gentle', 'fierce'];
+
+const now = (city) => city.day + city.clock;
+const key = (x, y) => `${x},${y}`;
+
+function soldierName(rand) {
+  return `${INITIALS[Math.floor(rand() * INITIALS.length)]}. ${SURNAMES[Math.floor(rand() * SURNAMES.length)]}`;
+}
+function titleOf(s) {
+  return `${RANKS[rankOf(s.xp)].short} ${s.name}`;
+}
+
+class Military {
+  // economy: the town's Economy (money moves between it and the military budget).
+  constructor(city, { economy, rand = Math.random, starter = 3 } = {}) {
+    this.city = city;
+    this.economy = economy;
+    this.rand = rand;
+    this.starter = starter;
+  }
+
+  get state() {
+    const sys = this.city.systems;
+    if (!sys.military || typeof sys.military !== 'object' || sys.military.v !== MILITARY_VERSION) sys.military = this.fresh(sys.military);
+    return sys.military;
+  }
+
+  // A new base: the command post, a few rocks, and a handful of riflemen standing guard.
+  fresh(old) {
+    if (old && typeof old === 'object' && old.v > MILITARY_VERSION) return old; // a newer version's data is kept as it is
+    const seed = Math.floor(this.rand() * 2 ** 31);
+    const st = {
+      v: MILITARY_VERSION,
+      seed,
+      since: now(this.city),
+      funds: START_FUNDS,
+      share: DEFAULT_SHARE,
+      unpaid: 0,
+      rocks: [],
+      structures: [{ id: 1, type: 'hq', x: HQ_AT.x, y: HQ_AT.y, level: 1, hp: maxHpOf('hq') }],
+      soldiers: [],
+      fallen: [],
+      repairOrder: [],
+      trainingUntil: 0,
+      nextId: 2,
+      log: [],
+      battle: null,
+      protectedUntil: 0,
+      raids: 'gentle',
+    };
+    this.city.systems.military = st;
+    const rand = mulberry32(seed);
+    for (let i = 0, tries = 0; i < ROCKS && tries < 60; tries++) {
+      const x = Math.floor(rand() * BASE_W);
+      const y = 4 + Math.floor(rand() * 9);
+      if (this.occupied(x, y) || Math.abs(x - HQ_AT.x - 0.5) < 3) continue;
+      st.rocks.push([x, y]);
+      if (!this.routeOpen()) st.rocks.pop();
+      else i++;
+    }
+    const posts = [
+      { x: HQ_AT.x - 0.5, y: HQ_AT.y - 1.5 },
+      { x: HQ_AT.x + 2.5, y: HQ_AT.y - 1.5 },
+      { x: HQ_AT.x + 1.5, y: HQ_AT.y - 2.5 },
+    ];
+    for (let i = 0; i < this.starter; i++) {
+      const s = this.addSoldier('rifleman', rand);
+      s.post = posts[i % posts.length];
+    }
+    return st;
+  }
+
+  get sandbox() {
+    return !!this.economy?.sandbox;
+  }
+  get funds() {
+    return this.state.funds;
+  }
+  get hq() {
+    return this.state.structures.find((s) => s.type === 'hq');
+  }
+  get level() {
+    return this.hq?.level || 1;
+  }
+  get armyCap() {
+    return ARMY_CAP[this.level];
+  }
+  get garrisonCap() {
+    return GARRISON_CAP[this.level];
+  }
+
+  canPay(amount) {
+    return this.sandbox || this.state.funds >= amount - 1e-6;
+  }
+  pay(amount) {
+    if (!this.sandbox) this.state.funds = Math.max(0, this.state.funds - amount);
+  }
+
+  // ---- The military budget ----------------------------------------------------------------
+
+  setShare(v) {
+    this.state.share = Math.max(0, Math.min(MAX_SHARE, Math.round(v * 100) / 100));
+  }
+
+  // Move money from the town's budget into the military budget (an emergency transfer).
+  transfer(amount) {
+    const eco = this.economy;
+    if (!eco) return 0;
+    const n = Math.max(0, Math.min(amount, eco.money));
+    if (!n) return 0;
+    eco.state.money -= n;
+    eco.state.today.expenses += n;
+    this.state.funds += n;
+    return n;
+  }
+
+  // What the soldiers are paid each day.
+  upkeep() {
+    return this.state.soldiers.reduce((sum, s) => sum + (UNITS[s.type]?.upkeep || 0), 0);
+  }
+
+  // ---- The base map -------------------------------------------------------------------------
+
+  structureAt(x, y) {
+    for (const s of this.state.structures) {
+      const d = DEFENCES[s.type];
+      if (x >= s.x && y >= s.y && x < s.x + d.w && y < s.y + d.h) return s;
+    }
+    return null;
+  }
+  rockAt(x, y) {
+    return this.state.rocks.some(([rx, ry]) => rx === x && ry === y);
+  }
+  occupied(x, y) {
+    return this.rockAt(x, y) || !!this.structureAt(x, y);
+  }
+  postAt(x, y) {
+    return this.state.soldiers.find((s) => s.post && Math.floor(s.post.x) === x && Math.floor(s.post.y) === y) || null;
+  }
+
+  // A way from the enemy's edge to the command post, with `extra` tiles counted as blocked.
+  routeOpen(extra = null) {
+    const blocked = (x, y) => this.occupied(x, y) || (extra && extra.has(key(x, y)));
+    const hq = this.hq;
+    if (!hq) return true;
+    const goals = [];
+    for (let y = hq.y - 1; y <= hq.y + 2; y++) for (let x = hq.x - 1; x <= hq.x + 2; x++) goals.push({ x, y });
+    const f = buildField(BASE_W, BASE_H, blocked, goals);
+    for (let x = 0; x < BASE_W; x++) if (f.dist[x] < Infinity) return true;
+    return false;
+  }
+
+  // Why a defence can't go at (x, y), or null when it can (the same check drives the preview).
+  placeError(type, x, y) {
+    const d = DEFENCES[type];
+    if (!d || !BUILDABLE.includes(type)) return 'Pick something to build';
+    if (x < 0 || y < 0 || x + d.w > BASE_W || y + d.h > BASE_H) return 'Outside the base';
+    if (y < ENTRY_ROWS) return 'Too close to the edge the enemy comes from';
+    if (y + d.h > BASE_H - DEPLOY_ROWS) return 'Keep the reinforcement area clear';
+    for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) {
+      if (this.rockAt(xx, yy)) return 'There’s rock in the way';
+      if (this.structureAt(xx, yy)) return 'Something is already built here';
+      if (this.postAt(xx, yy)) return 'A soldier stands guard here. Move them first';
+    }
+    if (!this.canPay(d.cost)) return `Needs ${d.cost} in the military budget`;
+    const extra = new Set();
+    for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) extra.add(key(xx, yy));
+    if (!this.routeOpen(extra)) return 'That would close the last way in. Attackers must have a route';
+    return null;
+  }
+
+  place(type, x, y) {
+    const err = this.placeError(type, x, y);
+    if (err) return { error: err };
+    const st = this.state;
+    this.pay(DEFENCES[type].cost);
+    const s = { id: st.nextId++, type, x, y, level: 1, hp: maxHpOf(type) };
+    st.structures.push(s);
+    return { structure: s };
+  }
+
+  // Money back for taking a defence down: half of what went into it, less for damage.
+  refundOf(s) {
+    let spent = DEFENCES[s.type].cost;
+    for (let l = 1; l < s.level; l++) spent += upgradeCost(s.type, l);
+    return Math.round(spent * 0.5 * (s.hp / maxHpOf(s.type, s.level)));
+  }
+
+  remove(id) {
+    const st = this.state;
+    const s = st.structures.find((t) => t.id === id);
+    if (!s || DEFENCES[s.type].fixed) return { error: 'This can’t be taken down' };
+    const back = this.refundOf(s);
+    st.structures = st.structures.filter((t) => t !== s);
+    st.repairOrder = st.repairOrder.filter((r) => r !== id);
+    if (!this.sandbox) st.funds += back;
+    return { refund: back };
+  }
+
+  upgradeError(s) {
+    if (!s) return 'Pick a defence';
+    if (s.level >= MAX_LEVEL) return 'Fully upgraded';
+    if (s.hp <= 0) return 'Repair it first';
+    const c = upgradeCost(s.type, s.level);
+    if (!this.canPay(c)) return `Needs ${c} in the military budget`;
+    return null;
+  }
+
+  upgrade(id) {
+    const s = this.state.structures.find((t) => t.id === id);
+    const err = this.upgradeError(s);
+    if (err) return { error: err };
+    this.pay(upgradeCost(s.type, s.level));
+    const before = maxHpOf(s.type, s.level);
+    s.level++;
+    s.hp = Math.min(maxHpOf(s.type, s.level), s.hp + maxHpOf(s.type, s.level) - before);
+    return { structure: s };
+  }
+
+  // ---- Repairs ------------------------------------------------------------------------------
+
+  damaged() {
+    const st = this.state;
+    const list = st.structures.filter((s) => s.hp < maxHpOf(s.type, s.level));
+    // The order the crews work in: your chosen order first, then the most damaged.
+    const rank = (s) => {
+      const i = st.repairOrder.indexOf(s.id);
+      return i < 0 ? 1000 + s.hp / maxHpOf(s.type, s.level) : i;
+    };
+    return list.sort((a, b) => rank(a) - rank(b));
+  }
+
+  repairCost(s, rush = false) {
+    return Math.ceil((maxHpOf(s.type, s.level) - s.hp) * repairRate(s.type) * (rush ? RUSH_REPAIR : 1));
+  }
+
+  // Move a damaged defence up (−1) or down (+1) the crews' list, or to the top (−Infinity).
+  prioritize(id, dir) {
+    const st = this.state;
+    const order = this.damaged().map((s) => s.id);
+    const i = order.indexOf(id);
+    if (i < 0) return;
+    order.splice(i, 1);
+    const j = dir === -Infinity ? 0 : Math.max(0, Math.min(order.length, i + dir));
+    order.splice(j, 0, id);
+    st.repairOrder = order;
+  }
+
+  repairNow(id) {
+    const s = this.state.structures.find((t) => t.id === id);
+    if (!s) return { error: 'Pick a defence' };
+    const c = this.repairCost(s, true);
+    if (!c) return { error: 'Not damaged' };
+    if (!this.canPay(c)) return { error: `Needs ${c} in the military budget` };
+    this.pay(c);
+    s.hp = maxHpOf(s.type, s.level);
+    return { cost: c };
+  }
+
+  // ---- Soldiers -----------------------------------------------------------------------------
+
+  addSoldier(type, rand = this.rand) {
+    const st = this.state;
+    const s = { id: st.nextId++, type, name: soldierName(rand), xp: 0, kills: 0, battles: 0, status: 'ready', until: 0, post: null };
+    st.soldiers.push(s);
+    return s;
+  }
+
+  recruitError(type, { emergency = false } = {}) {
+    const u = UNITS[type];
+    if (!u) return 'Pick who to recruit';
+    if (this.state.soldiers.length >= this.armyCap) return `The base holds ${this.armyCap} soldiers. Upgrade the command post for more`;
+    const c = this.recruitCost(type, { emergency });
+    if (!this.canPay(c)) return `Needs ${c} in the military budget`;
+    return null;
+  }
+
+  recruitCost(type, { emergency = false } = {}) {
+    const u = UNITS[type];
+    return Math.round(u.cost * (emergency && u.train ? EMERGENCY : 1));
+  }
+
+  // Regular training takes time (one recruit after another); emergency recruits and specialists are ready now.
+  recruit(type, { emergency = false } = {}) {
+    const err = this.recruitError(type, { emergency });
+    if (err) return { error: err };
+    const st = this.state;
+    this.pay(this.recruitCost(type, { emergency }));
+    const s = this.addSoldier(type);
+    const u = UNITS[type];
+    if (u.train && !emergency) {
+      const start = Math.max(now(this.city), st.trainingUntil || 0);
+      s.status = 'training';
+      s.until = start + u.train;
+      st.trainingUntil = s.until;
+    }
+    return { soldier: s };
+  }
+
+  dismiss(id) {
+    const st = this.state;
+    st.soldiers = st.soldiers.filter((s) => s.id !== id);
+  }
+
+  garrison() {
+    return this.state.soldiers.filter((s) => s.post);
+  }
+
+  stationError(s, x, y) {
+    if (!s) return 'Pick a soldier';
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+    if (tx < 0 || ty < 0 || tx >= BASE_W || ty >= BASE_H) return 'Outside the base';
+    if (ty < ENTRY_ROWS) return 'Too close to the enemy’s edge';
+    if (this.occupied(tx, ty)) return 'Something is in the way';
+    const other = this.postAt(tx, ty);
+    if (other && other !== s) return 'Someone already stands guard here';
+    if (!s.post && this.garrison().length >= this.garrisonCap) return `${this.garrisonCap} soldiers can stand guard. Upgrade the command post for more`;
+    return null;
+  }
+
+  station(id, x, y) {
+    const s = this.state.soldiers.find((t) => t.id === id);
+    const err = this.stationError(s, x, y);
+    if (err) return { error: err };
+    s.post = { x: Math.floor(x) + 0.5, y: Math.floor(y) + 0.5 };
+    return { soldier: s };
+  }
+
+  unstation(id) {
+    const s = this.state.soldiers.find((t) => t.id === id);
+    if (s) s.post = null;
+  }
+
+  // Who can fight right now: those standing guard, and the reserve.
+  fit() {
+    return this.state.soldiers.filter((s) => s.status === 'ready');
+  }
+
+  // A rough measure of fighting power, for the computer's decisions and the world panel.
+  strength() {
+    let p = 0;
+    for (const s of this.fit()) p += UNITS[s.type].cost * (1 + 0.08 * rankOf(s.xp));
+    for (const s of this.state.structures) if (s.type !== 'hq' && s.hp > 0) p += DEFENCES[s.type].cost * 0.5 * (1 + 0.3 * (s.level - 1)) * (s.hp / maxHpOf(s.type, s.level));
+    return Math.round(p);
+  }
+
+  // ---- Time passing ------------------------------------------------------------------------
+
+  // dayFraction: the part of a game day that just went by.
+  update(dayFraction) {
+    if (dayFraction <= 0) return;
+    const st = this.state;
+    const t = now(this.city);
+    const eco = this.economy;
+    // The automatic share of the town's income.
+    const net = this.city.derived.economy?.net || 0;
+    if (eco && !this.sandbox && net > 0 && st.share > 0) {
+      const n = Math.min(eco.money, net * st.share * dayFraction);
+      if (n > 0) {
+        eco.state.money -= n;
+        eco.state.today.expenses += n;
+        st.funds += n;
+      }
+    }
+    // Pay. When the budget runs dry, the troops go unpaid, and their morale suffers in battle.
+    const pay = this.upkeep() * dayFraction;
+    if (!this.sandbox) {
+      if (st.funds >= pay) {
+        st.funds -= pay;
+        st.unpaid = Math.max(0, st.unpaid - dayFraction);
+      } else {
+        st.funds = 0;
+        st.unpaid = Math.min(10, st.unpaid + dayFraction);
+      }
+    }
+    // Training finishes and the wounded recover.
+    for (const s of st.soldiers) {
+      if ((s.status === 'training' || s.status === 'injured') && t >= s.until) {
+        s.status = 'ready';
+        s.until = 0;
+      }
+    }
+    // Repair crews work down the list, as far as the day and the budget allow.
+    let hp = REPAIR_HP_PER_DAY * dayFraction;
+    for (const s of this.damaged()) {
+      if (hp <= 0) break;
+      const max = maxHpOf(s.type, s.level);
+      const rate = repairRate(s.type);
+      const afford = this.sandbox ? Infinity : st.funds / rate;
+      const n = Math.min(hp, max - s.hp, afford);
+      if (n <= 0) break;
+      s.hp = Math.min(max, s.hp + n);
+      if (s.hp > max - 0.5) s.hp = max;
+      this.pay(n * rate);
+      hp -= n;
+    }
+    st.repairOrder = st.repairOrder.filter((id) => st.structures.some((s) => s.id === id && s.hp < maxHpOf(s.type, s.level)));
+  }
+
+  // Morale lost to unpaid wages (0–30 points).
+  unpaidPenalty() {
+    return Math.min(30, Math.round(this.state.unpaid * 6));
+  }
+
+  // ---- After a battle --------------------------------------------------------------------------
+
+  // Write a battle's outcome back: health of every defence (when this town's base was the
+  // battlefield), and what happened to each soldier who took part.
+  // outcome: { structures?: [{ id, hp }], soldiers: [{ id, fate: 'ok'|'hurt'|'injured'|'killed', xp, kills }], days? }
+  applyOutcome(outcome, { battleName = 'a battle' } = {}) {
+    const st = this.state;
+    const t = now(this.city);
+    const injuryDays = outcome.injuryDays || ((r) => 2 + r * 2);
+    for (const r of outcome.structures || []) {
+      const s = st.structures.find((x) => x.id === r.id);
+      if (s) s.hp = Math.max(0, Math.min(maxHpOf(s.type, s.level), Math.round(r.hp)));
+    }
+    const lost = [];
+    for (const r of outcome.soldiers || []) {
+      const s = st.soldiers.find((x) => x.id === r.id);
+      if (!s) continue;
+      s.xp += r.xp || 0;
+      s.kills += r.kills || 0;
+      s.battles++;
+      if (r.fate === 'killed') {
+        lost.push(s);
+        st.fallen.unshift({ name: titleOf(s), type: s.type, day: this.city.day, battle: battleName });
+      } else if (r.fate === 'injured') {
+        s.status = 'injured';
+        s.until = t + injuryDays(this.rand());
+      } else if (r.fate === 'hurt') {
+        s.status = 'injured';
+        s.until = t + LIGHT_INJURY_DAYS;
+      }
+    }
+    if (lost.length) st.soldiers = st.soldiers.filter((s) => !lost.includes(s));
+    if (st.fallen.length > FALLEN_KEEP) st.fallen.length = FALLEN_KEEP;
+  }
+
+  addLog(entry) {
+    const st = this.state;
+    st.log.unshift({ day: this.city.day, ...entry });
+    if (st.log.length > LOG_KEEP) st.log.length = LOG_KEEP;
+  }
+
+  // The base as the screens and the battle need it.
+  layout() {
+    const st = this.state;
+    return {
+      w: BASE_W,
+      h: BASE_H,
+      entryRows: ENTRY_ROWS,
+      deployRows: DEPLOY_ROWS,
+      rocks: st.rocks.map(([x, y]) => ({ x, y })),
+      structures: st.structures.map((s) => ({ ...s, w: DEFENCES[s.type].w, h: DEFENCES[s.type].h, maxHp: maxHpOf(s.type, s.level) })),
+    };
+  }
+}
+
+return { MILITARY_VERSION, START_FUNDS, DEFAULT_SHARE, MAX_SHARE, RAID_LEVELS, soldierName, titleOf, Military };
+})();
+
+// ---- battle.js ----
+const __mod_battle = (() => {
+// A battle at a military base: the attacker's troops arrive in waves along the top edge and fight
+// their way to the command post; the defender's garrison holds its posts, defences fire, and the
+// commander sends in reinforcement squads, gives them orders and calls in artillery. Pure rules, no
+// screen (the 3D view reads the fields below), fixed steps and its own seeded random numbers, so
+// the same start and the same orders give the same battle, it can be saved half-way and resumed,
+// and it can be fought out with nobody watching (auto-resolve).
+//
+// Patterns from the battle-mode research (docs/references/battle-mode.md), in our own code: one
+// flow field per goal for movement, defences that re-pick their target every step, damage
+// multipliers by target tag minus armour, lobbed shells that land where they were aimed, and the
+// computer's waves pulling back to regroup when they've lost most of their number.
+//
+// Who wins: the attacker by destroying the command post, or by defeating the defending army (every
+// soldier down and no reserve left) or making it break and run. The defender by holding until every
+// wave is beaten or has withdrawn (morale breaks, or the attack runs out of time and supplies).
+
+const { DEFENCES, UNITS, ARTILLERY, SQUAD_SIZE, REINFORCE_COOLDOWN, rankBonus, levelDmg, SURVIVE, SURVIVE_MEDIC } = __mod_militaryData;
+const { buildField, nextTile, distanceAt } = __mod_flowfield;
+const STEP = 0.05; // seconds per battle step
+const BATTLE_VERSION = 1;
+const TIME_LIMIT = 300; // after this the attack has run out of supplies and withdraws
+const RETREAT_AT = 0.35; // a wave pulls back when fewer than this share of it is still standing
+const WITHDRAW_MORALE = 20;
+const ROUT_MORALE = 8;
+const MASS_TIME = 2.5; // a fresh wave gathers this long before it advances
+const SPACE = 0.42; // how close two soldiers stand at most
+const LEASH = 2.5; // how far a guard leaves their post to fight
+const FX_KEEP = 2.5; // seconds of effects kept for the screen
+const ACCURACY = 0.8;
+const COVER = 0.6; // damage taken next to sandbags, a nest or a bunker
+const THINK = 0.5; // how often the computer commanders think, in seconds
+
+const dist2 = (ax, ay, bx, by) => (ax - bx) ** 2 + (ay - by) ** 2;
+
+class Battle {
+  // spec: { seed, name, attacker: { name, morale, waves: [{ at, units: [{ id, type, xp }] }] },
+  //   defender: { name, morale, budget, garrison: [{ id, type, xp, x, y }], reserve: [{ id, type, xp }] },
+  //   map: { w, h, entryRows, deployRows, rocks: [{ x, y }], structures: [{ id, type, x, y, level, hp, maxHp }] },
+  //   auto: true when the computer commands the defenders too }
+  constructor(spec, restore = null) {
+    if (restore) return this.restore(restore);
+    this.v = BATTLE_VERSION;
+    this.name = spec.name || 'Battle';
+    this.r = (spec.seed >>> 0) || 1;
+    this.t = 0;
+    this.over = false;
+    this.result = null;
+    this.paused = false;
+    this.auto = !!spec.auto;
+    this.acc = 0;
+    this.nextId = 1;
+    this.fxId = 0;
+    this.fx = [];
+    this.map = { w: spec.map.w, h: spec.map.h, entryRows: spec.map.entryRows || 2, deployRows: spec.map.deployRows || 2, rocks: spec.map.rocks.map((r) => ({ x: r.x, y: r.y })) };
+    this.structs = spec.map.structures.map((s) => ({ id: s.id, type: s.type, x: s.x, y: s.y, w: DEFENCES[s.type].w, h: DEFENCES[s.type].h, level: s.level || 1, hp: s.hp, maxHp: s.maxHp, cd: 0, tgt: null }));
+    this.units = [];
+    this.shells = [];
+    this.strikes = [];
+    this.names = { att: spec.attacker.name || 'The enemy', def: spec.defender.name || 'You' };
+    this.morale = { att: clampM(spec.attacker.morale ?? 100), def: clampM(spec.defender.morale ?? 100) };
+    this.withdrawing = false;
+    this.routing = false;
+    this.budget = spec.defender.budget ?? 0;
+    this.spent = 0;
+    this.artilleryAt = 0; // when the next strike may be called
+    this.reinforceAt = 0;
+    this.waves = spec.attacker.waves.map((w, i) => ({ i, at: w.at, units: w.units.map((u) => ({ ...u })), spawned: false, launch: 0, pulled: false }));
+    this.attTotal = this.waves.reduce((n, w) => n + w.units.length, 0);
+    // Defenders: the garrison is on the field from the start; the reserve waits in squads.
+    this.squads = [{ id: 'guard', name: 'Garrison', units: [], deployed: true, order: { kind: 'hold' } }];
+    for (const g of spec.defender.garrison) {
+      const u = this.addUnit('def', g, g.x, g.y);
+      u.squad = 'guard';
+      u.anchor = { x: g.x, y: g.y };
+      this.squads[0].units.push(u.id);
+    }
+    const reserve = spec.defender.reserve.slice();
+    for (let i = 0; i < reserve.length; i += SQUAD_SIZE) {
+      const n = this.squads.length;
+      this.squads.push({ id: `s${n}`, name: `Squad ${n}`, deployed: false, order: { kind: 'rally' }, members: reserve.slice(i, i + SQUAD_SIZE), units: [] });
+    }
+    this.defTotal = spec.defender.garrison.length + reserve.length;
+    this.hadDefenders = this.defTotal > 0;
+    this.medic = { att: this.waves.some((w) => w.units.some((u) => UNITS[u.type]?.heal)), def: [...spec.defender.garrison, ...reserve].some((u) => UNITS[u.type]?.heal) };
+    this.lost = { att: 0, def: 0 };
+    this.think = 0;
+    this.fields = new Map();
+    this.blockRev = 0;
+    this.selected = null;
+  }
+
+  // ---- Random numbers (mulberry32, with the state kept so a saved battle resumes exactly) ----
+  rand() {
+    let t = (this.r = (this.r + 0x6d2b79f5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  addUnit(side, rec, x, y) {
+    const def = UNITS[rec.type];
+    const mult = rankBonus(rec.xp || 0);
+    const u = {
+      id: this.nextId++,
+      side,
+      type: rec.type,
+      sid: rec.id,
+      x,
+      y,
+      maxHp: Math.round(def.hp * mult),
+      hp: Math.round(def.hp * mult),
+      mult,
+      cd: this.rand() * 0.6,
+      tgt: null,
+      mode: side === 'att' ? 'mass' : 'hold',
+      dest: null,
+      anchor: null,
+      squad: null,
+      wave: null,
+      kills: 0,
+      dealt: 0,
+      alive: true,
+      gone: false,
+      fate: null,
+      face: side === 'att' ? Math.PI / 2 : -Math.PI / 2,
+      moving: false,
+      fired: -9,
+      until: 0,
+    };
+    this.units.push(u);
+    return u;
+  }
+
+  // ---- The map ------------------------------------------------------------------------------
+
+  structAt(x, y) {
+    for (const s of this.structs) if (s.hp > 0 && x >= s.x && y >= s.y && x < s.x + s.w && y < s.y + s.h) return s;
+    return null;
+  }
+  rockAt(x, y) {
+    return this.map.rocks.some((r) => r.x === x && r.y === y);
+  }
+  blocked(x, y) {
+    if (x < 0 || y < 0 || x >= this.map.w || y >= this.map.h) return true;
+    return this.rockAt(x, y) || !!this.structAt(x, y);
+  }
+  get hq() {
+    return this.structs.find((s) => s.type === 'hq');
+  }
+
+  // A flow field towards a goal, rebuilt only after a defence falls (its rubble can be crossed).
+  field(key) {
+    let f = this.fields.get(key);
+    if (f && f.rev === this.blockRev) return f;
+    const { w, h } = this.map;
+    const blocked = (x, y) => this.blocked(x, y);
+    let goals = [];
+    if (key === 'hq') {
+      const q = this.hq;
+      if (q) for (let y = q.y - 1; y <= q.y + q.h; y++) for (let x = q.x - 1; x <= q.x + q.w; x++) goals.push({ x, y });
+    } else if (key === 'north') for (let x = 0; x < w; x++) goals.push({ x, y: 0 });
+    else if (key === 'south') for (let x = 0; x < w; x++) goals.push({ x, y: h - 1 });
+    else {
+      const [gx, gy] = key.slice(2).split(',').map(Number);
+      goals = [this.openNear(gx, gy)];
+    }
+    f = buildField(w, h, blocked, goals);
+    f.rev = this.blockRev;
+    this.fields.set(key, f);
+    return f;
+  }
+
+  openNear(x, y) {
+    if (!this.blocked(x, y)) return { x, y };
+    for (let r = 1; r < 6; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (!this.blocked(x + dx, y + dy)) return { x: x + dx, y: y + dy };
+    return { x, y };
+  }
+
+  // ---- Commands -----------------------------------------------------------------------------
+
+  squad(id) {
+    return this.squads.find((s) => s.id === id) || null;
+  }
+  livingIn(sq) {
+    return sq.units.map((id) => this.unit(id)).filter((u) => u && u.alive && !u.gone);
+  }
+  unit(id) {
+    return this.units.find((u) => u.id === id) || null;
+  }
+
+  // Why a squad can't be sent in right now, or null.
+  deployError(id) {
+    if (this.over) return 'The battle is over';
+    const sq = this.squad(id);
+    if (!sq) return 'Pick a squad';
+    if (sq.deployed) return 'Already in the fight';
+    if (this.routing) return 'Your troops are falling back';
+    const wait = this.reinforceAt - this.t;
+    if (wait > 0) return `Next squad in ${Math.ceil(wait)} s`;
+    return null;
+  }
+
+  // Send a reserve squad in from the reinforcement rows.
+  deploy(id) {
+    const err = this.deployError(id);
+    if (err) return { error: err };
+    const sq = this.squad(id);
+    const { w, h } = this.map;
+    const n = sq.members.length;
+    const cx = (this.hq ? this.hq.x + this.hq.w / 2 : w / 2) + (this.squads.filter((s) => s.deployed).length % 2 ? 2.5 : -2.5);
+    sq.members.forEach((m, i) => {
+      const x = Math.max(0.5, Math.min(w - 0.5, cx + (i - (n - 1) / 2) * 0.7 + (this.rand() - 0.5) * 0.2));
+      const y = h - 0.6 - (i % 2) * 0.5;
+      const u = this.addUnit('def', m, x, y);
+      u.squad = sq.id;
+      sq.units.push(u.id);
+    });
+    sq.deployed = true;
+    delete sq.members;
+    this.reinforceAt = this.t + REINFORCE_COOLDOWN;
+    this.setOrder(sq, sq.order);
+    this.addFx({ kind: 'deploy', x: cx, y: h - 1 });
+    return { ok: true };
+  }
+
+  // Squad orders: move (to a spot, firing on the way), hold (stand and fight where they are),
+  // charge (go after the nearest enemy) and fallback (regroup by the command post). Orders given
+  // while the battle is paused wait and are carried out when it resumes.
+  order(id, order) {
+    const sq = this.squad(id);
+    if (!sq || this.over) return { error: 'Pick a squad' };
+    if (!sq.deployed) return { error: 'Send the squad in first' };
+    if (order.kind === 'move' && !(Number.isFinite(order.x) && Number.isFinite(order.y))) return { error: 'Pick a spot' };
+    this.setOrder(sq, order);
+    return { ok: true };
+  }
+
+  setOrder(sq, order) {
+    sq.order = { kind: order.kind, x: order.x, y: order.y };
+    const members = this.livingIn(sq);
+    const n = members.length;
+    members.forEach((u, i) => {
+      if (order.kind === 'move') {
+        // Spread out around the spot, in a short line across it.
+        const off = (i - (n - 1) / 2) * 0.6;
+        u.mode = 'move';
+        u.dest = { x: clampTo(order.x + off, 0.4, this.map.w - 0.4), y: clampTo(order.y + (i % 2) * 0.4, 0.4, this.map.h - 0.4) };
+      } else if (order.kind === 'hold') {
+        u.mode = 'hold';
+        u.anchor = { x: u.x, y: u.y };
+      } else if (order.kind === 'rally') {
+        // Fresh squads form a line in front of the command post and hold it.
+        const q = this.hq;
+        const k = this.squads.filter((s) => s.deployed).length;
+        const cx = (q ? q.x + q.w / 2 : this.map.w / 2) + ((k % 3) - 1) * 3;
+        u.mode = 'move';
+        u.dest = { x: clampTo(cx + (i - (n - 1) / 2) * 0.7, 0.5, this.map.w - 0.5), y: (q ? q.y : this.map.h - 4) - 2 - (i % 2) * 0.5 };
+        u.then = 'hold';
+      } else if (order.kind === 'fallback') {
+        const q = this.hq;
+        const off = (i - (n - 1) / 2) * 0.6;
+        u.mode = 'move';
+        u.dest = { x: (q ? q.x + q.w / 2 : this.map.w / 2) + off, y: q ? q.y - 0.6 : this.map.h - 3 };
+        u.then = 'hold';
+      } else {
+        u.mode = 'charge';
+      }
+    });
+  }
+
+  strikeError(x, y) {
+    if (this.over) return 'The battle is over';
+    if (!(Number.isFinite(x) && Number.isFinite(y))) return 'Pick a spot';
+    const wait = this.artilleryAt - this.t;
+    if (wait > 0) return `Artillery is reloading: ${Math.ceil(wait)} s`;
+    if (this.budget - this.spent < ARTILLERY.cost) return `Needs ${ARTILLERY.cost} in the military budget`;
+    return null;
+  }
+
+  // The commander calls in an artillery strike: a few shells land on the spot after a short delay.
+  strike(x, y) {
+    const err = this.strikeError(x, y);
+    if (err) return { error: err };
+    this.spent += ARTILLERY.cost;
+    this.artilleryAt = this.t + ARTILLERY.cooldown;
+    this.strikes.push({ x, y, at: this.t + ARTILLERY.delay, left: ARTILLERY.shells });
+    this.addFx({ kind: 'mark', x, y, r: ARTILLERY.radius, life: ARTILLERY.delay + 0.6 });
+    return { ok: true };
+  }
+
+  // The commander pulls everyone out. The battle is lost, but nobody else falls.
+  retreat() {
+    if (this.over) return;
+    this.finish('att', 'retreat');
+  }
+
+  // ---- Time -------------------------------------------------------------------------------
+
+  // Advance by real seconds × speed in fixed steps (nothing happens while paused).
+  advance(seconds) {
+    if (this.over || this.paused) return;
+    this.acc += Math.min(seconds, 0.5);
+    while (this.acc >= STEP && !this.over) {
+      this.acc -= STEP;
+      this.step();
+    }
+  }
+
+  step() {
+    const dt = STEP;
+    this.t += dt;
+    this.spawnWaves();
+    this.think -= dt;
+    if (this.think <= 0) {
+      this.think = THINK;
+      this.attackerMind();
+      if (this.auto) this.defenderMind();
+    }
+    for (const u of this.units) if (u.alive && !u.gone) this.act(u, dt);
+    this.separate();
+    for (const s of this.structs) if (s.hp > 0 && DEFENCES[s.type].attack) this.turret(s, dt);
+    this.flyShells(dt);
+    this.landStrikes();
+    this.fx = this.fx.filter((f) => this.t - f.t < (f.life || FX_KEEP));
+    this.checkEnd();
+  }
+
+  spawnWaves() {
+    const { w } = this.map;
+    for (const wave of this.waves) {
+      if (wave.spawned || this.t < wave.at || this.withdrawing) continue;
+      wave.spawned = true;
+      wave.launch = wave.units.length;
+      const n = wave.units.length;
+      wave.ids = [];
+      wave.units.forEach((m, i) => {
+        const x = clampTo(((i + 0.5) / n) * w + (this.rand() - 0.5) * 1.2, 0.5, w - 0.5);
+        const y = 0.4 + this.rand() * 1.2;
+        const u = this.addUnit('att', m, x, y);
+        u.wave = wave.i;
+        u.until = this.t + MASS_TIME;
+        wave.ids.push(u.id);
+      });
+      this.addFx({ kind: 'wave', x: w / 2, y: 0, n: wave.i + 1 });
+    }
+  }
+
+  // The attacking commander: waves that have lost most of their number pull back; a broken attack
+  // (morale gone, or out of time) withdraws altogether.
+  attackerMind() {
+    if (!this.withdrawing && (this.morale.att <= WITHDRAW_MORALE || this.t >= TIME_LIMIT)) {
+      this.withdrawing = true;
+      this.addFx({ kind: 'withdraw', side: 'att' });
+    }
+    for (const wave of this.waves) {
+      if (!wave.spawned || wave.pulled) continue;
+      const alive = wave.ids.map((id) => this.unit(id)).filter((u) => u.alive && !u.gone);
+      if (this.withdrawing || (wave.launch >= 3 && alive.length < wave.launch * RETREAT_AT)) {
+        wave.pulled = true;
+        for (const u of alive) u.mode = 'retreat';
+      }
+    }
+  }
+
+  // The computer commanding the defence (auto-resolve): send squads in as soon as there are
+  // attackers to fight, and call artillery on a crowd.
+  defenderMind() {
+    const foes = this.units.filter((u) => u.side === 'att' && u.alive && !u.gone && u.mode !== 'mass');
+    if (!foes.length) return;
+    const next = this.squads.find((s) => !s.deployed);
+    if (next && !this.deployError(next.id)) this.deploy(next.id);
+    if (!this.strikeError(0, 0)) {
+      let best = null;
+      let most = 2;
+      for (const f of foes) {
+        const n = foes.filter((g) => dist2(f.x, f.y, g.x, g.y) <= ARTILLERY.radius ** 2).length;
+        if (n > most) {
+          most = n;
+          best = f;
+        }
+      }
+      if (best) this.strike(best.x, best.y);
+    }
+  }
+
+  // ---- One soldier, one step ---------------------------------------------------------------------
+
+  act(u, dt) {
+    const def = UNITS[u.type];
+    u.cd -= dt;
+    u.moving = false;
+    if (u.mode === 'mass') {
+      if (this.t >= u.until) u.mode = 'advance';
+      else return this.fight(u, def, false);
+    }
+    if (u.mode === 'retreat') {
+      const out = u.side === 'att' ? u.y <= 0.35 : u.y >= this.map.h - 0.35;
+      if (out) {
+        u.gone = true;
+        return;
+      }
+      this.walk(u, def.speed * 1.15, this.field(u.side === 'att' ? 'north' : 'south'), { x: u.x, y: u.side === 'att' ? 0 : this.map.h }, dt);
+      return;
+    }
+    if (def.heal) this.heal(u, def, dt);
+    const tgt = this.fight(u, def, u.mode === 'move');
+    if (u.mode === 'advance') {
+      if (!tgt) this.walk(u, def.speed, this.field('hq'), null, dt);
+    } else if (u.mode === 'move') {
+      const d = u.dest;
+      if (dist2(u.x, u.y, d.x, d.y) < 0.04) {
+        u.mode = u.then || 'hold';
+        u.then = null;
+        u.anchor = { x: d.x, y: d.y };
+      } else this.walk(u, def.speed, this.field(`p:${Math.floor(d.x)},${Math.floor(d.y)}`), d, dt);
+    } else if (u.mode === 'charge') {
+      if (!tgt) {
+        const foe = this.nearestFoe(u);
+        if (foe) this.walk(u, def.speed, this.field(`p:${Math.floor(foe.x)},${Math.floor(foe.y)}`), foe, dt);
+        else if (u.side === 'def') u.mode = 'hold';
+      }
+    } else if (u.mode === 'hold') {
+      const a = u.anchor || (u.anchor = { x: u.x, y: u.y });
+      if (!tgt) {
+        // Guards step out to meet an enemy close to their post, then go back to it.
+        const foe = this.nearestFoe(u);
+        const reach = def.attack.range + LEASH;
+        if (foe && dist2(foe.x, foe.y, a.x, a.y) < reach * reach && dist2(u.x, u.y, a.x, a.y) < LEASH * LEASH) this.walk(u, def.speed, this.field(`p:${Math.floor(foe.x)},${Math.floor(foe.y)}`), foe, dt);
+        else if (dist2(u.x, u.y, a.x, a.y) > 0.05) this.walk(u, def.speed, this.field(`p:${Math.floor(a.x)},${Math.floor(a.y)}`), a, dt);
+      }
+    }
+  }
+
+  nearestFoe(u) {
+    let best = null;
+    let bd = Infinity;
+    for (const o of this.units) {
+      if (o.side === u.side || !o.alive || o.gone) continue;
+      const d = dist2(u.x, u.y, o.x, o.y);
+      if (d < bd) {
+        bd = d;
+        best = o;
+      }
+    }
+    if (!best && u.side === 'att') {
+      const q = this.hq;
+      if (q && q.hp > 0) return { x: q.x + q.w / 2, y: q.y + q.h / 2 };
+    }
+    return best;
+  }
+
+  // Walk along a flow field (or straight at `point` once on its tile).
+  walk(u, speed, field, point, dt) {
+    const tx = Math.floor(u.x);
+    const ty = Math.floor(u.y);
+    let gx;
+    let gy;
+    const next = nextTile(field, tx, ty);
+    if (next) {
+      gx = next.x + 0.5;
+      gy = next.y + 0.5;
+    } else if (point) {
+      gx = point.x;
+      gy = point.y;
+    } else return;
+    const dx = gx - u.x;
+    const dy = gy - u.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1e-4) return;
+    const step = Math.min(d, speed * dt);
+    this.moveBy(u, (dx / d) * step, (dy / d) * step);
+    u.face = Math.atan2(dy, dx);
+    u.moving = true;
+  }
+
+  // Move, sliding along walls rather than stopping dead.
+  moveBy(u, dx, dy) {
+    const nx = u.x + dx;
+    const ny = u.y + dy;
+    const inside = (x, y) => this.blocked(Math.floor(x), Math.floor(y));
+    if (!inside(nx, ny)) {
+      u.x = nx;
+      u.y = ny;
+    } else if (!inside(nx, u.y)) u.x = nx;
+    else if (!inside(u.x, ny)) u.y = ny;
+    u.x = clampTo(u.x, 0.05, this.map.w - 0.05);
+    u.y = clampTo(u.y, 0.05, this.map.h - 0.05);
+  }
+
+  // Soldiers keep a little space between them.
+  separate() {
+    const list = this.units.filter((u) => u.alive && !u.gone);
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= SPACE * SPACE) continue;
+        const d = Math.sqrt(d2) || 0.01;
+        const push = (SPACE - d) / 2;
+        const ux = d2 ? dx / d : 1;
+        const uy = d2 ? dy / d : 0;
+        this.moveBy(a, -ux * push, -uy * push);
+        this.moveBy(b, ux * push, uy * push);
+      }
+    }
+  }
+
+  // Pick the most worthwhile target in range and fire when ready (also on the move, less accurately).
+  fight(u, def, onTheMove) {
+    const a = def.attack;
+    const t = this.pickTarget(u, a.range);
+    u.tgt = t ? (t.isStruct ? `s${t.id}` : t.id) : null;
+    if (!t) return null;
+    const tx = t.isStruct ? t.x + t.w / 2 : t.x;
+    const ty = t.isStruct ? t.y + t.h / 2 : t.y;
+    if (!onTheMove) u.face = Math.atan2(ty - u.y, tx - u.x);
+    if (u.cd <= 0) {
+      u.cd = 1 / a.rate;
+      u.fired = this.t;
+      const base = a.dmg * u.mult;
+      if (a.kind === 'bullet') this.shoot(u, t, base, a, onTheMove ? 0.6 : 1);
+      else this.lob(u, tx, ty, base, a, 0.35);
+    }
+    return t;
+  }
+
+  // Score everything in range: close is good, the wounded and anything shooting back are better,
+  // walls are a last resort (the target-choice pattern from Ugh-Guys, our own weights).
+  pickTarget(u, range) {
+    let best = null;
+    let bs = -Infinity;
+    const r2 = range * range;
+    for (const o of this.units) {
+      if (o.side === u.side || !o.alive || o.gone) continue;
+      const d2 = dist2(u.x, u.y, o.x, o.y);
+      if (d2 > r2) continue;
+      const s = -Math.sqrt(d2) * 1.2 + (1 - o.hp / o.maxHp) * 4 + 3 + vsBonus(u, UNITS[o.type].tags) * 5;
+      if (s > bs) {
+        bs = s;
+        best = o;
+      }
+    }
+    if (u.side === 'att') {
+      for (const st of this.structs) {
+        if (st.hp <= 0) continue;
+        const cx = clampTo(u.x, st.x, st.x + st.w);
+        const cy = clampTo(u.y, st.y, st.y + st.h);
+        const d2 = dist2(u.x, u.y, cx, cy);
+        if (d2 > r2) continue;
+        const d = DEFENCES[st.type];
+        let s = -Math.sqrt(d2) * 1.2 + vsBonus(u, d.tags) * 5;
+        s += d.attack ? 1.5 : -6;
+        if (st.type === 'hq') s += 1;
+        if (s > bs) {
+          bs = s;
+          best = { ...st, isStruct: true, ref: st };
+        }
+      }
+    }
+    return best;
+  }
+
+  shoot(u, t, base, a, steady) {
+    const hit = this.rand() < ACCURACY * steady;
+    const tx = t.isStruct ? t.x + t.w / 2 : t.x;
+    const ty = t.isStruct ? t.y + t.h / 2 : t.y;
+    this.addFx({ kind: 'shot', x: u.x, y: u.y, x2: tx + (hit ? 0 : (this.rand() - 0.5) * 0.8), y2: ty + (hit ? 0 : (this.rand() - 0.5) * 0.8), side: u.side, life: 0.12 });
+    if (hit) this.damage(t.isStruct ? t.ref : t, base, a.vs, u);
+  }
+
+  // Throw or lob something that lands a little later, wherever it was aimed (plus a little scatter).
+  lob(src, tx, ty, base, a, scatter) {
+    const sx = src.x + (src.w ? src.w / 2 : 0);
+    const sy = src.y + (src.h ? src.h / 2 : 0);
+    const d = Math.hypot(tx - sx, ty - sy);
+    const shell = a.kind === 'shell';
+    this.shells.push({
+      id: this.nextId++,
+      kind: a.kind,
+      side: src.side || 'def',
+      from: src.isUnit === false ? null : src.id,
+      x0: sx,
+      y0: sy,
+      x1: tx + (this.rand() - 0.5) * scatter * 2,
+      y1: ty + (this.rand() - 0.5) * scatter * 2,
+      t0: this.t,
+      dur: shell ? 1 + d / 12 : 0.45 + d / 10,
+      arc: shell ? 3 : 1.1,
+      dmg: base,
+      splash: a.splash || 0.6,
+      vs: a.vs || null,
+    });
+  }
+
+  flyShells() {
+    for (const s of this.shells) {
+      if (this.t - s.t0 < s.dur) continue;
+      s.done = true;
+      this.explode(s.x1, s.y1, s.splash, s.dmg, s.vs, s.side, this.unit(s.from));
+    }
+    this.shells = this.shells.filter((s) => !s.done);
+  }
+
+  landStrikes() {
+    for (const k of this.strikes) {
+      if (this.t < k.at || k.left <= 0) continue;
+      k.left--;
+      k.at = this.t + 0.35;
+      const x = k.x + (this.rand() - 0.5) * ARTILLERY.spread * 2;
+      const y = k.y + (this.rand() - 0.5) * ARTILLERY.spread * 2;
+      this.explode(x, y, ARTILLERY.radius, ARTILLERY.dmg, { structure: 0.3 }, 'def', null, true);
+    }
+    this.strikes = this.strikes.filter((k) => k.left > 0);
+  }
+
+  // Splash: full damage in the middle, half at the edge, to the thrower's enemies only.
+  explode(x, y, r, dmg, vs, side, by, big = false) {
+    this.addFx({ kind: 'boom', x, y, r, big, life: 0.7 });
+    for (const o of this.units) {
+      if (o.side === side || !o.alive || o.gone) continue;
+      const d = Math.sqrt(dist2(x, y, o.x, o.y));
+      if (d <= r) this.damage(o, dmg * (1 - 0.5 * (d / r)), vs, by);
+    }
+    if (side === 'att') {
+      for (const st of this.structs) {
+        if (st.hp <= 0) continue;
+        const cx = clampTo(x, st.x, st.x + st.w);
+        const cy = clampTo(y, st.y, st.y + st.h);
+        const d = Math.sqrt(dist2(x, y, cx, cy));
+        if (d <= r) this.damage(st, dmg * (1 - 0.5 * (d / r)), vs, by);
+      }
+    }
+  }
+
+  // Damage after the target's tags and armour (never less than 1), and less for anyone in cover.
+  damage(t, base, vs, by) {
+    const isStruct = !!DEFENCES[t.type];
+    const def = isStruct ? DEFENCES[t.type] : UNITS[t.type];
+    let mult = 1;
+    if (vs) for (const tag of def.tags) mult *= vs[tag] ?? 1;
+    let d = Math.max(1, base * mult - (def.armor || 0));
+    if (!isStruct && t.side === 'def' && (this.inCover(t) || this.dugIn(t))) d *= COVER;
+    t.hp -= d;
+    if (by) by.dealt += d;
+    if (t.hp > 0) return;
+    t.hp = 0;
+    if (isStruct) return this.wreck(t);
+    this.down(t, by);
+  }
+
+  inCover(u) {
+    for (const s of this.structs) {
+      if (s.hp <= 0 || !DEFENCES[s.type].cover) continue;
+      const cx = clampTo(u.x, s.x, s.x + s.w);
+      const cy = clampTo(u.y, s.y, s.y + s.h);
+      if (dist2(u.x, u.y, cx, cy) < 0.81) return true;
+    }
+    return false;
+  }
+
+  // A guard holding their own post is dug in there (a foxhole), as good as cover.
+  dugIn(u) {
+    return u.squad === 'guard' && u.mode === 'hold' && !!u.anchor && dist2(u.x, u.y, u.anchor.x, u.anchor.y) < 0.3;
+  }
+
+  down(u, by) {
+    u.alive = false;
+    u.mode = 'down';
+    this.lost[u.side]++;
+    // Did they survive their wounds? More often with a medic in the battle.
+    u.fate = this.rand() < (this.medic[u.side] ? SURVIVE_MEDIC : SURVIVE) ? 'injured' : 'killed';
+    if (by) by.kills++;
+    const total = u.side === 'att' ? this.attTotal : this.defTotal;
+    const hit = u.side === 'att' ? 110 : 80;
+    this.morale[u.side] = clampM(this.morale[u.side] - hit / Math.max(4, total));
+    this.morale[u.side === 'att' ? 'def' : 'att'] = clampM(this.morale[u.side === 'att' ? 'def' : 'att'] + 1.5);
+    this.addFx({ kind: 'down', x: u.x, y: u.y, side: u.side, life: 1.2 });
+  }
+
+  wreck(s) {
+    this.blockRev++;
+    this.morale.def = clampM(this.morale.def - (s.type === 'hq' ? 0 : 4));
+    this.addFx({ kind: 'wreck', x: s.x + s.w / 2, y: s.y + s.h / 2, r: Math.max(s.w, s.h), life: 1.4 });
+  }
+
+  heal(u, def, dt) {
+    if (this.t - u.fired < 0.4) return;
+    let best = null;
+    let need = 0;
+    const r2 = def.heal.range ** 2;
+    for (const o of this.units) {
+      if (o.side !== u.side || !o.alive || o.gone || o === u) continue;
+      if (dist2(u.x, u.y, o.x, o.y) > r2) continue;
+      const n = o.maxHp - o.hp;
+      if (n > need) {
+        need = n;
+        best = o;
+      }
+    }
+    if (!best || need < 1) return;
+    best.hp = Math.min(best.maxHp, best.hp + def.heal.rate * dt);
+    u.healing = best.id;
+    if (Math.floor(this.t * 2) !== Math.floor((this.t - dt) * 2)) this.addFx({ kind: 'heal', x: best.x, y: best.y, life: 0.6 });
+  }
+
+  // A defence picks the attacker closest to the command post ("first") and fires.
+  turret(s, dt) {
+    const a = DEFENCES[s.type].attack;
+    s.cd -= dt;
+    const cx = s.x + s.w / 2;
+    const cy = s.y + s.h / 2;
+    const reach = a.range + Math.max(s.w, s.h) / 2;
+    const r2 = reach * reach;
+    const min2 = (a.min || 0) ** 2;
+    const f = this.field('hq');
+    let best = null;
+    let bd = Infinity;
+    for (const o of this.units) {
+      if (o.side !== 'att' || !o.alive || o.gone) continue;
+      const d2 = dist2(cx, cy, o.x, o.y);
+      if (d2 > r2 || d2 < min2) continue;
+      const along = distanceAt(f, o.x, o.y);
+      const score = Number.isFinite(along) ? along : 999 + d2;
+      if (score < bd) {
+        bd = score;
+        best = o;
+      }
+    }
+    s.tgt = best ? best.id : null;
+    if (!best || s.cd > 0) return;
+    s.cd = 1 / a.rate;
+    s.fired = this.t;
+    const base = a.dmg * levelDmg(s.level);
+    if (a.kind === 'bullet') {
+      const hit = this.rand() < ACCURACY;
+      this.addFx({ kind: 'shot', x: cx, y: cy, x2: best.x, y2: best.y, side: 'def', life: 0.12, heavy: s.type !== 'mg' });
+      if (hit) this.damage(best, base, a.vs, null);
+    } else this.lob({ ...s, side: 'def', isUnit: false }, best.x, best.y, base, a, 0.6);
+  }
+
+  // ---- The end ---------------------------------------------------------------------------------
+
+  checkEnd() {
+    if (this.over) return;
+    const q = this.hq;
+    if (q && q.hp <= 0) return this.finish('att', 'hq');
+    const defs = this.units.filter((u) => u.side === 'def' && u.alive && !u.gone);
+    const waiting = this.squads.some((s) => !s.deployed);
+    if (!this.routing && this.hadDefenders && this.morale.def <= ROUT_MORALE) {
+      this.routing = true;
+      for (const u of defs) u.mode = 'retreat';
+      this.addFx({ kind: 'withdraw', side: 'def' });
+    }
+    // The defending army is beaten when no soldier is left, none wait in reserve, and every armed defence has fallen.
+    const armed = this.structs.some((s) => s.hp > 0 && s.type !== 'hq' && DEFENCES[s.type].attack);
+    if (this.hadDefenders && !defs.length && (this.routing || (!waiting && !armed))) return this.finish('att', this.routing ? 'routed' : 'army');
+    const pending = this.waves.some((w) => !w.spawned) && !this.withdrawing;
+    const atts = this.units.some((u) => u.side === 'att' && u.alive && !u.gone);
+    if (!pending && !atts) return this.finish('def', this.withdrawing || this.units.some((u) => u.side === 'att' && u.gone) ? 'withdrew' : 'repelled');
+  }
+
+  finish(winner, reason) {
+    this.over = true;
+    this.paused = false;
+    const sides = { att: [], def: [] };
+    for (const u of this.units) {
+      let fate = 'ok';
+      if (!u.alive) fate = u.fate;
+      else if (u.hp < u.maxHp * 0.5) fate = 'hurt';
+      const won = u.side === winner;
+      const xp = Math.round(u.kills * 12 + u.dealt / 25 + (u.alive ? 6 : 0) + (won ? 6 : 0));
+      sides[u.side].push({ id: u.sid, type: u.type, fate, xp, kills: u.kills });
+    }
+    this.result = {
+      winner,
+      reason,
+      time: Math.round(this.t),
+      attacker: { soldiers: sides.att, lost: this.lost.att, total: this.attTotal, unsent: this.waves.filter((w) => !w.spawned).reduce((n, w) => n + w.units.length, 0) },
+      defender: { soldiers: sides.def, lost: this.lost.def, total: this.defTotal, spent: this.spent, structures: this.structs.map((s) => ({ id: s.id, type: s.type, hp: Math.round(s.hp), maxHp: s.maxHp, wrecked: s.hp <= 0 })) },
+    };
+    this.addFx({ kind: 'end', winner });
+  }
+
+  // Fight the rest of the battle out with the computer commanding both sides.
+  resolve(maxSeconds = TIME_LIMIT + 120) {
+    this.auto = true;
+    this.paused = false;
+    const end = this.t + maxSeconds;
+    while (!this.over && this.t < end) this.step();
+    if (!this.over) this.finish('def', 'withdrew');
+    return this.result;
+  }
+
+  addFx(f) {
+    f.id = ++this.fxId;
+    f.t = this.t;
+    this.fx.push(f);
+  }
+
+  // ---- What the screen shows ---------------------------------------------------------------------
+
+  status() {
+    const spawned = this.waves.filter((w) => w.spawned).length;
+    const nextWave = this.waves.find((w) => !w.spawned);
+    return {
+      t: this.t,
+      wave: spawned,
+      waves: this.waves.length,
+      nextWaveIn: nextWave && !this.withdrawing ? Math.max(0, nextWave.at - this.t) : null,
+      morale: { ...this.morale },
+      attackers: this.units.filter((u) => u.side === 'att' && u.alive && !u.gone).length,
+      defenders: this.units.filter((u) => u.side === 'def' && u.alive && !u.gone).length,
+      reinforceIn: Math.max(0, this.reinforceAt - this.t),
+      artilleryIn: Math.max(0, this.artilleryAt - this.t),
+      budget: this.budget - this.spent,
+      withdrawing: this.withdrawing,
+      routing: this.routing,
+      hq: this.hq ? this.hq.hp / this.hq.maxHp : 0,
+    };
+  }
+
+  // ---- Saving a battle half-way --------------------------------------------------------------------
+
+  toJSON() {
+    const { fields, acc, selected, ...rest } = this;
+    return JSON.parse(JSON.stringify(rest));
+  }
+
+  restore(data) {
+    Object.assign(this, JSON.parse(JSON.stringify(data)));
+    this.fields = new Map();
+    this.acc = 0;
+    this.paused = true; // a resumed battle waits for the commander
+    this.selected = null;
+    return this;
+  }
+
+  static fromJSON(data) {
+    if (!data || data.v !== BATTLE_VERSION || !Array.isArray(data.units) || !Array.isArray(data.structs)) return null;
+    return new Battle(null, data);
+  }
+}
+
+function clampM(v) {
+  return Math.max(0, Math.min(100, v));
+}
+function clampTo(v, a, b) {
+  return v < a ? a : v > b ? b : v;
+}
+function vsBonus(u, tags) {
+  const vs = UNITS[u.type].attack.vs;
+  if (!vs) return 0;
+  let m = 1;
+  for (const t of tags) m *= vs[t] ?? 1;
+  return m - 1;
+}
+
+return { STEP, BATTLE_VERSION, TIME_LIMIT, Battle };
+})();
+
+// ---- warRoom.js ----
+const __mod_warRoom = (() => {
+// The war room: every town's military, the computer's own recruiting, and the raids it sends
+// against your base. A raid is planned on the computer's slow look at the world, announced a few
+// hours ahead, and arrives as a battle you fight yourself or leave to your officers (auto-resolve).
+// Its outcome is written back to both towns: soldiers lost and hurt on each side, damage to your
+// base, money spent on artillery, and, if the raid wins, money carried off to the raider's budget.
+//
+// The computer plays by your rules: its troops come out of its own military budget (a share of its
+// income, like yours), they train for the same time, and the same battle rules decide the fight.
+// Time only passes while the game runs, so nothing is planned or fought while you're away.
+//
+// Saved in your town's city.systems.war = { v, count, raids: [{ id, from, fromName, seed, warnedAt,
+// at, status: 'coming'|'arrived'|'fighting', waves: [{ at, units: [{ id, type, xp }] }] }] }; a
+// battle in progress is in city.systems.military.battle (battle.js toJSON).
+
+const { Military, titleOf } = __mod_military;
+const { DEFENCES, UNITS, RANKS, rankOf, INJURY_DAYS } = __mod_militaryData;
+const { Battle } = __mod_battle;
+const { addChronicle } = __mod_chronicle;
+const WAR_VERSION = 1;
+const WARN_DAYS = 0.2; // how far ahead a raid is announced (a fifth of a day: about five hours)
+const LOOK_DAYS = 0.25; // how often the computer looks at its army
+const WAVE_GAP = 35; // seconds between waves
+const CPU_SHARE = 0.35;
+const CPU_FUNDS = 200;
+const LOOT_MAX = 2500;
+const RAID_RULES = {
+  gentle: { first: 3, cooldown: [4, 6], size: (n) => 3 + 2 * n, max: 14, protect: 3 },
+  fierce: { first: 1.5, cooldown: [2, 3], size: (n) => 6 + 3 * n, max: 24, protect: 1.5 },
+};
+
+const nowOf = (city) => city.day + city.clock;
+
+class WarRoom {
+  constructor(world, { rand = Math.random } = {}) {
+    this.world = world;
+    this.rand = rand;
+    this.onWarn = null; // (raid) → a raid has been announced
+    this.onArrive = null; // (raid) → a raid has reached your base
+    this.look = 0;
+    this.attach();
+  }
+
+  get home() {
+    return this.world.cities[0];
+  }
+  get military() {
+    return this.home.military;
+  }
+
+  get state() {
+    const s = this.home.city.systems;
+    if (!s.war || typeof s.war !== 'object' || s.war.v !== WAR_VERSION || !Array.isArray(s.war.raids)) s.war = { v: WAR_VERSION, count: 0, raids: [] };
+    return s.war;
+  }
+
+  // Give every town its military (after the world loads a save, a new town or a visit).
+  attach() {
+    for (const c of this.world.cities) {
+      if (c.military && c.military.city === c.city) continue;
+      const fresh = !c.city.systems.military;
+      c.military = new Military(c.city, { economy: c.sim.economy, rand: this.rand, starter: 3 });
+      const st = c.military.state;
+      if (fresh && c.owner !== 'player') {
+        st.share = CPU_SHARE;
+        st.funds = CPU_FUNDS;
+      }
+    }
+    // A raid from a town that no longer exists is called off.
+    const ids = new Set(this.world.cities.map((c) => c.id));
+    this.state.raids = this.state.raids.filter((r) => ids.has(r.from));
+  }
+
+  byId(id) {
+    return this.world.byId(id);
+  }
+
+  // The raid that needs your answer now (arrived, or a battle left half-way), if any.
+  pending() {
+    return this.state.raids.find((r) => r.status === 'arrived' || r.status === 'fighting') || null;
+  }
+  coming() {
+    return this.state.raids.find((r) => r.status === 'coming') || null;
+  }
+  // True while the world should stand still: a raid at the gates or a battle being fought.
+  get busy() {
+    return !!this.pending();
+  }
+
+  // dayFraction: the part of a game day that just went by (0 while paused).
+  update(dayFraction) {
+    if (dayFraction <= 0 || this.busy) return;
+    for (const c of this.world.cities) c.military?.update(dayFraction);
+    this.look -= dayFraction;
+    if (this.look <= 0) {
+      this.look = LOOK_DAYS;
+      for (const c of this.world.neighbours) {
+        this.recruitFor(c);
+        this.planRaid(c);
+      }
+    }
+    const t = nowOf(this.home.city);
+    for (const r of this.state.raids) {
+      if (r.status === 'coming' && t >= r.at) {
+        r.status = 'arrived';
+        this.onArrive?.(r);
+      }
+    }
+  }
+
+  // ---- The computer's army ----------------------------------------------------------------
+
+  // Train troops with what its military budget allows, leaning towards grenadiers when your base
+  // bristles with defences (counters, the Ugh-Guys pattern) and keeping a medic or two.
+  recruitFor(c) {
+    const m = c.military;
+    const st = m.state;
+    const yours = this.military.state.structures.filter((s) => s.hp > 0 && DEFENCES[s.type].attack && s.type !== 'hq').length;
+    for (let i = 0; i < 2; i++) {
+      if (st.soldiers.length >= m.armyCap) return;
+      const medics = st.soldiers.filter((s) => s.type === 'medic').length;
+      const weights = { rifleman: 4, gunner: 2, grenadier: 1 + yours * 0.8, medic: medics < Math.floor(st.soldiers.length / 6) ? 1.5 : 0 };
+      let total = 0;
+      for (const k in weights) total += weights[k];
+      let r = this.rand() * total;
+      let type = 'rifleman';
+      for (const k in weights) {
+        r -= weights[k];
+        if (r <= 0) {
+          type = k;
+          break;
+        }
+      }
+      if (st.funds < UNITS[type].cost + 60) return;
+      m.recruit(type);
+    }
+  }
+
+  // Decide whether to raid you: only one raid at a time, never while your base is protected after a
+  // battle, never in the first days of your base, and only with enough ready troops.
+  planRaid(c) {
+    const yours = this.military.state;
+    const R = RAID_RULES[yours.raids];
+    if (!R) return null;
+    if (this.state.raids.length) return null;
+    const t = nowOf(this.home.city);
+    if (t < yours.since + R.first || t < (yours.protectedUntil || 0)) return null;
+    const cm = c.military.state;
+    if (t < (cm.nextRaidAt || 0)) return null;
+    const ready = c.military.fit();
+    const want = Math.min(R.max, R.size(this.state.count), Math.floor(ready.length * 0.85));
+    if (want < 3) return null;
+    return this.launch(c, ready.slice(0, want), R);
+  }
+
+  launch(c, party, R = RAID_RULES.gentle) {
+    const t = nowOf(this.home.city);
+    for (const s of party) s.status = 'raiding';
+    const n = party.length;
+    const count = n <= 10 ? 2 : 3;
+    const per = Math.ceil(n / count);
+    const waves = [];
+    for (let i = 0; i < count; i++) {
+      const units = party.slice(i * per, (i + 1) * per).map((s) => ({ id: s.id, type: s.type, xp: s.xp }));
+      if (units.length) waves.push({ at: i * WAVE_GAP, units });
+    }
+    const raid = { id: `raid-${this.state.count + 1}`, from: c.id, fromName: c.entry.name, seed: Math.floor(this.rand() * 2 ** 31), warnedAt: t, at: t + WARN_DAYS, status: 'coming', waves, size: n };
+    this.state.raids.push(raid);
+    this.state.count++;
+    c.military.state.nextRaidAt = t + R.cooldown[0] + this.rand() * (R.cooldown[1] - R.cooldown[0]);
+    this.onWarn?.(raid);
+    return raid;
+  }
+
+  // ---- Fighting it out ------------------------------------------------------------------------
+
+  battleSpec(raid, { auto = false } = {}) {
+    const m = this.military;
+    const from = this.byId(raid.from);
+    const fit = m.fit();
+    return {
+      seed: raid.seed,
+      name: `${raid.fromName} raid`,
+      auto,
+      map: m.layout(),
+      attacker: { name: raid.fromName, morale: 100 - (from?.military.unpaidPenalty() || 0), waves: raid.waves },
+      defender: {
+        name: this.home.entry.name,
+        morale: 100 - m.unpaidPenalty(),
+        budget: m.sandbox ? 1e9 : m.funds,
+        garrison: fit.filter((s) => s.post).map((s) => ({ id: s.id, type: s.type, xp: s.xp, x: s.post.x, y: s.post.y })),
+        reserve: fit.filter((s) => !s.post).map((s) => ({ id: s.id, type: s.type, xp: s.xp })),
+      },
+    };
+  }
+
+  // Start (or pick up again) the battle for a raid you're defending yourself.
+  fight(raid) {
+    const st = this.military.state;
+    let battle = raid.status === 'fighting' && st.battle ? Battle.fromJSON(st.battle) : null;
+    if (!battle) {
+      battle = new Battle(this.battleSpec(raid));
+      raid.status = 'fighting';
+      st.battle = battle.toJSON();
+    }
+    return battle;
+  }
+
+  // Leave it to your officers: the whole battle (or the rest of one) is fought with nobody watching.
+  autoResolve(raid, battle = null) {
+    const b = battle || (raid.status === 'fighting' && this.military.state.battle ? Battle.fromJSON(this.military.state.battle) : null) || new Battle(this.battleSpec(raid, { auto: true }));
+    b.resolve();
+    return this.conclude(raid, b, { auto: true });
+  }
+
+  // Write the outcome back to both towns, and say what happened.
+  conclude(raid, battle, { auto = false } = {}) {
+    const res = battle.result;
+    const home = this.home;
+    const m = this.military;
+    const mst = m.state;
+    const from = this.byId(raid.from);
+    const t = nowOf(home.city);
+    const before = new Map(mst.structures.map((s) => [s.id, s.hp]));
+    const ranks = new Map(mst.soldiers.map((s) => [s.id, rankOf(s.xp)]));
+    const title = new Map(mst.soldiers.map((s) => [s.id, titleOf(s)]));
+    const injuryDays = (r) => INJURY_DAYS[0] + r * (INJURY_DAYS[1] - INJURY_DAYS[0]);
+    // Your side.
+    m.pay(res.defender.spent);
+    m.applyOutcome({ structures: res.defender.structures, soldiers: res.defender.soldiers, injuryDays }, { battleName: battle.name });
+    // Theirs.
+    if (from) {
+      from.military.applyOutcome({ soldiers: res.attacker.soldiers, injuryDays }, { battleName: battle.name });
+      for (const s of from.military.state.soldiers) if (s.status === 'raiding') s.status = 'ready';
+    }
+    // A raid that wins carries money off: up to half the military budget, the rest from the town's.
+    let loot = 0;
+    if (res.winner === 'att' && !m.sandbox) {
+      const eco = home.sim.economy;
+      loot = Math.min(LOOT_MAX, Math.round(mst.funds * 0.25 + eco.money * 0.03));
+      const fromFunds = Math.min(mst.funds * 0.5, loot);
+      mst.funds -= fromFunds;
+      eco.state.money = Math.max(0, eco.state.money - (loot - fromFunds));
+      eco.state.today.expenses += loot - fromFunds;
+      if (from) from.sim.economy.state.money += loot;
+    }
+    const R = RAID_RULES[mst.raids] || RAID_RULES.gentle;
+    mst.protectedUntil = t + R.protect;
+    mst.battle = null;
+    this.state.raids = this.state.raids.filter((r) => r !== raid);
+
+    const byFate = (f) => res.defender.soldiers.filter((s) => s.fate === f).map((s) => s.id);
+    const names = (ids) => ids.map((id) => title.get(id)).filter(Boolean);
+    const promoted = mst.soldiers.filter((s) => ranks.has(s.id) && rankOf(s.xp) > ranks.get(s.id)).map((s) => `${s.name} to ${RANKS[rankOf(s.xp)].label}`);
+    const damage = res.defender.structures
+      .filter((s) => s.hp < (before.get(s.id) ?? s.hp))
+      .map((s) => ({ id: s.id, label: DEFENCES[s.type].label, hp: s.hp, max: s.maxHp, wrecked: s.wrecked, lost: (before.get(s.id) ?? s.hp) - s.hp }));
+    const outcome = res.winner === 'def' ? 'held' : res.reason === 'retreat' ? 'retreated' : 'lost';
+    const report = {
+      raid: raid.id,
+      from: raid.fromName,
+      outcome,
+      reason: res.reason,
+      auto,
+      time: res.time,
+      attackers: { total: res.attacker.total, lost: res.attacker.lost, unsent: res.attacker.unsent },
+      you: {
+        fought: res.defender.soldiers.length,
+        killed: names(byFate('killed')),
+        injured: names(byFate('injured')),
+        hurt: names(byFate('hurt')),
+        promoted,
+        damage,
+        spent: res.defender.spent,
+        loot,
+      },
+    };
+    const said = { held: 'The base held', retreated: 'You pulled your troops out', lost: 'The base fell' }[outcome];
+    m.addLog({ kind: 'raid', ...report });
+    from?.military.addLog({ kind: 'raided', target: home.entry.name, outcome: outcome === 'held' ? 'beaten' : 'won', lost: res.attacker.lost, loot });
+    addChronicle(home.city, `${raid.fromName} raided the military base. ${said}: ${res.attacker.lost} of their ${res.attacker.total} soldiers fell${report.you.killed.length ? `, and ${report.you.killed.length} of ours` : ''}${loot ? `. They took ${'$' + loot.toLocaleString()}` : ''}.`);
+    return report;
+  }
+
+  // The rest of the world, for the screens: your base's next danger and each neighbour's army.
+  intel() {
+    const t = nowOf(this.home.city);
+    const st = this.military.state;
+    const coming = this.coming();
+    return {
+      coming: coming ? { from: coming.fromName, in: Math.max(0, coming.at - t), size: coming.size, waves: coming.waves.length } : null,
+      protectedFor: Math.max(0, (st.protectedUntil || 0) - t),
+      raids: st.raids,
+      neighbours: this.world.neighbours.map((c) => ({
+        id: c.id,
+        name: c.entry.name,
+        soldiers: c.military.state.soldiers.length,
+        ready: c.military.fit().length,
+        strength: c.military.strength(),
+      })),
+    };
+  }
+}
+
+
+return { WAR_VERSION, WARN_DAYS, RAID_RULES, WarRoom };
+})();
+
+// ---- militaryUI.js ----
+const __mod_militaryUI = (() => {
+// The military base screen and the battle screen on top of the 3D field (view3d/battle3d.js).
+//   Base: build defences (tap the field; the preview says why a spot won't do), upgrade, repair in
+//   the order you choose, recruit and post soldiers, run the military budget and read the reports.
+//   Battle: the raid comes in waves; your garrison holds its posts, you send in reserve squads, give
+//   them orders (tap the field to move, or hold / charge / fall back), call artillery, pause to plan
+//   (orders given while paused are carried out when it resumes), or pull out. The world waits.
+// All the rules live in military.js, battle.js and warRoom.js; this file only shows them.
+
+const { DEFENCES, BUILDABLE, UNITS, UNIT_TYPES, MAX_LEVEL, upgradeCost, ARTILLERY, ARMY_CAP } = __mod_militaryData;
+const { titleOf, MAX_SHARE, RAID_LEVELS } = __mod_military;
+const { money } = __mod_economy;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const SAVE_EVERY = 1; // seconds between battle snapshots written into the save
+const ICON = {
+  sandbags: '▤',
+  mg: '⦿',
+  bunker: '■',
+  mortar: '◎',
+  rifleman: 'R',
+  gunner: 'G',
+  grenadier: 'Gr',
+  medic: '+',
+};
+const STATUS = { ready: 'Ready', training: 'Training', injured: 'Recovering', raiding: 'Away' };
+const TABS = [
+  ['build', 'Build'],
+  ['troops', 'Troops'],
+  ['repairs', 'Repairs'],
+  ['budget', 'Budget'],
+  ['log', 'Reports'],
+];
+
+function inDays(d) {
+  if (d <= 0) return 'now';
+  const h = d * 24;
+  if (h < 1) return 'within the hour';
+  if (h < 36) return `in ${Math.round(h)} h`;
+  return `in ${(Math.round(d * 2) / 2).toLocaleString()} days`;
+}
+const forDays = (d) => (d * 24 < 36 ? `${Math.max(1, Math.round(d * 24))} h` : `${(Math.round(d * 2) / 2).toLocaleString()} days`);
+
+class MilitaryScreen {
+  // deps: { war: () → WarRoom, now: () → day + clock, cityMoney: () → number, toast, sound(name),
+  //   load3d: () → Promise<module>, isTyping, onOpen(), onClose(), clock: () → text }
+  constructor(deps) {
+    this.d = deps;
+    this.el = document.getElementById('military');
+    this.btn = document.getElementById('btn-base');
+    this.app = document.getElementById('app');
+    this.open = false;
+    this.tab = 'build';
+    this.tool = null;
+    this.selSoldier = null;
+    this.selStruct = null;
+    this.battle = null;
+    this.raid = null;
+    this.selSquad = null;
+    this.targeting = false;
+    this.speed = 1;
+    this.view = null;
+    this.loading = null;
+    this.saveTimer = 0;
+    this.uiTimer = 0;
+    this.realT = 0;
+    this.camMode = 'angled';
+    this.confirmRetreat = 0;
+    this.build();
+    this.btn.addEventListener('click', () => (this.open ? this.close() : this.show()));
+    // While the base is open it has the keyboard: the town's shortcuts don't fire behind it.
+    window.addEventListener('keydown', (e) => this.onKey(e), true);
+    window.addEventListener(
+      'keyup',
+      (e) => {
+        if (!this.open) return;
+        this.view?.key(e.code, false);
+      },
+      true
+    );
+  }
+
+  get war() {
+    return this.d.war();
+  }
+  get m() {
+    return this.war.military;
+  }
+
+  build() {
+    this.el.innerHTML = `
+      <div class="mil-stage" data-stage></div>
+      <header class="mil-top glass">
+        <div class="mil-title"><b>Military base</b><span data-town></span></div>
+        <div class="mil-chips" data-chips></div>
+        <div class="seg mil-cam" role="group" aria-label="Camera"><button type="button" data-cam="angled" aria-pressed="true">Angled</button><button type="button" data-cam="free" aria-pressed="false">Free</button></div>
+        <button type="button" class="pill mil-close" data-close>Back to town</button>
+      </header>
+      <aside class="mil-panel glass" data-panel></aside>
+      <div class="mil-hud" data-hud hidden></div>
+      <div class="mil-hint glass" data-hint hidden></div>
+      <section class="mil-card glass" data-card role="dialog" aria-modal="true" hidden></section>
+      <p class="mil-no3d glass" data-no3d hidden>The 3D field can't run in this browser. You can still run the base from the panel, and leave battles to your officers.</p>`;
+    this.$ = (k) => this.el.querySelector(`[data-${k}]`);
+    this.el.addEventListener('click', (e) => this.onClick(e));
+    // While a finger or the mouse is down on a panel, it isn't redrawn (so taps and slider drags land).
+    this.el.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.mil-panel, .mil-hud, .mil-card')) this.hold = true;
+    });
+    window.addEventListener('pointerup', () => setTimeout(() => (this.hold = false), 0));
+    window.addEventListener('pointercancel', () => (this.hold = false));
+    this.el.addEventListener('input', (e) => {
+      if (e.target.dataset.share == null) return;
+      this.m.setShare(Number(e.target.value) / 100);
+      const label = e.target.parentElement.querySelector('span');
+      if (label) label.textContent = `${Math.round(this.m.state.share * 100)}% of the town's income`;
+    });
+    this.el.addEventListener('change', (e) => {
+      if (e.target.dataset.share != null) this.renderPanel(true);
+    });
+  }
+
+  // ---- Opening and closing ------------------------------------------------------------------
+
+  async show() {
+    if (!this.open) {
+      this.open = true;
+      this.d.onOpen?.();
+      this.el.hidden = false;
+      this.app.classList.add('mode-military');
+      this.btn.setAttribute('aria-pressed', 'true');
+    }
+    this.renderAll();
+    await this.ensure3d();
+    this.view?.show();
+    this.view?.resize();
+    this.frameView();
+  }
+
+  close() {
+    if (!this.open) return;
+    if (this.war.pending()) return this.d.toast('The enemy is at the gates. Defend the base or leave it to your officers first', 3000);
+    this.open = false;
+    this.tool = null;
+    this.selSoldier = null;
+    this.selStruct = null;
+    this.view?.hide();
+    this.el.hidden = true;
+    this.app.classList.remove('mode-military');
+    this.btn.setAttribute('aria-pressed', 'false');
+    this.d.onClose?.();
+  }
+
+  // Another town was loaded: start the screen afresh (the war room re-reads the new save).
+  reset() {
+    this.battle = null;
+    this.raid = null;
+    this.tool = null;
+    this.selSoldier = null;
+    this.selStruct = null;
+    this.selSquad = null;
+    this.targeting = false;
+    this.hideCard();
+    if (this.open) {
+      this.open = false;
+      this.view?.hide();
+      this.el.hidden = true;
+      this.app.classList.remove('mode-military');
+      this.btn.setAttribute('aria-pressed', 'false');
+    }
+    this._panel = this._hud = this._chips = '';
+  }
+
+  async ensure3d() {
+    if (this.view || this.no3d) return this.view;
+    if (!this.loading) {
+      this.loading = this.d
+        .load3d()
+        .then((mod) =>
+          mod.createBattleView({
+            mount: (c) => this.$('stage').append(c),
+            onTap: (x, y) => this.onTap(x, y),
+            onHover: (x, y) => this.onHover(x, y),
+            isTyping: this.d.isTyping,
+          })
+        )
+        .catch((err) => {
+          console.warn('Battle view failed to load', err);
+          return null;
+        });
+    }
+    const v = await this.loading;
+    if (!v) {
+      this.no3d = true;
+      this.$('no3d').hidden = false;
+      return null;
+    }
+    this.view = v;
+    v.setModel(() => this.model());
+    v.setCamera(this.camMode);
+    window.addEventListener('resize', () => this.open && requestAnimationFrame(() => this.frameView()));
+    return v;
+  }
+
+  // Centre the field in the space the bars and panels leave free, and fit it in.
+  frameView({ fit = true } = {}) {
+    const v = this.view;
+    if (!v || !this.open) return;
+    const box = this.el.getBoundingClientRect();
+    const rect = (el) => (el && !el.hidden && el.offsetParent !== null ? el.getBoundingClientRect() : null);
+    const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+    const tops = [this.el.querySelector('.mil-top'), this.battle ? this.el.querySelector('.mil-hud-top') : null];
+    for (const el of tops) {
+      const r = rect(el);
+      if (r) insets.top = Math.max(insets.top, r.bottom - box.top + 6);
+    }
+    const panel = rect(this.battle ? null : this.$('panel'));
+    if (panel) {
+      // Beside the field on wide screens, under it on phones.
+      if (panel.height > box.height * 0.6) insets.right = box.right - panel.left + 6;
+      else insets.bottom = box.bottom - panel.top + 6;
+    }
+    const bottom = rect(this.battle ? this.el.querySelector('.mil-hud-bottom') : null);
+    if (bottom) insets.bottom = Math.max(insets.bottom, box.bottom - bottom.top + 6);
+    v.setInsets(insets);
+    if (fit) v.fit();
+  }
+
+  // ---- What the 3D field shows ------------------------------------------------------------------
+
+  model() {
+    const b = this.battle;
+    if (b) {
+      const byId = new Map(b.units.map((u) => [u.id, u]));
+      return {
+        map: b.map,
+        structs: b.structs.map((s) => {
+          const t = byId.get(s.tgt);
+          if (t) s._aim = Math.atan2(t.y - (s.y + s.h / 2), t.x - (s.x + s.w / 2));
+          return { ...s, aim: s._aim ?? -Math.PI / 2 };
+        }),
+        units: b.units,
+        shells: b.shells,
+        fx: b.fx,
+        t: b.t,
+      };
+    }
+    const lay = this.m.layout();
+    const units = [];
+    const st = this.m.state;
+    const reserve = st.soldiers.filter((s) => !s.post && s.status === 'ready');
+    for (const s of st.soldiers) {
+      if (!s.post || s.status === 'training' || s.status === 'raiding') continue;
+      units.push({ id: s.id, side: 'def', type: s.type, x: s.post.x, y: s.post.y, face: -Math.PI / 2, alive: s.status === 'ready', hp: 1, maxHp: 1 });
+    }
+    reserve.forEach((s, i) => {
+      const x = 1.2 + (i % 8) * 0.55 + (i % 2) * 0.1;
+      const y = lay.h - 1.4 + Math.floor(i / 8) * 0.55;
+      units.push({ id: s.id, side: 'def', type: s.type, x, y, face: -Math.PI / 2 + Math.sin(this.realT * 0.4 + i) * 0.4, alive: true, hp: 1, maxHp: 1 });
+    });
+    return { map: lay, structs: lay.structures.map((s) => ({ ...s, aim: -Math.PI / 2 })), units, shells: [], fx: [], t: this.realT };
+  }
+
+  // ---- Every frame -----------------------------------------------------------------------------
+
+  frame(dt) {
+    if (!this.open) return;
+    this.realT += dt;
+    const b = this.battle;
+    if (b && !b.over) {
+      b.advance(dt * this.speed);
+      this.saveTimer -= dt;
+      if (this.saveTimer <= 0) {
+        this.saveTimer = SAVE_EVERY;
+        this.m.state.battle = b.toJSON();
+      }
+      if (b.over) this.finishBattle(false);
+    }
+    this.view?.frame(dt);
+    this.uiTimer -= dt;
+    if (this.uiTimer <= 0) {
+      this.uiTimer = 0.25;
+      if (this.battle) this.renderHud();
+      else this.renderTop();
+    }
+  }
+
+  // ---- Raids --------------------------------------------------------------------------------
+
+  // A raid has reached the base (or a battle was left half-way): open the base and ask what to do.
+  alarm(raid) {
+    this.raid = raid;
+    this.show();
+    const g = this.m.garrison().filter((s) => s.status === 'ready').length;
+    const r = this.m.fit().filter((s) => !s.post).length;
+    const resume = raid.status === 'fighting' && this.m.state.battle;
+    this.card(`
+      <h2>⚔ ${esc(raid.fromName)} ${resume ? 'is still at the gates' : 'is attacking the base'}</h2>
+      <p>${resume ? 'The battle was left half-way. Pick it up where it stopped, or let your officers finish it.' : `${raid.size} soldiers, coming in ${raid.waves.length} waves. You have ${g} on guard and ${r} in reserve.`}</p>
+      <p class="mil-small">The world waits until the battle is over.</p>
+      <div class="mil-card-actions">
+        <button type="button" class="primary-btn" data-defend>${resume ? 'Resume the battle' : 'Defend the base'}</button>
+        <button type="button" class="pill" data-auto>${resume ? 'Let your officers finish it' : 'Leave it to your officers'}</button>
+      </div>`);
+    this.d.sound?.('alert');
+  }
+
+  startBattle() {
+    const raid = this.raid || this.war.pending();
+    if (!raid) return;
+    this.raid = raid;
+    this.battle = this.war.fight(raid);
+    this.battle.paused = false;
+    this.saveTimer = 0;
+    this.selSquad = null;
+    this.targeting = false;
+    this.tool = null;
+    this.selSoldier = null;
+    this.selStruct = null;
+    this.view?.setGhost(null);
+    this.hideCard();
+    this.renderAll();
+    this.frameView();
+  }
+
+  autoBattle() {
+    const raid = this.raid || this.war.pending();
+    if (!raid) return;
+    const report = this.war.autoResolve(raid, this.battle && !this.battle.over ? this.battle : null);
+    this.battle = null;
+    this.raid = null;
+    this.showReport(report);
+  }
+
+  finishBattle() {
+    const b = this.battle;
+    const report = this.war.conclude(this.raid, b, { auto: false });
+    this.lastBattle = b;
+    this.showReport(report);
+  }
+
+  showReport(r) {
+    const head = { held: 'The base held!', lost: 'The base fell', retreated: 'You pulled your troops out' }[r.outcome];
+    const why =
+      {
+        repelled: `Every attacker was beaten back.`,
+        withdrew: `Their attack broke and they withdrew.`,
+        hq: `They destroyed the command post.`,
+        army: `Your defenders were overwhelmed.`,
+        routed: `Your troops' morale broke and they fell back.`,
+        retreat: `You ordered the retreat. Nobody else fell.`,
+      }[r.reason] || '';
+    const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : '');
+    const you = r.you;
+    const damage = you.damage.map((d) => `${d.label}: ${d.wrecked ? 'destroyed' : `${Math.round((d.hp / d.max) * 100)}% left`}`);
+    this.card(`
+      <h2 class="mil-${r.outcome}">${head}</h2>
+      <p>${why} ${r.auto ? 'Your officers fought it for you.' : ''} ${r.time < 60 ? 'It was over in under a minute.' : `It lasted ${Math.round(r.time / 60)} min.`}</p>
+      <div class="mil-report">
+        <section><h3>${esc(r.from)}</h3><p>${r.attackers.lost} of ${r.attackers.total} soldiers fell${r.attackers.unsent ? `; ${r.attackers.unsent} never came` : ''}.</p></section>
+        <section><h3>Your troops</h3><p>${you.fought} fought. ${you.killed.length ? `${you.killed.length} fell:` : 'Nobody fell.'}</p>${list(you.killed)}${you.injured.length ? `<p>Badly hurt, recovering for a few days:</p>${list(you.injured)}` : ''}${you.hurt.length ? `<p>Lightly hurt, back in a day:</p>${list(you.hurt)}` : ''}${you.promoted.length ? `<p>Promoted:</p>${list(you.promoted)}` : ''}</section>
+        <section><h3>The base</h3>${damage.length ? list(damage) : '<p>No damage.</p>'}</section>
+        <section><h3>Cost</h3><p>${you.spent ? `Artillery: ${money(you.spent)}. ` : 'No artillery used. '}${you.loot ? `They carried off ${money(you.loot)}.` : ''}</p></section>
+      </div>
+      <div class="mil-card-actions">
+        <button type="button" class="primary-btn" data-done="base">Back to the base</button>
+        <button type="button" class="pill" data-done="town">Back to town</button>
+      </div>`);
+    this.d.sound?.(r.outcome === 'held' ? 'cheer' : 'click');
+  }
+
+  card(html) {
+    const c = this.$('card');
+    c.innerHTML = html;
+    c.hidden = false;
+    c.querySelector('button')?.focus();
+  }
+  hideCard() {
+    this.$('card').hidden = true;
+  }
+
+  // ---- Taps on the field --------------------------------------------------------------------
+
+  onTap(x, y) {
+    if (!this.$('card').hidden) return;
+    if (this.battle) return this.tapBattle(x, y);
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+    const m = this.m;
+    if (this.tool) {
+      const r = m.place(this.tool, tx, ty);
+      if (r.error) {
+        this.d.toast(r.error, 2600);
+        this.d.sound?.('nope');
+      } else this.d.sound?.('build');
+      this.onHover(x, y);
+      return this.renderAll();
+    }
+    if (this.selSoldier != null) {
+      const s = m.state.soldiers.find((t) => t.id === this.selSoldier);
+      const r = m.station(this.selSoldier, x, y);
+      if (r.error) {
+        this.d.toast(r.error, 2600);
+        this.d.sound?.('nope');
+      } else {
+        this.d.toast(`${titleOf(s)} stands guard here now`, 2000);
+        this.d.sound?.('click');
+        this.selSoldier = null;
+        this.view?.setGhost(null);
+      }
+      return this.renderAll();
+    }
+    const s = m.structureAt(tx, ty);
+    if (s) {
+      this.selStruct = s.id;
+      this.tab = 'build';
+      return this.renderAll();
+    }
+    const guard = m.state.soldiers.find((t) => t.post && Math.hypot(t.post.x - x, t.post.y - y) < 0.6);
+    if (guard) {
+      this.selSoldier = guard.id;
+      this.tab = 'troops';
+      return this.renderAll();
+    }
+    this.selStruct = null;
+    this.renderAll();
+  }
+
+  maxOf(s) {
+    return this.m.layout().structures.find((t) => t.id === s.id)?.maxHp || s.hp;
+  }
+
+  onHover(x, y) {
+    if (!this.view || this.battle) return;
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+    if (this.tool) {
+      const d = DEFENCES[this.tool];
+      this.view.setGhost({ x: tx, y: ty, w: d.w, h: d.h, valid: !this.m.placeError(this.tool, tx, ty), range: d.attack?.range, tall: 1 });
+      const err = this.m.placeError(this.tool, tx, ty);
+      this.hint(err ? `${d.label}: ${err}` : `${d.label}: tap to build for ${money(d.cost)}`);
+    } else if (this.selSoldier != null) {
+      const s = this.m.state.soldiers.find((t) => t.id === this.selSoldier);
+      const err = this.m.stationError(s, x, y);
+      this.view.setGhost({ x: tx, y: ty, w: 1, h: 1, valid: !err, tall: 0.12, range: s ? UNITS[s.type].attack.range : 0 });
+      this.hint(err ? err : `Tap to post ${s ? titleOf(s) : 'them'} here`);
+    }
+  }
+
+  tapBattle(x, y) {
+    const b = this.battle;
+    if (b.over) return;
+    if (this.targeting) {
+      const r = b.strike(x, y);
+      if (r.error) this.d.toast(r.error, 2400);
+      else this.d.sound?.('click');
+      this.targeting = false;
+      return this.renderHud(true);
+    }
+    // Tap a soldier of yours to pick their squad; tap the ground to send the picked squad there.
+    let best = null;
+    let bd = 0.7 * 0.7;
+    for (const u of b.units) {
+      if (u.side !== 'def' || !u.alive || u.gone) continue;
+      const d = (u.x - x) ** 2 + (u.y - y) ** 2;
+      if (d < bd) {
+        bd = d;
+        best = u;
+      }
+    }
+    if (best) {
+      this.selSquad = best.squad;
+      this.d.sound?.('click');
+      return this.renderHud(true);
+    }
+    if (this.selSquad) {
+      const r = b.order(this.selSquad, { kind: 'move', x, y });
+      if (r.error) this.d.toast(r.error, 2200);
+      else b.addFx({ kind: 'mark', x, y, r: 0.35, life: 0.6 });
+      return this.renderHud(true);
+    }
+    this.d.toast('Tap one of your soldiers to pick their squad, then tap where they should go', 2600);
+  }
+
+  // ---- Buttons ----------------------------------------------------------------------------
+
+  onClick(e) {
+    const t = e.target.closest('button');
+    if (!t || t.disabled) return;
+    const ds = t.dataset;
+    const m = this.m;
+    if (ds.close != null) return this.close();
+    if (ds.cam) {
+      this.camMode = ds.cam;
+      this.view?.setCamera(ds.cam);
+      for (const b of this.el.querySelectorAll('[data-cam]')) b.setAttribute('aria-pressed', String(b.dataset.cam === ds.cam));
+      return;
+    }
+    if (ds.defend != null) return this.startBattle();
+    if (ds.auto != null) return this.autoBattle();
+    if (ds.done) {
+      this.battle = null;
+      this.raid = null;
+      this.hideCard();
+      this.tab = this.m.damaged().length ? 'repairs' : this.tab;
+      this.renderAll();
+      if (ds.done === 'town') this.close();
+      else this.frameView();
+      return;
+    }
+    if (ds.tab) {
+      this.tab = ds.tab;
+      this.tool = null;
+      this.view?.setGhost(null);
+      this.hint(null);
+      return this.renderPanel(true);
+    }
+    if (ds.tool) {
+      this.tool = this.tool === ds.tool ? null : ds.tool;
+      this.selSoldier = null;
+      this.selStruct = null;
+      if (!this.tool) this.view?.setGhost(null);
+      this.hint(this.tool ? `Tap the field to build a ${DEFENCES[this.tool].label.toLowerCase()}` : null);
+      return this.renderPanel(true);
+    }
+    const id = Number(ds.id);
+    const done = (r, ok) => {
+      if (r?.error) {
+        this.d.toast(r.error, 2600);
+        this.d.sound?.('nope');
+      } else {
+        if (ok) this.d.toast(ok, 2000);
+        this.d.sound?.('click');
+      }
+      this.renderAll();
+    };
+    if (ds.upgrade != null) return done(m.upgrade(id), 'Upgraded');
+    if (ds.repairnow != null) return done(m.repairNow(id), 'Repaired');
+    if (ds.remove != null) {
+      const r = m.remove(id);
+      this.selStruct = null;
+      return done(r, r.error ? null : `Taken down: ${money(r.refund)} back`);
+    }
+    if (ds.prio) {
+      m.prioritize(id, ds.prio === 'top' ? -Infinity : Number(ds.prio));
+      return this.renderPanel(true);
+    }
+    if (ds.recruit) {
+      const r = m.recruit(ds.recruit, { emergency: ds.emergency != null });
+      return done(r, r.error ? null : r.soldier.status === 'training' ? `${UNITS[ds.recruit].label} in training: ready ${inDays(r.soldier.until - this.d.now())}` : `${titleOf(r.soldier)} joins the reserve`);
+    }
+    if (ds.soldier) {
+      this.selSoldier = this.selSoldier === id ? null : id;
+      this.tool = null;
+      this.view?.setGhost(null);
+      this.hint(this.selSoldier != null ? 'Tap the field to post them on guard' : null);
+      return this.renderPanel(true);
+    }
+    if (ds.unpost != null) {
+      m.unstation(id);
+      this.selSoldier = null;
+      return done(null, 'Back in the reserve');
+    }
+    if (ds.dismiss != null) {
+      const s = m.state.soldiers.find((x) => x.id === id);
+      if (t.dataset.sure !== '1') {
+        t.dataset.sure = '1';
+        t.textContent = 'Tap again to dismiss';
+        return;
+      }
+      m.dismiss(id);
+      this.selSoldier = null;
+      return done(null, `${s ? titleOf(s) : 'The soldier'} has left the army`);
+    }
+    if (ds.transfer) {
+      const n = m.transfer(Number(ds.transfer));
+      return done(n ? null : { error: 'The town has no money to spare' }, n ? `${money(n)} moved to the military budget` : null);
+    }
+    if (ds.raids) {
+      m.state.raids = ds.raids;
+      return done(null, ds.raids === 'off' ? 'Raids are off: the neighbours leave your base alone' : ds.raids === 'fierce' ? 'Fierce: bigger raids, more often' : 'Gentle: the odd raid, with time to recover');
+    }
+    // Battle controls.
+    const b = this.battle;
+    if (!b) return;
+    if (ds.pause != null) {
+      b.paused = !b.paused;
+      return this.renderHud(true);
+    }
+    if (ds.speed) {
+      this.speed = Number(ds.speed);
+      return this.renderHud(true);
+    }
+    if (ds.deploy) {
+      const r = b.deploy(ds.deploy);
+      if (r.error) this.d.toast(r.error, 2200);
+      else {
+        this.selSquad = ds.deploy;
+        this.d.sound?.('click');
+      }
+      return this.renderHud(true);
+    }
+    if (ds.squad) {
+      this.selSquad = this.selSquad === ds.squad ? null : ds.squad;
+      return this.renderHud(true);
+    }
+    if (ds.order && this.selSquad) {
+      const r = b.order(this.selSquad, { kind: ds.order });
+      if (r.error) this.d.toast(r.error, 2200);
+      return this.renderHud(true);
+    }
+    if (ds.artillery != null) {
+      const err = b.strikeError(0, 0);
+      if (err) return this.d.toast(err, 2200);
+      this.targeting = !this.targeting;
+      return this.renderHud(true);
+    }
+    if (ds.retreat != null) {
+      if (performance.now() - this.confirmRetreat > 3000) {
+        this.confirmRetreat = performance.now();
+        this.d.toast('Tap Retreat again to pull everyone out. The battle will be lost', 3000);
+        return;
+      }
+      b.retreat();
+      this.finishBattle();
+    }
+  }
+
+  onKey(e) {
+    if (!this.open || this.d.isTyping?.(e.target)) return;
+    e.stopImmediatePropagation();
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (this.view?.key(e.code, true)) return e.preventDefault();
+    if (e.code === 'Space' && this.battle && !this.battle.over && this.$('card').hidden) {
+      e.preventDefault();
+      this.battle.paused = !this.battle.paused;
+      this.renderHud(true);
+    } else if (e.code === 'Escape') {
+      if (this.targeting || this.selSquad) {
+        this.targeting = false;
+        this.selSquad = null;
+        this.renderHud(true);
+      } else if (this.tool || this.selSoldier != null || this.selStruct != null) {
+        this.tool = null;
+        this.selSoldier = null;
+        this.selStruct = null;
+        this.view?.setGhost(null);
+        this.hint(null);
+        this.renderPanel(true);
+      } else if (!this.battle) this.close();
+    }
+  }
+
+  hint(text) {
+    const h = this.$('hint');
+    h.hidden = !text;
+    if (text) h.textContent = text;
+  }
+
+  // ---- Drawing the panels ------------------------------------------------------------------------
+
+  renderAll() {
+    const inBattle = !!this.battle;
+    this.$('panel').hidden = inBattle;
+    this.$('hud').hidden = !inBattle;
+    this.$('town').textContent = ` · ${this.d.townName()}`;
+    this.$('close').hidden = inBattle;
+    if (inBattle) this.renderHud(true);
+    else {
+      this.renderTop();
+      this.renderPanel(true);
+    }
+    this.view?.setSelected(inBattle ? this.squadIds() : this.selSoldier != null ? [this.selSoldier] : []);
+  }
+
+  renderTop() {
+    const intel = this.war.intel();
+    const chips = [`<span class="mil-chip" title="Military budget">${money(this.m.funds)}</span>`, `<span class="mil-chip">${esc(this.d.clock())}</span>`];
+    if (intel.coming) chips.push(`<span class="mil-chip warn">⚔ ${esc(intel.coming.from)} attacks ${inDays(intel.coming.in)}</span>`);
+    else if (intel.protectedFor > 0) chips.push(`<span class="mil-chip ok">Safe for ${forDays(intel.protectedFor)}</span>`);
+    else chips.push(`<span class="mil-chip">${this.m.state.raids === 'off' ? 'Raids are off' : 'All quiet'}</span>`);
+    const html = chips.join('');
+    if (html !== this._chips) {
+      this._chips = html;
+      this.$('chips').innerHTML = html;
+    }
+    if (!this.battle) this.renderPanel(false);
+  }
+
+  // The panel redraws only when something it shows has changed (it's checked four times a second).
+  renderPanel(force) {
+    if (!force && this.hold) return;
+    const html = this.panelHtml();
+    if (!force && html === this._panel) return;
+    this._panel = html;
+    const p = this.$('panel');
+    const scroll = p.querySelector('.mil-body')?.scrollTop || 0;
+    p.innerHTML = html;
+    const body = p.querySelector('.mil-body');
+    if (body) body.scrollTop = scroll;
+  }
+
+  panelHtml() {
+    const tabs = `<nav class="mil-tabs" role="tablist">${TABS.map(([k, label]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${this.tab === k}">${label}${k === 'repairs' && this.m.damaged().length ? ` <span class="mil-dot">${this.m.damaged().length}</span>` : ''}</button>`).join('')}</nav>`;
+    const body = { build: () => this.buildHtml(), troops: () => this.troopsHtml(), repairs: () => this.repairsHtml(), budget: () => this.budgetHtml(), log: () => this.logHtml() }[this.tab]();
+    return `${tabs}<div class="mil-body">${body}</div>`;
+  }
+
+  buildHtml() {
+    const m = this.m;
+    const sel = m.state.structures.find((s) => s.id === this.selStruct);
+    let info = '';
+    if (sel) {
+      const d = DEFENCES[sel.type];
+      const max = this.maxOf(sel);
+      const upErr = m.upgradeError(sel);
+      const rc = m.repairCost(sel, true);
+      info = `<div class="mil-sel">
+        <h3>${esc(d.label)} <small>level ${sel.level}${sel.level >= MAX_LEVEL ? ' (max)' : ''}</small></h3>
+        <div class="mil-hp"><span style="width:${Math.round((sel.hp / max) * 100)}%"></span></div>
+        <p class="mil-small">${sel.hp <= 0 ? 'Destroyed. Repair it to bring it back.' : `${Math.round(sel.hp)} of ${max} health`}${d.attack ? ` · range ${d.attack.range}` : ''}</p>
+        <p class="mil-small">${esc(d.desc)}</p>
+        <div class="mil-row">
+          ${sel.level < MAX_LEVEL ? `<button type="button" class="pill" data-upgrade data-id="${sel.id}" ${upErr ? 'disabled' : ''} title="${esc(upErr || '')}">Upgrade ${money(upgradeCost(sel.type, sel.level))}</button>` : ''}
+          ${rc ? `<button type="button" class="pill" data-repairnow data-id="${sel.id}">Repair now ${money(rc)}</button>` : ''}
+          ${!d.fixed ? `<button type="button" class="pill" data-remove data-id="${sel.id}">Take down (+${money(m.refundOf(sel))})</button>` : ''}
+        </div></div>`;
+    }
+    const items = BUILDABLE.map((k) => {
+      const d = DEFENCES[k];
+      const a = d.attack;
+      const stats = a ? `${a.kind === 'shell' ? 'lobs shells' : 'fires'} · range ${a.range}` : 'blocks the way · cover';
+      return `<button type="button" class="mil-item${this.tool === k ? ' is-on' : ''}" data-tool="${k}" aria-pressed="${this.tool === k}">
+        <span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(d.label)}</b><small>${stats} · ${d.hp} health</small></span><span class="mil-cost${m.canPay(d.cost) ? '' : ' short'}">${money(d.cost)}</span></button>`;
+    }).join('');
+    return `${info}<p class="mil-small">Pick a defence, then tap the field. Attackers come from the red edge; there must always be a way from it to your command post. Tap something you've built to upgrade, repair or take it down.</p><div class="mil-list">${items}</div>`;
+  }
+
+  troopsHtml() {
+    const m = this.m;
+    const st = m.state;
+    const now = this.d.now();
+    const guards = m.garrison().length;
+    const rec = UNIT_TYPES.map((k) => {
+      const u = UNITS[k];
+      const err = m.recruitError(k);
+      const errNow = m.recruitError(k, { emergency: true });
+      return `<div class="mil-recruit"><span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(u.label)}</b><small>${esc(u.desc)} ${u.hp} health · range ${u.attack.range}</small></span>
+        <span class="mil-row">${
+          u.train
+            ? `<button type="button" class="pill" data-recruit="${k}" ${err ? 'disabled' : ''} title="${esc(err || '')}">Train ${money(m.recruitCost(k))} · ${forDays(u.train)}</button><button type="button" class="pill" data-recruit="${k}" data-emergency ${errNow ? 'disabled' : ''} title="${esc(errNow || 'Emergency recruit: ready at once')}">Now ${money(m.recruitCost(k, { emergency: true }))}</button>`
+            : `<button type="button" class="pill" data-recruit="${k}" ${err ? 'disabled' : ''} title="${esc(err || '')}">Hire ${money(u.cost)}</button>`
+        }</span></div>`;
+    }).join('');
+    const roster = st.soldiers
+      .slice()
+      .sort((a, b) => (b.post ? 1 : 0) - (a.post ? 1 : 0) || b.xp - a.xp)
+      .map((s) => {
+        const on = this.selSoldier === s.id;
+        const status = s.status === 'ready' ? (s.post ? 'On guard' : 'Reserve') : `${STATUS[s.status]}${s.until ? `, ready ${inDays(s.until - now)}` : ''}`;
+        const actions = on
+          ? `<span class="mil-row">${s.post ? `<button type="button" class="pill" data-unpost data-id="${s.id}">To the reserve</button>` : ''}<button type="button" class="pill" data-dismiss data-id="${s.id}">Dismiss</button></span><small>Tap the field to post them on guard.</small>`
+          : '';
+        return `<li class="${on ? 'is-on' : ''}"><button type="button" class="mil-soldier" data-soldier="${s.id}" data-id="${s.id}" aria-pressed="${on}"><span class="mil-ico">${ICON[s.type]}</span><span><b>${esc(titleOf(s))}</b><small>${esc(UNITS[s.type].label)} · ${status} · ${s.xp} xp${s.kills ? ` · ${s.kills} down` : ''}</small></span></button>${actions}</li>`;
+      })
+      .join('');
+    return `<p class="mil-small">${st.soldiers.length} of ${m.armyCap} soldiers (${guards} of ${m.garrisonCap} on guard). Pay: ${money(m.upkeep())} a day.${st.unpaid > 0.05 ? ' <b class="mil-bad">They haven’t been paid: morale will suffer.</b>' : ''}</p>
+      <h3>Recruit</h3><div class="mil-list">${rec}</div>
+      <h3>Your soldiers</h3>${roster ? `<ul class="mil-roster">${roster}</ul>` : '<p class="mil-small">Nobody yet.</p>'}
+      ${st.soldiers.length >= ARMY_CAP[m.level] ? '<p class="mil-small">Upgrade the command post (Build) to hold more soldiers.</p>' : ''}`;
+  }
+
+  repairsHtml() {
+    const m = this.m;
+    const list = m.damaged();
+    if (!list.length) return '<p class="mil-small">Everything is in good repair.</p>';
+    const rows = list
+      .map((s, i) => {
+        const max = this.maxOf(s);
+        return `<li><span class="mil-item-text"><b>${i + 1}. ${esc(DEFENCES[s.type].label)}</b><small>${s.hp <= 0 ? 'Destroyed' : `${Math.round((s.hp / max) * 100)}% health`} · crews: ${money(m.repairCost(s))}</small><span class="mil-hp"><span style="width:${Math.round((s.hp / max) * 100)}%"></span></span></span>
+          <span class="mil-row"><button type="button" class="pill icon" data-prio="-1" data-id="${s.id}" aria-label="Repair sooner" ${i ? '' : 'disabled'}>▲</button><button type="button" class="pill icon" data-prio="1" data-id="${s.id}" aria-label="Repair later" ${i < list.length - 1 ? '' : 'disabled'}>▼</button><button type="button" class="pill" data-repairnow data-id="${s.id}">Now ${money(m.repairCost(s, true))}</button></span></li>`;
+      })
+      .join('');
+    return `<p class="mil-small">Repair crews work down this list, paid from the military budget as they go. Move what matters most to the top, or pay half as much again to fix something at once.</p><ul class="mil-repairs">${rows}</ul>`;
+  }
+
+  budgetHtml() {
+    const m = this.m;
+    const st = m.state;
+    const intel = this.war.intel();
+    const pct = Math.round(st.share * 100);
+    const cash = this.d.cityMoney();
+    return `<div class="mil-budget"><b>${money(m.funds)}</b><small>in the military budget</small></div>
+      <h3>Automatic funding</h3>
+      <label class="mil-slider"><input type="range" min="0" max="${MAX_SHARE * 100}" step="5" value="${pct}" data-share aria-label="Share of the town's daily income for the military"><span>${pct}% of the town's income</span></label>
+      <p class="mil-small">Pay for ${m.state.soldiers.length} soldiers: ${money(m.upkeep())} a day, plus repairs.</p>
+      <h3>Emergency transfer</h3>
+      <div class="mil-row"><button type="button" class="pill" data-transfer="250" ${cash < 1 ? 'disabled' : ''}>+${money(250)}</button><button type="button" class="pill" data-transfer="1000" ${cash < 1 ? 'disabled' : ''}>+${money(1000)}</button><button type="button" class="pill" data-transfer="5000" ${cash < 1 ? 'disabled' : ''}>+${money(5000)}</button></div>
+      <p class="mil-small">From the town's budget (${money(cash)}).</p>
+      <h3>Raids on your base</h3>
+      <div class="seg" role="group">${RAID_LEVELS.map((k) => `<button type="button" data-raids="${k}" aria-pressed="${st.raids === k}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>
+      <h3>The neighbours</h3>
+      <ul class="mil-intel">${intel.neighbours.map((n) => `<li><b>${esc(n.name)}</b> <small>about ${n.soldiers} soldiers (${n.ready} ready)</small></li>`).join('')}</ul>
+      ${intel.coming ? `<p class="mil-warn">⚔ ${esc(intel.coming.from)} is sending ${intel.coming.size} soldiers in ${intel.coming.waves} waves. They arrive ${inDays(intel.coming.in)}.</p>` : intel.protectedFor > 0 ? `<p class="mil-small">After the last battle, nobody may raid you for ${forDays(intel.protectedFor)}.</p>` : ''}`;
+  }
+
+  logHtml() {
+    const st = this.m.state;
+    const outcomes = { held: 'Held', lost: 'Lost', retreated: 'Retreated' };
+    const rows = st.log
+      .filter((l) => l.kind === 'raid')
+      .map(
+        (l) => `<li><b>Day ${l.day}: ${esc(l.from)} raid · ${outcomes[l.outcome] || ''}</b><small>${l.attackers.lost} of ${l.attackers.total} attackers fell. ${l.you.killed.length ? `We lost ${l.you.killed.length}.` : 'We lost nobody.'} ${l.you.injured.length + l.you.hurt.length ? `${l.you.injured.length + l.you.hurt.length} hurt.` : ''} ${l.you.spent ? `Artillery ${money(l.you.spent)}.` : ''} ${l.you.loot ? `They took ${money(l.you.loot)}.` : ''}${l.auto ? ' (Fought by your officers.)' : ''}</small></li>`
+      )
+      .join('');
+    const fallen = st.fallen.map((f) => `<li>${esc(f.name)} <small>${esc(UNITS[f.type]?.label || '')}, day ${f.day}</small></li>`).join('');
+    return `${rows ? `<ul class="mil-log">${rows}</ul>` : '<p class="mil-small">No battles yet.</p>'}${fallen ? `<h3>Remembered</h3><ul class="mil-fallen">${fallen}</ul>` : ''}`;
+  }
+
+  // ---- The battle screen -------------------------------------------------------------------------
+
+  squadIds() {
+    const b = this.battle;
+    if (!b || !this.selSquad) return [];
+    return b.squad(this.selSquad)?.units || [];
+  }
+
+  renderHud(force) {
+    const b = this.battle;
+    if (!b || (!force && this.hold)) return;
+    const s = b.status();
+    const sec = (n) => `${Math.ceil(n)} s`;
+    const morale = (v, cls) => `<span class="mil-morale ${cls}"><span style="width:${Math.round(v)}%"></span></span>`;
+    const squads = b.squads
+      .map((q) => {
+        const alive = q.deployed ? b.livingIn(q).length : q.members.length;
+        const total = q.deployed ? q.units.length : q.members.length;
+        const types = (q.deployed ? q.units.map((id) => b.unit(id)?.type) : q.members.map((m) => m.type)).map((t) => ICON[t] || '').join(' ');
+        const on = this.selSquad === q.id;
+        if (!q.deployed) {
+          const err = b.deployError(q.id);
+          return `<div class="mil-sq"><b>${esc(q.name)}</b><small>${types}</small><button type="button" class="primary-btn" data-deploy="${q.id}" ${err ? 'disabled' : ''} title="${esc(err || '')}">${s.reinforceIn > 0 ? sec(s.reinforceIn) : 'Send in'}</button></div>`;
+        }
+        return `<button type="button" class="mil-sq${on ? ' is-on' : ''}${alive ? '' : ' is-out'}" data-squad="${q.id}" aria-pressed="${on}" ${alive ? '' : 'disabled'}><b>${esc(q.name)}</b><small>${alive}/${total} · ${esc(orderLabel(q.order))}</small></button>`;
+      })
+      .join('');
+    const orders = this.selSquad
+      ? `<div class="mil-orders"><span class="mil-small">${esc(b.squad(this.selSquad)?.name || '')}: tap the field to move, or</span>${[
+          ['hold', 'Hold'],
+          ['charge', 'Charge'],
+          ['fallback', 'Fall back'],
+        ]
+          .map(([k, l]) => `<button type="button" class="pill" data-order="${k}">${l}</button>`)
+          .join('')}</div>`
+      : '';
+    const art = `<button type="button" class="pill${this.targeting ? ' is-on' : ''}" data-artillery ${s.artilleryIn > 0 || s.budget < ARTILLERY.cost ? 'disabled' : ''}>Artillery ${s.artilleryIn > 0 ? sec(s.artilleryIn) : money(ARTILLERY.cost)}</button>`;
+    const wave = s.nextWaveIn != null ? `Wave ${s.wave} of ${s.waves} · next in ${sec(s.nextWaveIn)}` : s.withdrawing ? 'They are withdrawing' : `Wave ${s.wave} of ${s.waves}`;
+    const html = `
+      <div class="mil-hud-top glass">
+        <span class="mil-chip">${wave}</span>
+        <span class="mil-side def">You ${s.defenders}${morale(s.morale.def, 'def')}</span>
+        <span class="mil-side att">${esc(b.names.att)} ${s.attackers}${morale(s.morale.att, 'att')}</span>
+        <span class="mil-chip">HQ ${Math.round(s.hq * 100)}%</span>
+        <span class="mil-row">
+          <button type="button" class="pill" data-pause aria-pressed="${b.paused}">${b.paused ? '▶ Resume' : '❚❚ Pause'}</button>
+          ${[1, 2].map((v) => `<button type="button" class="pill${this.speed === v ? ' is-on' : ''}" data-speed="${v}">${v}×</button>`).join('')}
+          <button type="button" class="pill danger" data-retreat>Retreat</button>
+        </span>
+      </div>
+      ${b.paused ? '<div class="mil-paused glass">Paused: give orders now, they start when you resume</div>' : ''}
+      <div class="mil-hud-bottom glass"><div class="mil-squads">${squads}</div>${orders}<div class="mil-row">${art}<span class="mil-small">Budget ${money(s.budget)}</span></div></div>`;
+    if (!force && html === this._hud) return;
+    this._hud = html;
+    this.$('hud').innerHTML = html;
+    this.hint(this.targeting ? 'Tap where the shells should land' : null);
+    this.view?.setSelected(this.squadIds());
+  }
+}
+
+function orderLabel(o) {
+  return { move: 'moving', hold: 'holding', charge: 'charging', fallback: 'falling back', rally: 'forming up' }[o?.kind] || '';
+}
+
+
+return { inDays, MilitaryScreen };
+})();
+
 // ---- main.js ----
 const __mod_main = (() => {
 // Wiring: creates each system, connects input to state, and runs the frame loop.
 
-const { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES, PALETTE } = __mod_config;
+const { DEFAULT_MAP_SIZE, STRUCTURES, MILESTONES, PALETTE, DAY_LENGTH_SECONDS } = __mod_config;
 const { CityState } = __mod_state;
 const { Simulation } = __mod_simulation;
 const { Renderer, growthOf } = __mod_renderer;
@@ -19323,10 +22796,12 @@ const { recomputeDesirability } = __mod_desirability;
 const { worldToGrid, mapBounds, tileRectBounds, gridToWorld } = __mod_iso;
 const { History, lPath, tileLine } = __mod_history;
 const { Audio } = __mod_audio;
-const { daylightAt, sunHeight } = __mod_time;
+const { daylightAt, sunHeight, formatClock } = __mod_time;
 const { lightingAt } = __mod_lighting;
 const { World } = __mod_world;
 const { WorldPanel } = __mod_worldUI;
+const { WarRoom } = __mod_warRoom;
+const { MilitaryScreen, inDays } = __mod_militaryUI;
 const { crosswalkMask, footArms } = __mod_sidewalks;
 const { hash2 } = __mod_utils;
 const { mixHex } = __mod_color;
@@ -20427,8 +23902,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     viewing = world.cities[0];
     townViews.clear();
     watchSpots.clear();
+    warRoom.attach();
     if (in3D()) view3d.setWorld(worldFor3D());
     worldPanel.tick();
+    militaryScreen.reset();
+    checkRaid();
   }
   city.on((ev) => {
     if (ev.type === 'loaded') reloadWorld(); // another slot, a new town or a shared visit: its own world
@@ -20447,6 +23925,54 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       ui.closeTray();
     },
   });
+  // ---- The military (military.js, battle.js, warRoom.js, militaryUI.js) -------------------------
+  // Your permanent base and army, and the raids the computer's towns send against it. While a raid
+  // is at the gates or a battle is being fought, the whole world waits.
+  const warRoom = new WarRoom(world);
+  const baseBtn = document.getElementById('btn-base');
+  const SOUND_FOR = { alert: 'warning', build: 'popBig', cheer: 'fanfare', nope: 'nope', click: 'click' };
+  const militaryScreen = new MilitaryScreen({
+    war: () => warRoom,
+    now: () => city.day + city.clock,
+    clock: () => `Day ${city.day} · ${formatClock(city.clock)}`,
+    townName: () => world.cities[0].entry.name,
+    cityMoney: () => sim.economy.money,
+    toast: (msg, ms) => ui.toast(msg, ms),
+    sound: (name) => audio.play(SOUND_FOR[name] || 'click'),
+    load3d: () => import('./view3d/battle3d.js'),
+    isTyping: typingTarget,
+    onOpen: () => {
+      if (in3D()) close3D();
+      if (watching()) showTown(world.cities[0], { immediate: true });
+      ui.toggleMore(false);
+      cityPanel.toggle(false);
+      lifeUI.toggle(false);
+      worldPanel.toggle(false);
+      ui.closeTray();
+      stopFollow();
+    },
+  });
+  function syncBaseButton() {
+    const coming = warRoom.coming();
+    const badge = baseBtn.querySelector('.badge');
+    badge.hidden = !coming && !warRoom.pending();
+    badge.textContent = '!';
+    baseBtn.classList.toggle('is-alert', !!coming || !!warRoom.pending());
+    baseBtn.title = coming ? `${coming.fromName} attacks ${inDays(coming.at - city.day - city.clock)}` : 'Military base';
+  }
+  warRoom.onWarn = (raid) => {
+    ui.toast(`⚔ ${raid.fromName} is sending ${raid.size} soldiers against your base. They arrive ${inDays(raid.at - city.day - city.clock)}. Open Base to prepare`, 7000);
+    audio.play('warning');
+    syncBaseButton();
+  };
+  warRoom.onArrive = (raid) => militaryScreen.alarm(raid);
+  // A raid that arrived (or a battle left half-way) before the page was closed is waiting for you.
+  function checkRaid() {
+    const p = warRoom.pending();
+    if (p) setTimeout(() => militaryScreen.alarm(p), 600);
+    syncBaseButton();
+  }
+
   // While you watch another town, the stats bubble opens the world, not your town's panel.
   document.getElementById('stats').addEventListener(
     'click',
@@ -20458,6 +23984,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     true
   );
   worldPanel.tick();
+  checkRaid();
 
   // Say what happened to a save that couldn't be opened, after the welcome toast has had its turn.
   const notes = [startNote, rescued?.slot ? `Your town from before a shared visit was kept, in save slot ${rescued.slot}.` : rescued ? 'A town saved before a shared visit is kept safe. Free up a save slot to get it back.' : null].filter(Boolean);
@@ -20571,9 +24098,14 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   function frame(now) {
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // the first frame can be stamped before `last`
     last = now;
-    sim.update(dt);
-    world.update(dt, sim.speed); // the computer's towns live on at the same pace, in step with yours
-    if (in3D()) view3d.frame(dt);
+    // A raid at the gates or a battle being fought holds the whole world still.
+    if (!warRoom.busy) {
+      sim.update(dt);
+      world.update(dt, sim.speed); // the computer's towns live on at the same pace, in step with yours
+      warRoom.update((Math.min(dt, 0.25) * sim.speed) / DAY_LENGTH_SECONDS);
+    }
+    if (militaryScreen.open) militaryScreen.frame(dt);
+    else if (in3D()) view3d.frame(dt);
     else {
       input.edgeScroll(dt);
       input.keyPan(dt);
@@ -20600,6 +24132,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       if (!watching()) cityPanel.update(city);
       worldPanel.tick();
       decisionCard.tick();
+      syncBaseButton();
       syncFollowUI();
       uiTimer = 0.2;
     }
@@ -20654,7 +24187,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.
