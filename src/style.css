@@ -3756,12 +3756,68 @@ button.mil-sq {
     flex: none;
   }
 }
-/* The Base button shows only its shield below 1440px, so the top-right row stays as short as it can. */
+/* The top-right row has to fit beside the town card at every width (on tablets it used to run off
+   the left edge). It shortens in steps: first its buttons show only their icons, then the controls
+   that also live in Settings & more (speed, map view, recenter, sound, new town) step out, as they
+   do on phones. Larger text makes the row 15% wider, so each step comes sooner. Phones (760px and
+   narrower) have their own layout above. */
 @media (max-width: 1440px) {
   #btn-base .pill-text {
     display: none;
   }
   #btn-base {
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+@media (min-width: 761px) and (min-height: 521px) and (max-width: 1340px) {
+  .corner :is(#btn-life, #btn-follow, #btn-view, #btn-3d, #btn-random) .pill-text {
+    display: none;
+  }
+  .corner :is(#btn-life, #btn-follow, #btn-view, #btn-3d, #btn-random) {
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+  #btn-world .pill-text {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+@media (min-width: 761px) and (min-height: 521px) and (max-width: 1560px) {
+  :root.large-text .corner :is(#btn-life, #btn-follow, #btn-view, #btn-3d, #btn-random) .pill-text {
+    display: none;
+  }
+  :root.large-text .corner :is(#btn-life, #btn-follow, #btn-view, #btn-3d, #btn-random) {
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+  :root.large-text #btn-world .pill-text {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+@media (min-width: 761px) and (min-height: 521px) and (max-width: 1080px) {
+  .corner :is(#btn-speed, #btn-view, #btn-fit, #btn-sound, #btn-random) {
+    display: none;
+  }
+}
+@media (min-width: 761px) and (min-height: 521px) and (max-width: 1240px) {
+  :root.large-text .corner :is(#btn-speed, #btn-view, #btn-fit, #btn-sound, #btn-random) {
+    display: none;
+  }
+}
+@media (min-width: 761px) and (min-height: 521px) and (max-width: 900px) {
+  :root.large-text #btn-world .pill-text {
+    display: none;
+  }
+  :root.large-text #btn-world {
     width: 42px;
     padding: 0;
     justify-content: center;

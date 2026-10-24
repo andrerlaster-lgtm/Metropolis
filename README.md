@@ -164,6 +164,8 @@ Events are plain data in `src/lifeEvents.js` and `src/lifeEventsMore.js` (78 in 
 | 3D: zoom | Scroll wheel, pinch on a trackpad, + / − | Pinch |
 | 3D: camera | 1 Orbit · 2 Street · 3 Follow (your main person, or someone nearby). Click someone to follow them, click a building to inspect it. WASD while following steps off and walks yourself | Buttons at the bottom; tap someone to follow them |
 
+The top-right buttons always fit beside the town card. In narrower windows and on tablets (under 1340px wide) they show only their icons (hover for the name). Under 1080px the speed, map view, recenter, sound and New town buttons move into ☰ Settings & more, as on phones. With Larger text on, each step comes a little sooner.
+
 ## The world and your neighbour
 
 Your town is one of two in a shared world. The other is run by the computer: it starts as a small crossroads settlement and grows by itself while you play, at the same pace as your town (pausing pauses both). The two share the calendar, the clock and the seasons, but each has its own map, people, money, era, milestones and weather.
