@@ -760,5 +760,58 @@ export function buildersMore(H) {
     }
   }
 
-  return { bungalow, rowhouse, villa, restaurant, market, bank, hotel, warehouse, workshop, powerplant, kindergarten, museum, pharmacy, hospital, firehut, fountain, garden, pool, cinema, stadium };
+
+  // A farm: ploughed fields with rows of crops, a red barn, a silo, hay bales and a scarecrow.
+  function farm(out, ctx) {
+    const W = out.layers.wood;
+    const D = out.layers.dirt;
+    D.quad([-0.47, 0.006, 0.47], [0.47, 0.006, 0.47], [0.47, 0.006, -0.47], [-0.47, 0.006, -0.47], lin('#b8a064'), [[-0.47, -0.47], [0.47, -0.47], [0.47, 0.47], [-0.47, 0.47]]);
+    const crops = ['#7fb85c', '#e5883c', '#d8566a', '#f2c94c', '#9fcf6a'];
+    for (let r = 0; r < 5; r++) {
+      const z = 0.06 + r * 0.08;
+      W.box(-0.44, 0.006, z - 0.025, 0.12, 0.03, z + 0.025, lin('#7d5f45'), { s: 8, top: lin('#6b5036') });
+      for (let i = 0; i < 12; i++) {
+        const [wx, wz] = W.tx(-0.41 + i * 0.047, z);
+        out.tufts.push([wx, wz, 1.2, r % 2 ? '#5f9a3e' : '#78b04a']);
+        if (i % 3 === 0) out.flowers.push([wx, 0.04, wz, 0.8, crops[(i + r) % crops.length]]);
+      }
+    }
+    // A golden wheat patch on the left.
+    for (let i = 0; i < 40; i++) {
+      const [wx, wz] = W.tx(-0.43 + (i % 10) * 0.05, -0.43 + Math.floor(i / 10) * 0.05);
+      out.tufts.push([wx, wz, 1.6, '#d9b84a']);
+    }
+    // The barn: red boards, white doors with a cross, a gambrel-ish roof along z, a hayloft window.
+    const b = { x0: 0.17, x1: 0.43, z0: -0.4, z1: -0.04 };
+    const v = { wall: '#c4574a', roof: '#6d5a52', trim: '#f2e8d8', shutter: '#f2e8d8' };
+    const fctx = withLook(ctx, v);
+    walls(out, b, 0, 0.14, lin(v.wall), 'plaster');
+    ridgeZ(out, b, 0.14, 0.13, { o: 0.02, col: lin(v.roof), wall: v.wall, timbered: false });
+    const f = wallFrame(b, 0);
+    wallRect(out.layers.paint, f, 0.06, 0.2, 0.0, 0.11, 0.006, lin('#f2e8d8'));
+    beam(out.layers.timber, f, 0.06, 0.0, 0.2, 0.11, 0.012, lin('#c4574a'));
+    beam(out.layers.timber, f, 0.2, 0.0, 0.06, 0.11, 0.012, lin('#c4574a'));
+    windowAt(out, b, 0, 0.13, 0.15, 0.05, 0.05, fctx);
+    // The silo and its dome.
+    out.layers.stone.cyl(0.1, -0.3, 0.05, 0.05, 0, 0.3, 10, lin('#d9d2c4'), { s: 3 });
+    out.layers.stone.cyl(0.1, -0.3, 0.052, 0.052, 0.1, 0.108, 10, lin('#b9b1a2'));
+    out.layers.stone.cyl(0.1, -0.3, 0.052, 0.052, 0.2, 0.208, 10, lin('#b9b1a2'));
+    const [sx, sz] = W.tx(0.1, -0.3);
+    out.layers.roof.blob(sx, 0.3, sz, 0.052, 0.05, 0.052, lin('#8c8478'), lin('#c9c1b2'), 3, 1);
+    // Hay bales, a trough, a scarecrow and a fence along the front.
+    for (const [hx, hz] of [[0.3, 0.1], [0.38, 0.14], [0.34, 0.2]]) {
+      out.layers.thatch.cyl(hx, hz, 0.04, 0.04, 0, 0.055, 10, lin('#d9b45c'), { top: lin('#e6c874'), s: 3 });
+    }
+    out.layers.timber.rod([-0.3, 0, 0.4], [-0.3, 0.2, 0.4], 0.012, lin('#8a6a46'));
+    out.layers.timber.rod([-0.36, 0.17, 0.4], [-0.24, 0.17, 0.4], 0.01, lin('#8a6a46'));
+    out.layers.paint.cyl(-0.3, 0.4, 0.03, 0.002, 0.2, 0.25, 8, lin('#c99a3a'));
+    const [hx2, hz2] = W.tx(-0.3, 0.4);
+    out.layers.leaf.blob(hx2, 0.195, hz2, 0.02, 0.02, 0.02, lin('#e8d6a8'), lin('#f4e8c0'), 4, 0);
+    const pc = lin('#efe6d6');
+    for (let i = 0; i <= 12; i++) W.box(-0.46 + i * 0.077 - 0.007, 0, 0.45, -0.46 + i * 0.077 + 0.007, 0.07, 0.462, pc, { s: 10 });
+    W.box(-0.47, 0.045, 0.447, 0.47, 0.055, 0.465, pc, { s: 10 });
+    lotGreens(out, ctx, [[0.42, 0.3, 0, 0.5]], []);
+  }
+
+  return { farm, bungalow, rowhouse, villa, restaurant, market, bank, hotel, warehouse, workshop, powerplant, kindergarten, museum, pharmacy, hospital, firehut, fountain, garden, pool, cinema, stadium };
 }

@@ -17,7 +17,7 @@ export const ERAS = [
     years: 0,
     nominal: 1850,
     blurb: 'Dirt lanes, timber cottages and horse carts.',
-    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground', 'bungalow', 'market', 'pharmacy', 'firehut', 'garden'],
+    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground', 'bungalow', 'market', 'pharmacy', 'firehut', 'garden', 'farm'],
   },
   {
     id: 'railway',

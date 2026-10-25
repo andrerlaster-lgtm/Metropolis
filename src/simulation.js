@@ -3,6 +3,7 @@
 import { STRUCTURES, DAY_LENGTH_SECONDS, SIM_STEP } from './config.js';
 import { recomputeDesirability } from './desirability.js';
 import { computeLaborMarket } from './labor.js';
+import { computeResources } from './resources.js';
 import { computeCoverage } from './coverage.js';
 import { Reputation } from './reputation.js';
 import { computeStreets } from './streets.js';
@@ -122,6 +123,7 @@ export class Simulation {
     this.applyNotables();
     computeCoverage(this.city);
     this.city.derived.labor = computeLaborMarket(this.city);
+    this.city.derived.resources = computeResources(this.city, this.city.systems.era?.index ?? 0);
     recomputeDesirability(this.city);
     this.economy.assess();
     this._notableRates = this.notables.rates();

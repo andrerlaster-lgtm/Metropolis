@@ -103,6 +103,7 @@ const TOOL_SOUNDS = {
   pool: 'pop',
   cinema: 'popBig',
   stadium: 'popBig',
+  farm: 'plant',
   playground: 'pop',
   field: 'plant',
   tree: 'plant',

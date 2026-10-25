@@ -42,6 +42,7 @@ const COLORS = {
   pool: '#8fd0f0',
   cinema: '#c4a0d8',
   stadium: '#90c88a',
+  farm: '#d8c76e',
 };
 
 export class Minimap {

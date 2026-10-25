@@ -587,7 +587,50 @@ function pool(ctx, x, y, s, L, ghost) {
   }
 }
 
+function farmGround(ctx, t, L) {
+  const { x, y } = t;
+  fillPoly(ctx, L, [[x + 0.04, y + 0.04], [x + 0.96, y + 0.04], [x + 0.96, y + 0.96], [x + 0.04, y + 0.96]], '#c9b36a');
+  // Ploughed rows of green crop across the field, a path of bare earth down the middle.
+  for (let k = 0; k < 6; k++) {
+    const gy = y + 0.08 + k * 0.145;
+    fillPoly(ctx, L, [[x + 0.08, gy], [x + 0.6, gy], [x + 0.6, gy + 0.1], [x + 0.08, gy + 0.1]], k % 2 ? '#8fbf5f' : '#7fb255');
+    fillPoly(ctx, L, [[x + 0.66, gy], [x + 0.92, gy], [x + 0.92, gy + 0.1], [x + 0.66, gy + 0.1]], k % 2 ? '#e0c25a' : '#d4b34c');
+  }
+}
+
+function farm(ctx, x, y, s, L, ghost) {
+  if (ghost) farmGround.call(this, ctx, { x, y }, L);
+  const light = lightOf(this, x, y, s, ghost, L, 'shop');
+  // A red barn with a gambrel-style roof, and a tall silo beside it.
+  const b = { x0: x + 0.6, x1: x + 0.9, y0: y + 0.1, y1: y + 0.44 };
+  this.drawBox(ctx, L, b.x0, b.y0, b.x1, b.y1, 0, 10, '#c4574a', false);
+  fillPoly(ctx, L, this.faceQuad('L', b.x0, b.y0, b.x1, b.y1, 0.3, 0.7, 0, 8), '#f2e8d8', 0.95);
+  this.drawWindow(ctx, L, this.faceQuad('R', b.x0, b.y0, b.x1, b.y1, 0.35, 0.65, 4, 8), 0.8, light.lit(0));
+  this.gableRoof(ctx, L, b.x0, b.y0, b.x1, b.y1, 10, 6, '#7a5a4e', '#c4574a');
+  this.drawBox(ctx, L, x + 0.5, y + 0.14, x + 0.6, y + 0.24, 0, 20, '#d9d2c4');
+  const c = gridToWorld(x + 0.55, y + 0.19, 20);
+  ctx.fillStyle = lit('#b9b1a2', 1, L);
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y, 6.5, 3.4, 0, Math.PI, 0);
+  ctx.fill();
+  // A scarecrow in the crops.
+  const p = gridToWorld(x + 0.3, y + 0.7, 0);
+  ctx.strokeStyle = lit('#7a5a3c', 1, L);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x, p.y - 12);
+  ctx.moveTo(p.x - 4, p.y - 9);
+  ctx.lineTo(p.x + 4, p.y - 9);
+  ctx.stroke();
+  ctx.fillStyle = lit('#e8c070', 1, L);
+  ctx.beginPath();
+  ctx.arc(p.x, p.y - 13, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 export const ART2D = {
+  farm,
   bungalow,
   rowhouse,
   villa,
@@ -611,7 +654,7 @@ export const ART2D = {
 };
 
 // Types that paint something on the ground tile itself (under their props).
-export const GROUND2D = { fountain: fountainGround, garden: gardenGround, pool: poolGround };
+export const GROUND2D = { farm: farmGround, fountain: fountainGround, garden: gardenGround, pool: poolGround };
 
 // Contact-shadow footprints, as renderer.footprint returns them.
 export const FOOTPRINT2D = {

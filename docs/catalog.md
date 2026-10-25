@@ -75,18 +75,23 @@ A new kind is data first, art second. Go through this list (the catalog test fai
 - **Towns that grow by themselves** choose among everything their era and milestones allow, so the computer's towns use the new kinds too.
 - **The skill tree is unchanged.** Its effects are keyed to specific kinds (shops, factories, offices, malls); the new kinds simply aren't boosted yet. Ideas for that are listed in `docs/skill-tree.md`.
 
-## Roadmap: farms and a basic resource system (planned, not built)
+## Farms and resources (built in Phase 8)
 
-Farms matter, but they need something to feed, so they belong with a small resource system rather than
-as another job building. The plan, so the catalog is ready for it:
+Three supplies, worked out afresh every refresh by `src/resources.js` from the buildings and who works in
+them (never saved, so old towns need nothing converted): **food** (farms 70, markets 20 a day; homes eat
+0.5 per resident), **goods** (workshops 25, factories 70; workers use 0.25 each) and **power** (power plants
+260; needed from the Motor age, 0.5 per resident and 0.3 per worker). A building with jobs makes 40% of its
+amount with nobody working and all of it fully staffed.
 
-1. **Resources:** three to start: food, goods and power. A resource is a per-day number on the town (`city.derived.resources`), produced by buildings and used by buildings and homes.
-2. **Producers:** farms (food, needs open land and water nearby), workshops and factories (goods), power plants (power, with smoke). A market and a restaurant turn food into jobs and tax; a warehouse stores a surplus.
-3. **Consumers:** homes eat (from the town's food), businesses use goods and power. A shortage shows as a resident thought and a small happiness penalty, never as a collapse.
-4. **Where it plugs in:** `config.js` gets `produces` and `consumes` on a kind; `economy.js` or a new `resources.js` computes daily totals next to coverage; `advisor.js` and the City panel report them; `growth.js` builds farms when food is short. Nothing here changes saves: the numbers are derived each day.
-5. **Farms:** a farm is open ground (walkable like a park, so it needs no road) with fields drawn in 2D and 3D; farmhouses are ordinary homes.
+Supplies only ever help. A fed town makes homes up to +0.04 more desirable, a powered one +0.03, and goods
+give shops, cafés, bakeries, malls, restaurants and markets up to 8% more tax. A shortage just misses the
+bonus; the City panel's *Supplies* line and the advisor say what would help (a farm or market, a workshop or
+factory, a power plant). Towns that grow by themselves build farms when food is short, at the edge of town.
 
-This is a plan only. No resource numbers exist in the game yet.
+A **farm** is open ground like a park: no road needed, people walk to work there. Farmhouses are ordinary
+homes. Numbers: `produces` on a kind in `config.js`, `RESOURCE_NEED` and `SUPPLY_BONUS` next to it.
+
+Ideas for later: storing a surplus (warehouses), trade with neighbours, seasons changing the harvest.
 
 ## Long-term: open world
 
