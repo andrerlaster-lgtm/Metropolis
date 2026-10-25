@@ -8,8 +8,9 @@
 
 import * as THREE from './vendor/three.module.min.js';
 import { MeshData, linear } from './mesh.js';
-import { buildStructure } from './models.js';
-import { buildGround, WATER_Y } from './ground.js';
+import { WATER_Y } from './ground.js';
+import { buildStorybook } from './storybook.js';
+import { makeTextures, makeMaterials, gameModel, flowerGeometry, tuftGeometry } from './storybookLook.js';
 import { CameraRig, DIST_MIN, DIST_MAX } from './rig.js';
 import { People3D, Cars3D } from './agents3d.js';
 import { Effects3D } from './effects3d.js';
@@ -48,6 +49,20 @@ function writePrefs(p) {
   }
 }
 
+// Snow settles on what faces the sky: lawns, roofs, thatch and treetops.
+const SNOWY = new Set(['grass', 'roof', 'thatch', 'leaf', 'path', 'stone', 'paint']);
+function snowOn(a, snow) {
+  const white = [0.9, 0.92, 0.95];
+  const C = a.color;
+  const N = a.normal;
+  for (let i = 0; i < C.length; i += 3) {
+    const up = N[i + 1];
+    if (up < 0.3) continue;
+    const k = Math.min(1, snow * 0.9 * Math.min(1, (up - 0.3) / 0.4));
+    for (let j = 0; j < 3; j++) C[i + j] += (white[j] - C[i + j]) * k;
+  }
+}
+
 // Returns the view, or null when this browser can't draw WebGL (the game stays in the overhead view).
 export function createView3D(deps) {
   const canvas = document.createElement('canvas');
@@ -74,6 +89,9 @@ class View3D {
     this.active = false;
     this.time = 0;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Filmic colour, for the warm storybook light.
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.1;
     canvas.hidden = true;
     deps.mount(canvas);
 
@@ -103,6 +121,8 @@ class View3D {
       water: new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 0.86, shininess: 110, specular: 0xbfe6f2 }),
       contact: new THREE.MeshBasicMaterial({ map: softSquare(), transparent: true, depthWrite: false, color: 0x2f2a55, opacity: 0.3, polygonOffset: true, polygonOffsetFactor: -2 }),
     };
+    // The storybook look: painted textures and a material per surface kind (storybookLook.js).
+    this.sb = makeMaterials(makeTextures(gl));
     this.smoke = this.makeSmoke();
     this.clouds = this.makeClouds();
     this.chunks = new Map();
@@ -182,8 +202,12 @@ class View3D {
     }
     const a = this.area;
     const pad = 30;
-    const geo = new THREE.PlaneGeometry(a.x1 - a.x0 + pad * 2, a.z1 - a.z0 + pad * 2).rotateX(-Math.PI / 2);
-    this.countryside = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: this.deps.PALETTE.grass }));
+    const gw = a.x1 - a.x0 + pad * 2;
+    const gh = a.z1 - a.z0 + pad * 2;
+    const geo = new THREE.PlaneGeometry(gw, gh).rotateX(-Math.PI / 2);
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * gw, uv.getY(i) * gh);
+    this.countryside = new THREE.Mesh(geo, this.sb.meadow);
     this.countryside.position.set((a.x0 + a.x1) / 2, -0.006, (a.z0 + a.z1) / 2);
     this.countryside.receiveShadow = true;
     this.countryside.visible = this.sources.length > 1;
@@ -396,102 +420,93 @@ class View3D {
     this.chunks.delete(key);
   }
 
+  // One chunk in the storybook look (storybook.js): cobbled streets on the game's own layout, plaster
+  // and timber cottages, gardens, trees and flowers. Buildings with no storybook model yet keep the
+  // game's own model (models.js).
   buildChunk(key, src, x0, y0, x1, y1, sig, env) {
     const city = src.city;
     const d = this.deps;
     const r = src.renderer;
     const old = this.chunks.get(key);
     if (old) this.dropChunk(key, old);
-    const out = { ground: new MeshData(), water: new MeshData(), solid: new MeshData(), glass: new MeshData(), lit: new MeshData(), glow: new MeshData(), lamps: [], smoke: [] };
-    const feet = []; // building footprints, for soft contact shadows
-    const tops = []; // [tile index, height] so cameras don't sink into roofs
-    const snowHex = (hex, k = 0.8) => (env.snow ? d.mixHex(hex, '#f3f6f9', env.snow * k) : hex);
-    buildGround(out, city, x0, y0, x1, y1, {
-      palette: d.PALETTE,
-      snow: env.snow,
-      era: env.era,
-      grass: (hex) => r.grassColor(hex),
-      hash: d.hash2,
-      crossMask: (x, y) => d.crosswalkMask(city, x, y),
-      lamp: (t) => r.lampSpot(t),
-      edges: env.edges,
-    });
-    const ctx = {
+    const modelCtx = {
       era: env.era,
       snow: env.snow,
       open: env.open,
       variant: (s, fb) => r.variantOf(s, fb),
       roofHex: (hex) => r.roofColor(hex),
       trees: (x, y, blossom) => r.treeColors(x, y, blossom),
-      snowy: snowHex,
+      snowy: (hex, k = 0.8) => (env.snow ? d.mixHex(hex, '#f3f6f9', env.snow * k) : hex),
       hash: d.hash2,
+      winter: env.season === 'winter',
     };
-    for (let y = y0; y < y1; y++) {
-      for (let x = x0; x < x1; x++) {
-        const t = city.getTile(x, y);
-        if (!t.structure || t.structure.type === 'road' || t.terrain !== 'grass') continue;
-        const rot = this.frontOf(t, city);
-        for (const md of [out.solid, out.glass, out.lit, out.glow]) md.place(x + 0.5, y + 0.5, rot);
-        ctx.x = x;
-        ctx.y = y;
-        ctx.growth = d.growthOf(t);
-        ctx.occupancy = Math.max(0.2, Math.min(0.9, this.occupancy(t)));
-        ctx.winter = env.season === 'winter';
-        const from = out.solid.pos.length;
-        buildStructure(out, t, ctx);
-        const def = d.STRUCTURES[t.structure.type];
-        if (!def.walkable && t.structure.type !== 'rubble') {
-          let x0b = Infinity;
-          let z0b = Infinity;
-          let x1b = -Infinity;
-          let z1b = -Infinity;
-          let top = 0;
-          const P = out.solid.pos;
-          for (let i = from; i < P.length; i += 3) {
-            if (P[i + 1] > top) top = P[i + 1];
-            if (P[i + 1] > 0.12) continue; // the walls' feet, not awnings and roofs
-            if (P[i] < x0b) x0b = P[i];
-            if (P[i] > x1b) x1b = P[i];
-            if (P[i + 2] < z0b) z0b = P[i + 2];
-            if (P[i + 2] > z1b) z1b = P[i + 2];
-          }
-          if (x0b < x1b) feet.push([(x0b + x1b) / 2, (z0b + z1b) / 2, x1b - x0b + 0.16, z1b - z0b + 0.16]);
-          tops.push([y * city.width + x, top]);
-        }
-      }
-    }
+    const out = buildStorybook(city, { x0, y0, x1, y1 }, {
+      streets: true,
+      lamp: (t) => r.lampSpot(t),
+      crossMask: (x, y) => d.crosswalkMask(city, x, y),
+      edges: env.edges,
+      winter: env.season === 'winter',
+      growthOf: d.growthOf,
+      STRUCTURES: d.STRUCTURES,
+      fallback: (o, t, rot) => {
+        modelCtx.x = t.x;
+        modelCtx.y = t.y;
+        modelCtx.growth = d.growthOf(t);
+        modelCtx.occupancy = Math.max(0.2, Math.min(0.9, this.occupancy(t)));
+        return gameModel(o, t, rot, modelCtx);
+      },
+    });
     const meshes = [];
-    const add = (md, mat, { cast = false, receive = true } = {}) => {
-      if (!md.vertices) return;
+    const flat = new Set(['grass', 'path', 'dirt', 'water']);
+    for (const [name, md] of Object.entries(out.layers)) {
+      if (!md.vertices) continue;
       const a = md.arrays();
+      if (env.snow && SNOWY.has(name)) snowOn(a, env.snow);
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(a.position, 3));
       geo.setAttribute('normal', new THREE.BufferAttribute(a.normal, 3));
       geo.setAttribute('color', new THREE.BufferAttribute(a.color, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(a.uv, 2));
       geo.computeBoundingSphere();
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.castShadow = cast;
-      mesh.receiveShadow = receive;
-      mesh.userData.pick = mat === this.mats.solid || mat === this.mats.ground;
+      const mesh = new THREE.Mesh(geo, this.sb[name]);
+      mesh.castShadow = !flat.has(name) && name !== 'glow';
+      mesh.receiveShadow = name !== 'glow';
+      mesh.userData.pick = name !== 'glow' && name !== 'glass' && name !== 'water';
       this.root.add(mesh);
       meshes.push(mesh);
-    };
-    add(out.ground, this.mats.ground);
-    add(out.solid, this.mats.solid, { cast: true });
-    add(out.glass, this.mats.glass);
-    add(out.lit, this.mats.lit);
-    add(out.glow, this.mats.glow, { receive: false });
-    add(out.water, this.mats.water);
-    if (feet.length) {
-      const m = new THREE.InstancedMesh(this.shadowQuad(), this.mats.contact, feet.length);
+    }
+    const scatter = (list, geo, mat, at, colour, spin) => {
+      if (!list.length) return;
+      const m = new THREE.InstancedMesh(geo, mat, list.length);
       const mx = new THREE.Matrix4();
-      feet.forEach(([cx, cz, w, dd], i) => m.setMatrixAt(i, mx.makeScale(w, 1, dd).setPosition(cx, 0.006, cz)));
+      const q = new THREE.Quaternion();
+      const up = new THREE.Vector3(0, 1, 0);
+      const c = new THREE.Color();
+      const pos = new THREE.Vector3();
+      const scl = new THREE.Vector3();
+      list.forEach((it, i) => {
+        const [x, y, z, k] = at(it);
+        const h = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
+        q.setFromAxisAngle(up, spin ? h * Math.PI * 2 : 0);
+        m.setMatrixAt(i, mx.compose(pos.set(x, y, z), q, scl.set(k, k * (spin ? 0.8 + h * 0.6 : 1), k)));
+        m.setColorAt(i, c.set(env.snow ? d.mixHex(colour(it), '#f3f6f9', env.snow * 0.8) : colour(it)));
+      });
+      m.receiveShadow = true;
+      this.root.add(m);
+      meshes.push(m);
+    };
+    scatter(out.flowers, (this._flower ||= flowerGeometry()), this.sb.flower, (f) => f, (f) => f[4], false);
+    scatter(out.tufts, (this._tuft ||= tuftGeometry()), this.sb.tuft, (t) => [t[0], 0, t[1], t[2]], (t) => t[3], true);
+    if (out.feet.length) {
+      const m = new THREE.InstancedMesh(this.shadowQuad(), this.mats.contact, out.feet.length);
+      const mx = new THREE.Matrix4();
+      out.feet.forEach(([cx, cz, w, dd], i) => m.setMatrixAt(i, mx.makeScale(w, 1, dd).setPosition(cx, 0.008, cz)));
       m.renderOrder = 1;
       this.root.add(m);
       meshes.push(m);
     }
     for (const m of meshes) m.position.set(src.offset.x, 0, src.offset.z);
-    this.chunks.set(key, { sig, meshes, lamps: out.lamps, smoke: out.smoke, tops, town: townKey(city), offset: src.offset });
+    this.chunks.set(key, { sig, meshes, lamps: out.lamps, smoke: out.smoke, tops: out.tops, town: townKey(city), offset: src.offset });
   }
 
   shadowQuad() {
@@ -761,7 +776,7 @@ class View3D {
     // Sky light: bright and neutral by day, low and blue at night.
     this.hemi.color.setRGB(amb[0] * 0.92, amb[1] * 0.95, amb[2]);
     this.hemi.groundColor.setRGB(0.55 * amb[0], 0.62 * amb[1], 0.5 * amb[2]);
-    this.hemi.intensity = 0.55 + 0.5 * day;
+    this.hemi.intensity = (0.55 + 0.5 * day) * 1.35;
     // The sun swings from east-north-east in the morning to south-west in the evening; by night a
     // faint moon lights the town from high up.
     const up = sunH > 0.02;
@@ -777,8 +792,9 @@ class View3D {
     const warm = L.warm || 0;
     const cloud = 1 - 0.5 * (w.cloud || 0) - 0.3 * (w.rain || 0);
     if (up) {
-      this.sun.color.setRGB(1, 0.97 - 0.12 * warm, 0.92 - 0.3 * warm);
-      this.sun.intensity = (0.35 + 1.15 * day) * cloud;
+      // A warm, storybook sun.
+      this.sun.color.setRGB(1, 0.9 - 0.12 * warm, 0.76 - 0.3 * warm);
+      this.sun.intensity = (0.35 + 1.15 * day) * cloud * 1.9;
     } else {
       this.sun.color.setRGB(0.62, 0.68, 0.95);
       this.sun.intensity = 0.32;
@@ -790,6 +806,8 @@ class View3D {
     sc.far = 90;
     sc.updateProjectionMatrix();
     this.mats.lit.emissiveIntensity = 0.95 * L.windowLit;
+    // Storybook windows keep a warm glow by day and light right up at night.
+    this.sb.glass.emissiveIntensity = 0.3 + 0.9 * L.windowLit;
     // Fog closes in at street level and on foggy days.
     const fogK = 1 - 0.75 * (w.fog || 0);
     const fogNear = this.rig.mode === 'orbit' ? Math.max(8, span * 1.4) * fogK : 4 * fogK;
@@ -865,7 +883,8 @@ class View3D {
     this.updateClouds(w, L);
     this.effects.update(this.city, this, cam, this.time);
     this.cars.update(agents, { night: L.lamps });
-    for (const c of this.chunks.values()) for (const m of c.meshes) if (m.material === this.mats.water) m.position.y = Math.sin(this.time * 1.3) * 0.004;
+    for (const c of this.chunks.values()) for (const m of c.meshes) if (m.material === this.sb.water) m.position.y = Math.sin(this.time * 1.3) * 0.004;
+    this.sb.leaf.userData.time.value = this.time;
     this.updateWeather(w, focus, span);
     const t1 = performance.now();
     this.gl.render(this.scene, cam);
