@@ -7,7 +7,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 export class StartMenu {
   // deps: { info() → { name, population, slot } | null, rivals() → bool, apply(rivals: bool),
-  //         onLoad(), onNew(), setSpeed(n) → previous speed }
+  //         onLoad(), onNew(), setSpeed(n) → previous speed, backdrop(on) }
   constructor(deps) {
     this.d = deps;
     this.el = document.getElementById('start-menu');
@@ -21,7 +21,11 @@ export class StartMenu {
     this.choice = this.d.rivals();
     this.isOpen = true;
     this.el.hidden = false;
-    if (this.before == null) this.before = this.d.setSpeed(0); // the town waits while you choose
+    this.el.parentElement?.classList.add('menu-open');
+    if (this.before == null) {
+      this.before = this.d.setSpeed(0); // the town waits while you choose
+      this.d.backdrop?.(true);
+    }
     this.render();
   }
 
@@ -29,7 +33,11 @@ export class StartMenu {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.el.hidden = true;
-    if (this.before != null) this.d.setSpeed(this.before || 1);
+    this.el.parentElement?.classList.remove('menu-open');
+    if (this.before != null) {
+      this.d.backdrop?.(false);
+      this.d.setSpeed(this.before || 1);
+    }
     this.before = null;
   }
 
