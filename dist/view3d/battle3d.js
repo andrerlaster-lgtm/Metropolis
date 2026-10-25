@@ -7,6 +7,7 @@
 
 import * as THREE from './vendor/three.module.min.js';
 import { CameraRig } from './rig.js';
+import { flashOf, recoilOf, tracerOf } from './gunfire.js';
 
 const MAX_UNITS = 140;
 const MAX_TRACERS = 240;
@@ -441,6 +442,8 @@ class BattleView {
     this.barFill = inst(bar.clone(), new THREE.MeshBasicMaterial({ color: 0xffffff, depthWrite: false, fog: false }), MAX_UNITS + 40, false);
     this.barFill.renderOrder = 2;
     this.flashes = inst(new THREE.SphereGeometry(0.05, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffe28a }), MAX_UNITS + 40, false);
+    // The bright head of a defence's bullet, riding along its tracer.
+    this.beads = inst(new THREE.SphereGeometry(0.04, 6, 4), new THREE.MeshBasicMaterial({ color: 0xffd23c, fog: false }), MAX_TRACERS, false);
     this.shellMesh = inst(new THREE.SphereGeometry(0.06, 6, 4), new THREE.MeshLambertMaterial({ color: 0x3a3632 }), MAX_SHELLS, true);
     this.puffs = inst(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, depthWrite: false }), MAX_PUFFS, false);
     this.marks = inst(new THREE.RingGeometry(0.85, 1, 32).rotateX(-Math.PI / 2).translate(0, 0.03, 0), new THREE.MeshBasicMaterial({ color: 0xff4d3d, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), 8, false);
@@ -509,6 +512,8 @@ class BattleView {
         d = Math.atan2(Math.sin(d), Math.cos(d));
         head.rotation.y += d * Math.min(1, dt * 10);
       }
+      // The barrel jerks back when the gun fires (gunfire.js).
+      if (head?.children[0] && s.type === 'mg') head.children[0].position.z = 0.18 - 0.07 * recoilOf(s, m.t);
     }
     this.drawUnits(m);
     this.drawEffects(m);
@@ -594,10 +599,12 @@ class BattleView {
     for (const id of this.downAt.keys()) if (!seen.has(id)) this.downAt.delete(id);
     for (const st of m.structs) {
       if (st.hp > 0 && st.hp < st.maxHp) bar(st.x + st.w / 2, st.type === 'hq' ? 1.15 : 0.8, st.y + st.h / 2, st.hp / st.maxHp, 0.5 + st.w * 0.25, st.hp / st.maxHp > 0.5 ? 0x5cbf88 : st.hp / st.maxHp > 0.25 ? 0xf2b230 : 0xef6461);
-      if (st.hp > 0 && t - (st.fired ?? -9) < 0.07 && Number.isFinite(st.aim) && fl < MAX_UNITS + 40) {
-        v.set(st.x + st.w / 2 + Math.cos(st.aim) * 0.45, st.type === 'hq' ? 0.5 : 0.32, st.y + st.h / 2 + Math.sin(st.aim) * 0.45);
+      // A muzzle flash at the end of the barrel while a shot is fresh (gunfire.js).
+      const flash = flashOf(st, t);
+      if (flash && fl < MAX_UNITS + 40) {
+        v.set(flash.x, flash.y, flash.z);
         q.identity();
-        s.setScalar(1.2);
+        s.setScalar(flash.scale * (0.8 + Math.random() * 0.4));
         m4.compose(v, q, s);
         this.flashes.setMatrixAt(fl++, m4);
       }
@@ -622,12 +629,34 @@ class BattleView {
     const t = m.t;
     // Tracers.
     let tr = 0;
+    let bd = 0;
     const pos = this.tracerPos;
     const cl = this.tracerCol;
     for (const f of m.fx) {
       if (f.kind !== 'shot' || tr >= MAX_TRACERS) continue;
       const age = t - f.t;
       if (age > (f.life || 0.12)) continue;
+      if (f.struct != null) {
+        // A defence's shot: from the muzzle, amber, with a bright bullet running ahead of the streak.
+        const T = tracerOf(f, m.structs);
+        const kk = Math.min(1, age / (f.life || 0.12));
+        const ax = T.x0 + (T.x1 - T.x0) * Math.max(0, kk - 0.5);
+        const az = T.z0 + (T.z1 - T.z0) * Math.max(0, kk - 0.5);
+        const ay = T.y0 + (T.y1 - T.y0) * Math.max(0, kk - 0.5);
+        const bx = T.x0 + (T.x1 - T.x0) * kk;
+        const bz = T.z0 + (T.z1 - T.z0) * kk;
+        const by = T.y0 + (T.y1 - T.y0) * kk;
+        pos.set([ax, ay, az, bx, by, bz], tr * 6);
+        col.set(0xffc83a);
+        cl.set([col.r, col.g, col.b, col.r, col.g, col.b], tr * 6);
+        v.set(bx, by, bz);
+        q.identity();
+        s.setScalar(1);
+        m4.compose(v, q, s);
+        this.beads.setMatrixAt(bd++, m4);
+        tr++;
+        continue;
+      }
       const k = Math.min(1, age / 0.1);
       // A soldier's shot leaves from the rifle's muzzle, not the middle of their body.
       let sx = f.x;
@@ -649,6 +678,8 @@ class BattleView {
       cl.set([col.r, col.g, col.b, col.r, col.g, col.b], tr * 6);
       tr++;
     }
+    this.beads.count = bd;
+    this.beads.instanceMatrix.needsUpdate = true;
     this.tracers.geometry.setDrawRange(0, tr * 2);
     this.tracers.geometry.attributes.position.needsUpdate = true;
     this.tracers.geometry.attributes.color.needsUpdate = true;
