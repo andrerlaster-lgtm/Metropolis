@@ -200,6 +200,27 @@ export class SBMesh {
     if (bottom) this.quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], lo);
   }
 
+  // A square beam of width w from point a to point b, at any angle (swing frames, rails, ropes).
+  rod(a, b, w, col, s = 6) {
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const l = Math.hypot(...d) || 1;
+    const n = [d[0] / l, d[1] / l, d[2] / l];
+    // Two directions across the beam.
+    const ref = Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    let u = [n[1] * ref[2] - n[2] * ref[1], n[2] * ref[0] - n[0] * ref[2], n[0] * ref[1] - n[1] * ref[0]];
+    const ul = Math.hypot(...u);
+    u = u.map((v) => (v / ul) * (w / 2));
+    const v = [(n[1] * u[2] - n[2] * u[1]), (n[2] * u[0] - n[0] * u[2]), (n[0] * u[1] - n[1] * u[0])];
+    const at = (p, su, sv) => [p[0] + u[0] * su + v[0] * sv, p[1] + u[1] * su + v[1] * sv, p[2] + u[2] * su + v[2] * sv];
+    const lo = mul(col, 0.85);
+    const corners = [[1, 1], [-1, 1], [-1, -1], [1, -1]];
+    for (let i = 0; i < 4; i++) {
+      const [su0, sv0] = corners[i];
+      const [su1, sv1] = corners[(i + 1) % 4];
+      this.quad(at(a, su0, sv0), at(a, su1, sv1), at(b, su1, sv1), at(b, su0, sv0), col, [[0, 0], [w * s, 0], [w * s, l * s], [0, l * s]], [lo, lo, col, col]);
+    }
+  }
+
   // A tapered cylinder with smooth sides (trunks, posts, chimneys pots), n sides.
   cyl(x, z, r0, r1, y0, y1, n, col, { top = col, s = 1 } = {}) {
     const lo = mul(col, 0.8);
@@ -711,7 +732,7 @@ function doorAt(out, b, u, w, h, ctx) {
 
 // A steep gable roof with overhanging eaves along x over block b, sitting at height y. The gable ends
 // are plaster triangles with a little timber in them; the roof has visible thickness and a ridge beam.
-function gableRoof(out, b, y, rise, { o = 0.06, layer = 'roof', col, wall, ends = true, ridge = true }) {
+function gableRoof(out, b, y, rise, { o = 0.06, layer = 'roof', col, wall, ends = true, ridge = true, endLayer = 'plaster', timbered = true }) {
   const R = out.layers[layer];
   const T = out.layers.timber;
   const zm = (b.z0 + b.z1) / 2;
@@ -741,12 +762,14 @@ function gableRoof(out, b, y, rise, { o = 0.06, layer = 'roof', col, wall, ends 
   }
   if (ridge) T.box(xa - 0.005, y + rise - 0.012, zm - 0.018, xb + 0.005, y + rise + 0.014, zm + 0.018, lin('#4a3326'), { s: 6 });
   if (!ends) return;
-  const P = out.layers.plaster;
+  const P = out.layers[endLayer];
+  const k = endLayer === 'stone' ? 5 : 3;
   const wc = lin(wall);
   for (const [x, flip] of [[b.x1, 1], [b.x0, -1]]) {
     const pts = [[x, y, b.z1], [x, y, b.z0], [x, y + rise, zm]];
-    if (flip > 0) P.tri(pts[0], pts[1], pts[2], wc, wc, wc, [-b.z1 * 3, y * 3], [-b.z0 * 3, y * 3], [-zm * 3, (y + rise) * 3]);
-    else P.tri(pts[1], pts[0], pts[2], wc, wc, wc, [b.z0 * 3, y * 3], [b.z1 * 3, y * 3], [zm * 3, (y + rise) * 3]);
+    if (flip > 0) P.tri(pts[0], pts[1], pts[2], wc, wc, wc, [-b.z1 * k, y * k], [-b.z0 * k, y * k], [-zm * k, (y + rise) * k]);
+    else P.tri(pts[1], pts[0], pts[2], wc, wc, wc, [b.z0 * k, y * k], [b.z1 * k, y * k], [zm * k, (y + rise) * k]);
+    if (!timbered) continue;
     // A king post and two braces in the gable.
     const f = wallFrame(b, flip > 0 ? 1 : 3);
     const um = f.w / 2;
@@ -1055,6 +1078,202 @@ function park(out, ctx) {
   meadow(out, ctx);
 }
 
+// ---- Civic -------------------------------------------------------------------------------------
+
+// A village schoolhouse on the game's school footprint: brick walls with pale stone corners and sills,
+// tall white-framed windows on two floors, a slate roof with a gabled entrance bay in the middle (double
+// doors, stone steps, a name board), a bell cupola with a weathervane on the ridge, chimneys at both
+// ends, and a gravel yard in front with a flagpole, a bench, flower beds and a fence round the sides.
+const SCHOOL = { wall: '#b5654c', trim: '#f4ecdc', shutter: '#3f6b5a', roof: '#5b6478', stone: '#e4d8c2' };
+function school(out, ctx) {
+  const v = SCHOOL;
+  const sctx = { ...ctx, v: { ...ctx.v, trim: v.trim, shutter: v.shutter } };
+  const b = block(0.8, 0.5, -0.12);
+  const h = 0.44;
+  const S = out.layers.stone;
+  const brick = lin(v.wall);
+  const pale = lin(v.stone);
+  S.box(b.x0 - 0.015, 0, b.z0 - 0.015, b.x1 + 0.015, 0.04, b.z1 + 0.015, pale, { s: 6 });
+  walls(out, b, 0.04, h, brick, 'stone');
+  // Pale stone quoins up the corners and a band between the floors.
+  for (const [x, z] of [[b.x0, b.z0], [b.x1, b.z0], [b.x0, b.z1], [b.x1, b.z1]]) {
+    // Stop below the eaves, so no stone pokes through the roof.
+    for (let y = 0.04; y < h - 0.06; y += 0.06) {
+      const w = Math.round(y / 0.06) % 2 ? 0.03 : 0.02;
+      S.box(x - w, y, z - w, x + w, Math.min(h - 0.03, y + 0.05), z + w, pale, { s: 8 });
+    }
+  }
+  S.box(b.x0 - 0.008, 0.215, b.z0 - 0.008, b.x1 + 0.008, 0.232, b.z1 + 0.008, pale, { s: 6 });
+  // Tall windows: three each side of the entrance on both floors, and along the sides and back.
+  for (const u of [0.07, 0.17, 0.27, 0.53, 0.63, 0.73]) {
+    windowAt(out, b, 0, u, 0.075, 0.07, 0.12, sctx, { box: u === 0.17 || u === 0.63 });
+    windowAt(out, b, 0, u, 0.26, 0.07, 0.11, sctx);
+  }
+  for (const face of [1, 3]) for (const u of [0.14, 0.36]) for (const y of [0.075, 0.26]) windowAt(out, b, face, u, y, 0.07, 0.11, sctx);
+  for (const u of [0.12, 0.28, 0.52, 0.68]) for (const y of [0.075, 0.26]) windowAt(out, b, 2, u, y, 0.07, 0.11, sctx);
+  gableRoof(out, b, h, 0.24, { o: 0.05, col: lin(v.roof), wall: v.wall, endLayer: 'stone', timbered: false });
+  chimney(out, b.x0 + 0.08, b.z0 + 0.12, h + 0.1, h + 0.32);
+  chimney(out, b.x1 - 0.08, b.z0 + 0.12, h + 0.1, h + 0.32);
+  // The entrance bay: a little brick gable standing forward of the front, with a slate roof of its own.
+  const e = { x0: -0.12, x1: 0.12, z0: b.z1 - 0.02, z1: b.z1 + 0.09 };
+  walls(out, e, 0.04, 0.34, brick, 'stone');
+  S.box(e.x0 - 0.015, 0, e.z0, e.x1 + 0.015, 0.04, e.z1 + 0.015, pale, { s: 6 });
+  out.layers.roof.nest(0, 0, 1, () => out.layers.timber.nest(0, 0, 1, () => out.layers.stone.nest(0, 0, 1, () => {
+    gableRoof(out, { x0: -e.z1, x1: -e.z0 + 0.1, z0: e.x0, z1: e.x1 }, 0.34, 0.14, { o: 0.03, col: lin(v.roof), wall: v.wall, endLayer: 'stone', timbered: false });
+  })));
+  // Double doors with a fanlight, a name board above, and three stone steps.
+  const f = wallFrame(e, 0);
+  const W = out.layers.wood;
+  wallRect(W, f, 0.065, 0.118, 0.07, 0.24, 0.005, lin('#2f5a4a'), 10);
+  wallRect(W, f, 0.122, 0.175, 0.07, 0.24, 0.005, lin('#2f5a4a'), 10);
+  wallRect(out.layers.glass, f, 0.075, 0.165, 0.245, 0.275, 0.005, lin('#ffd98f'));
+  const T = out.layers.timber;
+  const trim = lin(v.trim);
+  beam(T, f, 0.06, 0.07, 0.06, 0.28, 0.016, trim);
+  beam(T, f, 0.18, 0.07, 0.18, 0.28, 0.016, trim);
+  beam(T, f, 0.055, 0.28, 0.185, 0.28, 0.018, trim);
+  beam(T, f, 0.12, 0.07, 0.12, 0.24, 0.008, trim);
+  wallRect(W, f, 0.04, 0.2, 0.295, 0.33, 0.007, lin('#e9dfc6'), 10);
+  out.layers.paint.box(0.065 - 0.12, 0.306, e.z1 + 0.007, 0.175 - 0.12, 0.318, e.z1 + 0.009, lin('#3b3036'));
+  for (let i = 0; i < 3; i++) S.box(e.x0 + 0.02 - i * 0.012, 0, e.z1 + i * 0.03, e.x1 - 0.02 + i * 0.012, 0.04 - i * 0.013, e.z1 + 0.03 + i * 0.03, pale, { s: 6 });
+  // The bell cupola on the ridge: four white posts round a bell, a pyramid cap and a weathervane.
+  const cy = h + 0.24;
+  const cz = (b.z0 + b.z1) / 2;
+  W.box(-0.055, cy - 0.04, cz - 0.055, 0.055, cy + 0.02, cz + 0.055, trim, { s: 8 });
+  for (const [x, z] of [[-0.045, -0.045], [0.045, -0.045], [-0.045, 0.045], [0.045, 0.045]]) W.box(x - 0.008, cy + 0.02, cz + z - 0.008, x + 0.008, cy + 0.11, cz + z + 0.008, trim, { s: 8 });
+  out.layers.paint.cyl(0, cz, 0.012, 0.026, cy + 0.04, cy + 0.085, 8, lin('#c99a3a'));
+  W.box(-0.062, cy + 0.11, cz - 0.062, 0.062, cy + 0.125, cz + 0.062, trim, { s: 8 });
+  out.layers.roof.cyl(0, cz, 0.075, 0.001, cy + 0.125, cy + 0.2, 4, lin(v.roof));
+  T.box(-0.003, cy + 0.2, cz - 0.003, 0.003, cy + 0.26, cz + 0.003, lin('#2f2c30'));
+  T.box(-0.03, cy + 0.24, cz - 0.003, 0.03, cy + 0.246, cz + 0.003, lin('#2f2c30'));
+  // The yard: gravel in front, a flagpole, a bench, flower beds under the windows, a fence and a tree.
+  const D = out.layers.dirt;
+  D.quad([-0.44, 0.006, 0.47], [0.44, 0.006, 0.47], [0.44, 0.006, b.z1 + 0.02], [-0.44, 0.006, b.z1 + 0.02], lin('#d6c4a0'), [[-0.44, -0.47], [0.44, -0.47], [0.44, -b.z1], [-0.44, -b.z1]]);
+  T.box(0.33, 0, 0.3, 0.342, 0.46, 0.312, lin('#e9e4da'), { s: 6 });
+  out.layers.paint.quad([0.342, 0.44, 0.306], [0.43, 0.43, 0.306], [0.43, 0.38, 0.306], [0.342, 0.39, 0.306], lin('#b5483d'));
+  bench(out, -0.3, 0.36, 0);
+  const P = out.layers.wood;
+  for (const side of [-1, 1]) {
+    const [wx, wz] = P.tx(side * 0.3, b.z1 + 0.04);
+    flowerPatch(out, wx, wz, 0.06, 9, rand(ctx.x, ctx.y, side + 60));
+  }
+  const [bx, bz] = P.tx(0.4, -0.42);
+  storyTree(out, bx, bz, 0, 0.6, ctx.x * 19 + ctx.y);
+  const [ux, uz] = P.tx(-0.42, -0.4);
+  bushWorld(out, ux, uz, 0.06, ctx.x * 7 + ctx.y * 3);
+  schoolFence(out);
+}
+
+// A low picket fence along the back and sides of a lot.
+function schoolFence(out) {
+  const W = out.layers.wood;
+  const pc = lin('#efe6d6');
+  const e = 0.47;
+  for (const [[ax, az], [bx, bz]] of [[[-e, -e], [e, -e]], [[e, -e], [e, 0.1]], [[-e, 0.1], [-e, -e]]]) {
+    W.box(Math.min(ax, bx) - 0.004, 0.05, Math.min(az, bz) - 0.004, Math.max(ax, bx) + 0.004, 0.06, Math.max(az, bz) + 0.004, pc, { s: 10 });
+    const n = Math.max(2, Math.round(Math.hypot(bx - ax, bz - az) / 0.08));
+    for (let i = 0; i <= n; i++) {
+      const px = ax + ((bx - ax) * i) / n;
+      const pz = az + ((bz - az) * i) / n;
+      W.box(px - 0.008, 0, pz - 0.008, px + 0.008, 0.11, pz + 0.008, pc, { s: 10 });
+    }
+  }
+}
+
+// A wooden park bench (in the building's frame), facing `r` quarter turns from +z.
+function bench(out, x, z, r) {
+  const W = out.layers.wood;
+  W.nest(x, z, r, () => {
+    const wood = lin('#9a6b44');
+    const iron = lin('#2f2c30');
+    W.box(-0.07, 0.045, -0.02, 0.07, 0.053, 0.02, wood, { s: 10 });
+    W.box(-0.07, 0.06, -0.026, 0.07, 0.1, -0.019, wood, { s: 10 });
+    for (const lx of [-0.06, 0.06]) {
+      W.box(lx - 0.005, 0, -0.02, lx + 0.005, 0.045, -0.012, iron);
+      W.box(lx - 0.005, 0, 0.012, lx + 0.005, 0.045, 0.02, iron);
+      W.box(lx - 0.005, 0.045, -0.026, lx + 0.005, 0.1, -0.019, iron);
+    }
+  });
+}
+
+// A village playground: a wooden swing set with two swings, a slide tower with a little red roof, a
+// ladder and a painted chute, a sandbox with a bucket, a seesaw, benches for the parents, a dirt path,
+// flower beds and a shady tree. Still a lawn you can walk across, as in the game.
+function playground(out, ctx) {
+  const { x, y } = ctx;
+  const W = out.layers.wood;
+  const T = out.layers.timber;
+  const Pt = out.layers.paint;
+  const D = out.layers.dirt;
+  const wood = lin('#a77b52');
+  const dark = lin('#6e4b32');
+  const rope = lin('#5a4a3a');
+  // Worn earth under the equipment and a path in from the street.
+  D.quad([-0.07, 0.004, 0.5], [0.07, 0.004, 0.5], [0.07, 0.004, -0.05], [-0.07, 0.004, -0.05], lin('#c7ab7c'), [[-0.07, -0.5], [0.07, -0.5], [0.07, 0.05], [-0.07, 0.05]]);
+  D.quad([0.03, 0.005, -0.08], [0.44, 0.005, -0.08], [0.44, 0.005, -0.34], [0.03, 0.005, -0.34], lin('#c9ad80'), [[0.03, 0.08], [0.44, 0.08], [0.44, 0.34], [0.03, 0.34]]);
+  // Swing set: two A-frames joined by a top beam, two swings on ropes.
+  const sz = -0.21;
+  const top = 0.27;
+  for (const sx of [0.07, 0.41]) {
+    W.rod([sx, 0, sz - 0.09], [sx, top, sz], 0.016, wood);
+    W.rod([sx, 0, sz + 0.09], [sx, top, sz], 0.016, wood);
+    W.rod([sx, 0.08, sz - 0.062], [sx, 0.08, sz + 0.062], 0.01, wood);
+  }
+  W.rod([0.06, top, sz], [0.42, top, sz], 0.02, wood);
+  for (const [cx, swing] of [[0.17, 0.02], [0.31, -0.03]]) {
+    for (const dx of [-0.025, 0.025]) T.rod([cx + dx, top - 0.01, sz], [cx + dx, 0.07, sz + swing], 0.004, rope);
+    W.box(cx - 0.035, 0.06, sz + swing - 0.018, cx + 0.035, 0.07, sz + swing + 0.018, lin('#b5483d'), { s: 10 });
+  }
+  // Slide tower: four posts, a platform, a little roof, a ladder at the back and a chute to the front.
+  const px = -0.28;
+  const pz = -0.24;
+  const ph = 0.16;
+  for (const [ox, oz] of [[-0.06, -0.06], [0.06, -0.06], [-0.06, 0.06], [0.06, 0.06]]) W.box(px + ox - 0.008, 0, pz + oz - 0.008, px + ox + 0.008, ph + 0.13, pz + oz + 0.008, wood, { s: 8 });
+  W.box(px - 0.07, ph - 0.012, pz - 0.07, px + 0.07, ph, pz + 0.07, lin('#9a6b44'), { s: 8 });
+  for (const ox of [-0.06, 0.06]) W.rod([px + ox, ph + 0.06, pz - 0.06], [px + ox, ph + 0.06, pz + 0.06], 0.008, wood);
+  gableRoof(out, { x0: px - 0.07, x1: px + 0.07, z0: pz - 0.07, z1: pz + 0.07 }, ph + 0.13, 0.07, { o: 0.015, col: lin('#a8464c'), wall: '#d9a87a', ends: false });
+  for (const ox of [-0.035, 0.035]) W.rod([px + ox, 0, pz - 0.14], [px + ox, ph, pz - 0.07], 0.01, wood);
+  for (let i = 1; i <= 4; i++) {
+    const t = i / 5;
+    W.rod([px - 0.035, ph * t, pz - 0.14 + 0.07 * t], [px + 0.035, ph * t, pz - 0.14 + 0.07 * t], 0.007, dark);
+  }
+  const chute = lin('#3f6fa3');
+  const z0 = pz + 0.07;
+  const z1 = pz + 0.36;
+  Pt.quad([px - 0.035, ph, z0], [px - 0.035, 0.015, z1], [px + 0.035, 0.015, z1], [px + 0.035, ph, z0], chute);
+  Pt.quad([px - 0.035, 0.015, z1], [px - 0.035, 0.005, z1 + 0.05], [px + 0.035, 0.005, z1 + 0.05], [px + 0.035, 0.015, z1], chute);
+  for (const ox of [-0.04, 0.04]) Pt.rod([px + ox, ph + 0.025, z0], [px + ox, 0.035, z1], 0.01, mul(chute, 1.1));
+  // Sandbox with a wooden frame, sand, a bucket and a spade.
+  const bx = -0.26;
+  const bz = 0.22;
+  D.quad([bx - 0.11, 0.022, bz + 0.1], [bx + 0.11, 0.022, bz + 0.1], [bx + 0.11, 0.022, bz - 0.1], [bx - 0.11, 0.022, bz - 0.1], lin('#ecd9a6'), [[0, 0], [0.22, 0], [0.22, 0.2], [0, 0.2]]);
+  for (const [ax, az, cx, cz] of [[bx - 0.12, bz - 0.11, bx + 0.12, bz - 0.09], [bx - 0.12, bz + 0.09, bx + 0.12, bz + 0.11], [bx - 0.12, bz - 0.09, bx - 0.1, bz + 0.09], [bx + 0.1, bz - 0.09, bx + 0.12, bz + 0.09]]) W.box(ax, 0, az, cx, 0.035, cz, wood, { s: 10 });
+  Pt.cyl(bx + 0.04, bz - 0.02, 0.014, 0.018, 0.022, 0.05, 8, lin('#ffd166'));
+  Pt.rod([bx - 0.05, 0.026, bz + 0.03], [bx - 0.01, 0.028, bz + 0.05], 0.008, lin('#ef476f'));
+  // Seesaw on a little trestle.
+  const qx = 0.24;
+  const qz = 0.2;
+  W.box(qx - 0.015, 0, qz - 0.03, qx + 0.015, 0.05, qz + 0.03, dark, { s: 8 });
+  W.rod([qx - 0.17, 0.025, qz], [qx + 0.17, 0.085, qz], 0.03, lin('#d49a3a'));
+  for (const [hx, hy] of [[qx - 0.14, 0.03], [qx + 0.14, 0.08]]) T.rod([hx, hy, qz - 0.012], [hx, hy + 0.04, qz - 0.012], 0.006, lin('#2f2c30'));
+  // Benches, flowers, a bush and a tree.
+  bench(out, 0.15, 0.43, 2);
+  bench(out, -0.43, -0.02, 1);
+  const tx = (a, b) => W.tx(a, b);
+  for (const [fx, fz, seed] of [[0.4, 0.42, 1], [-0.42, 0.43, 2], [0.05, -0.43, 3]]) {
+    const [wx, wz] = tx(fx, fz);
+    flowerPatch(out, wx, wz, 0.07, 10, rand(x, y, 500 + seed));
+  }
+  const [rx, rz] = tx(-0.04, -0.4);
+  storyTree(out, rx, rz, rand(x, y, 510) < 0.5 ? 3 : 0, 0.62, x * 23 + y);
+  const [hx2, hz2] = tx(0.43, 0.02);
+  bushWorld(out, hx2, hz2, 0.06, x * 5 + y * 11);
+  for (let i = 0; i < 8; i++) {
+    const [wx, wz] = tx((rand(x, y, 520 + i) - 0.5) * 0.9, (rand(x, y, 530 + i) - 0.5) * 0.9);
+    out.tufts.push([wx, wz, 0.7, '#5f9a3e']);
+  }
+}
+
 const BUILDERS = {
   house,
   cottage,
@@ -1066,5 +1285,7 @@ const BUILDERS = {
   bakery: shopfront,
   tree: treeTile,
   park,
+  school,
+  playground,
 };
 export const STORY_TYPES = Object.keys(BUILDERS);
