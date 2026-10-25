@@ -132,6 +132,12 @@ export function computeThoughts(city, milestones) {
     add('supplies', 'caution', 2.6, { food: 'Food is running short for so many people.', goods: 'The shops and offices want more goods.', power: 'The town needs more power.' }[sup.kind], `Build ${sup.fix}`, null, []);
   }
 
+  // Farms with nowhere to sell their harvest.
+  const loose = city.derived.resources?.chain?.unmilled || [];
+  if (loose.length && unlocked('mill')) {
+    add('mill', 'caution', 2.7, loose.length === 1 ? 'A farm has nowhere to sell its harvest.' : `${loose.length} farms have nowhere to sell their harvest.`, 'Build a mill within 10 tiles', loose[0], loose);
+  }
+
   if (unlocked('clinic')) {
     const far = lived.filter((h) => (h.coverage.health || 0) < 0.1);
     if (far.length) add('health', 'caution', 2.5, "There's no clinic if someone gets sick.", 'Build a clinic', worstOf(far), far);

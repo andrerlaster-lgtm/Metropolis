@@ -16,7 +16,7 @@ import { CATEGORY_LABELS, categoryOf } from '../src/economy.js';
 import { ART2D } from '../src/art2d.js';
 import { mulberry32 } from '../src/utils.js';
 
-const NEW = ['bungalow', 'rowhouse', 'villa', 'restaurant', 'market', 'bank', 'hotel', 'warehouse', 'workshop', 'powerplant', 'kindergarten', 'museum', 'pharmacy', 'hospital', 'firehut', 'fountain', 'garden', 'pool', 'cinema', 'stadium', 'farm'];
+const NEW = ['bungalow', 'rowhouse', 'villa', 'restaurant', 'market', 'bank', 'hotel', 'warehouse', 'workshop', 'powerplant', 'kindergarten', 'museum', 'pharmacy', 'hospital', 'firehut', 'fountain', 'garden', 'pool', 'cinema', 'stadium', 'farm', 'mill'];
 const placeable = Object.keys(STRUCTURES).filter((t) => t !== 'road' && t !== 'rubble');
 
 test('about forty kinds, the first twenty-one in their old order so share links keep working', () => {

@@ -26,7 +26,7 @@ export const ERAS = [
     years: 15,
     nominal: 1865,
     blurb: 'Cobbled streets, brick houses and gas lamps. The first motor cars rattle by.',
-    builds: ['apartments', 'factory', 'library', 'firestation', 'rowhouse', 'restaurant', 'kindergarten', 'warehouse', 'workshop', 'fountain'],
+    builds: ['apartments', 'factory', 'library', 'firestation', 'rowhouse', 'restaurant', 'kindergarten', 'warehouse', 'workshop', 'fountain', 'mill'],
   },
   {
     id: 'motor',

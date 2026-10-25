@@ -10,7 +10,7 @@ const ICON = { first: '★', era: '◆', decision: '⚖', family: '♥', note: '
 
 export function eraKey(eras, growth, city) {
   const p = eras.progress();
-  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100), ['food', 'goods', 'power'].map((k) => { const r = city.derived.resources?.[k]; return r ? [r.made, r.need] : 0; })]);
+  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100), ['food', 'goods', 'power'].map((k) => { const r = city.derived.resources?.[k]; return r ? [r.made, r.need] : 0; }), city.derived.resources?.chain ? [city.derived.resources.chain.links.length, city.derived.resources.chain.unmilled.length, city.derived.resources.chain.income] : 0]);
 }
 
 export function eraHTML(eras, growth) {
@@ -43,8 +43,19 @@ function suppliesHTML(res) {
   return (
     `<p class="era-need"><b>Supplies:</b> ${rows.map((k) => `${RESOURCES[k].label} ${res[k].made}/${res[k].need}`).join(' · ')}. ` +
     (s ? `Short of ${RESOURCES[s.kind].label.toLowerCase()}: ${esc(s.fix)} would help.` : 'Everyone is well supplied.') +
-    ' A fed and powered town is a little happier, and goods help shops earn more.</p>'
+    ' A fed and powered town is a little happier, and goods help shops earn more.' +
+    chainText(res.chain) +
+    '</p>'
   );
+}
+
+// Farms selling to mills: how many are linked, what that earns, and any left without a mill.
+function chainText(chain) {
+  if (!chain || (!chain.links.length && !chain.unmilled.length)) return '';
+  const parts = [];
+  if (chain.links.length) parts.push(`${chain.links.length} farm${chain.links.length === 1 ? '' : 's'} sell to a mill for $${chain.income.toLocaleString()} a day`);
+  if (chain.unmilled.length) parts.push(`${chain.unmilled.length} farm${chain.unmilled.length === 1 ? ' has' : 's have'} no mill within reach (a mill nearby would pay for the harvest)`);
+  return `<br><small>${parts.join(' · ')}.</small>`;
 }
 
 // What the town is known for, and what is lifting or dragging it. Hidden until there are residents.

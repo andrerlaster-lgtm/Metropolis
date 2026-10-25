@@ -91,6 +91,16 @@ factory, a power plant). Towns that grow by themselves build farms when food is 
 A **farm** is open ground like a park: no road needed, people walk to work there. Farmhouses are ordinary
 homes. Numbers: `produces` on a kind in `config.js`, `RESOURCE_NEED` and `SUPPLY_BONUS` next to it.
 
+**The mill (farm → mill chain).** A **mill** (Village, Work menu) buys the harvest of farms near it and
+turns it into money. Each farm sells to the nearest mill within 10 tiles that still has room (a mill takes
+3 farms; nearest pairs are matched first, so the result never depends on map order). A link pays up to $60
+a day, less the longer the haul (down to 20%) and scaled by how well the farm and the mill are staffed, on
+top of the mill's own tax per job. A farm with no mill still feeds the town and just earns nothing, so
+nobody gets stuck. The mill's inspector lists its farms and income, a farm's says where it sells (or that
+a mill nearby would pay), the City panel's Supplies line counts linked and unlinked farms, the advisor
+points at farms with nowhere to sell, and towns that grow by themselves build a mill for them. Numbers:
+`MILL` in `config.js`; the matching is `computeChain` in `resources.js`.
+
 Ideas for later: storing a surplus (warehouses), trade with neighbours, seasons changing the harvest.
 
 ## Long-term: open world

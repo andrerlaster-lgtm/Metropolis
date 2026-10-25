@@ -55,6 +55,7 @@ export const CATEGORY_LABELS = {
   cinema: 'Cinemas',
   stadium: 'Stadiums',
   farm: 'Farms',
+  mill: 'Mills',
   bonds: 'Town bonds',
   interest: 'Savings bank',
 };
@@ -132,7 +133,7 @@ export class Economy {
         const workers = Math.round(s.residents * WORKER_SHARE) * (t.employment || 0);
         e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
       } else if (BUSINESS_TAX[s.type]) {
-        e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1) * (RETAIL.has(s.type) ? 1 + SUPPLY_BONUS.retailTax * (city.derived.resources?.goods.need > 0 ? city.derived.resources.goods.ratio : 0) : 1);
+        e = (def.mills ? city.derived.resources?.chain?.byMill.get(t) || 0 : 0) + (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1) * (RETAIL.has(s.type) ? 1 + SUPPLY_BONUS.retailTax * (city.derived.resources?.goods.need > 0 ? city.derived.resources.goods.ratio : 0) : 1);
       } else if (UPKEEP[s.type]) {
         e = -UPKEEP[s.type] * this.modifiers.upkeep;
       }

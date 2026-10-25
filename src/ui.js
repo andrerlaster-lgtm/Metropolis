@@ -1,7 +1,7 @@
 // Interface: toolbar, stats bubble, inspector, speed and view controls.
 // Reads city state for display; changes only go through the callbacks main.js provides.
 
-import { TOOL_GROUPS, TOOLS, VIEWS, STRUCTURES, SERVICES } from './config.js';
+import { TOOL_GROUPS, TOOLS, VIEWS, STRUCTURES, SERVICES, MILL } from './config.js';
 import { money } from './economy.js';
 import { activityOf } from './townsfolk.js';
 import { ERAS, yearOf } from './eras.js';
@@ -63,6 +63,7 @@ const ICONS = {
   cinema: svg('<rect x="3.500" y="6" width="17" height="14" rx="2"/><path d="m3.500 10 17-4M7.500 8.800l-1.500-3.500M12.500 7.600 11 4M17 6.500 15.500 3"/><path d="m10.500 12.500 4 2.500-4 2.500z"/>'),
   stadium: svg('<ellipse cx="12" cy="9.500" rx="9" ry="4"/><path d="M3 9.500v6c0 2.200 4 4 9 4s9-1.800 9-4v-6"/><path d="M8 10v8M12 10.500v8.500M16 10v8"/>'),
   farm: svg('<path d="M3 20h18"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6"/><path d="M6 14v-2M12 14v-4M18 14v-2"/><path d="M12 10c-2 0-3-1.500-3-3 2 0 3 1 3 3zM12 10c2 0 3-1.500 3-3-2 0-3 1-3 3z"/>'),
+  mill: svg('<path d="M7 21 9 9h6l2 12z"/><path d="M12 9V5"/><path d="M12 5 6 3M12 5l6-2M12 5 7 9M12 5l5 4"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
   playground: svg('<path d="M4 20 7 6h3l3 14"/><path d="M5.5 13h6"/><path d="M14 8h6v12"/><path d="M14 8c0 5 2 8 6 9"/>'),
   field: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/><circle cx="12" cy="12" r="2.5"/><path d="M3 9.5h2.5v5H3M21 9.5h-2.5v5H21"/>'),
@@ -486,6 +487,15 @@ export class Interface {
     }
     const visitors = (city.systems.townsfolk?.people || []).filter((p) => p.at.x === t.x && p.at.y === t.y && !(p.home.x === t.x && p.home.y === t.y));
     if (visitors.length) facts.push(['Here now', visitors.slice(0, 3).map((p) => p.first).join(', ') + (visitors.length > 3 ? ` +${visitors.length - 3}` : '')]);
+    const chain = city.derived.resources?.chain;
+    if (chain && s?.type === 'farm') {
+      const link = chain.links.find((l) => l.farm === t);
+      facts.push(['Harvest', link ? `Sold to the mill at ${link.mill.address || `${link.mill.x}, ${link.mill.y}`}, ${Math.round(link.dist)} tiles away: ${money(link.income)}/day` : 'No mill within reach: it still feeds the town, but earns nothing. A mill nearby would pay for the harvest']);
+    }
+    if (chain && def?.mills) {
+      const mine = chain.links.filter((l) => l.mill === t);
+      facts.push(['Mills', `${mine.length} of ${MILL.farms} farms${mine.length ? `: ${money(chain.byMill.get(t) || 0)}/day from their harvest` : '. Farms within 10 tiles will sell here'}`]);
+    }
     if (s?.type === 'rubble') facts.push(['Condition', `Destroyed${s.was ? ` (was a ${(STRUCTURES[s.was]?.label || s.was).toLowerCase()})` : ''}. Crews will clear it, or bulldoze it`]);
     else if (s?.broken) facts.push(['Condition', 'Washed out: no traffic until it is repaired (or build a road over it)']);
     else if (s?.snowed) facts.push(['Condition', 'Snowed in until the blizzard passes']);

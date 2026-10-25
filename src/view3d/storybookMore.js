@@ -813,5 +813,60 @@ export function buildersMore(H) {
     lotGreens(out, ctx, [[0.42, 0.3, 0, 0.5]], []);
   }
 
-  return { farm, bungalow, rowhouse, villa, restaurant, market, bank, hotel, warehouse, workshop, powerplant, kindergarten, museum, pharmacy, hospital, firehut, fountain, garden, pool, cinema, stadium };
+  // A mill: a stone tower windmill with turning sails (set at an angle), a mill house, sacks and a cart.
+  function mill(out, ctx) {
+    const S = out.layers.stone;
+    const T = out.layers.timber;
+    const W = out.layers.wood;
+    const pale = lin('#e4d9c4');
+    const cx = 0.16;
+    const cz = -0.18;
+    S.cyl(cx, cz, 0.15, 0.13, 0, 0.18, 12, pale, { s: 3 });
+    S.cyl(cx, cz, 0.13, 0.1, 0.18, 0.42, 12, lin('#d9cdb4'), { s: 3 });
+    S.cyl(cx, cz, 0.132, 0.132, 0.17, 0.18, 12, lin('#b9a98c'));
+    out.layers.roof.cyl(cx, cz, 0.125, 0.004, 0.42, 0.56, 12, lin('#8a6a52'));
+    out.layers.glass.box(cx - 0.02, 0.26, cz + 0.095, cx + 0.02, 0.32, cz + 0.105, lin('#ffd98f'));
+    W.box(cx - 0.035, 0, cz + 0.135, cx + 0.035, 0.09, cz + 0.152, lin('#7a5a3c'), { s: 8 });
+    // Four sails on the front, turned a little: each a pole with a pale cloth frame.
+    const hz = cz + 0.14;
+    const hy = 0.38;
+    T.box(cx - 0.012, hy - 0.012, cz + 0.1, cx + 0.012, hy + 0.012, hz + 0.02, lin('#5a4231'));
+    for (let k = 0; k < 4; k++) {
+      const a = 0.45 + (k * Math.PI) / 2;
+      const ex = cx + Math.cos(a) * 0.3;
+      const ey = hy + Math.sin(a) * 0.3;
+      T.rod([cx, hy, hz + 0.02], [ex, ey, hz + 0.02], 0.012, lin('#7a5a3c'));
+      const px = -Math.sin(a) * 0.05;
+      const py = Math.cos(a) * 0.05;
+      const m0x = cx + Math.cos(a) * 0.08;
+      const m0y = hy + Math.sin(a) * 0.08;
+      out.layers.paint.quad([m0x, m0y, hz + 0.03], [ex, ey, hz + 0.03], [ex + px, ey + py, hz + 0.03], [m0x + px, m0y + py, hz + 0.03], lin('#f4ecdc'));
+      out.layers.paint.quad([m0x, m0y, hz + 0.03], [m0x + px, m0y + py, hz + 0.03], [ex + px, ey + py, hz + 0.03], [ex, ey, hz + 0.03], lin('#e8dcc4'));
+    }
+    // The mill house at the front left.
+    const v = { wall: '#e8d9bc', roof: '#a86a52', trim: '#5a4231', shutter: '#4f7f7a' };
+    const mctx = withLook(ctx, v);
+    const b = block(0.4, 0.3, 0.18);
+    b.x0 -= 0.12;
+    b.x1 -= 0.12;
+    const mid = (b.x1 - b.x0) / 2;
+    S.box(b.x0 - 0.01, 0, b.z0 - 0.01, b.x1 + 0.01, 0.03, b.z1 + 0.01, lin(STONE), { s: 6 });
+    walls(out, b, 0.03, 0.17, lin(v.wall));
+    timbering(out, b, 0.03, 0.17, ctx, [0, 1, 2, 3]);
+    gableRoof(out, b, 0.17, 0.14, { o: 0.05, col: lin(v.roof), wall: v.wall });
+    doorAt(out, b, mid - 0.08, 0.08, 0.12, mctx);
+    windowAt(out, b, 0, mid + 0.1, 0.06, 0.07, 0.07, mctx, { box: true });
+    windowAt(out, b, 1, 0.15, 0.07, 0.06, 0.07, mctx);
+    chimney(out, b.x1 - 0.06, b.z0 + 0.1, 0.22, 0.34);
+    // Flour sacks, a handcart, a stream of grain sacks on a pallet.
+    for (const [sx, sz] of [[0.2, 0.36], [0.26, 0.4], [0.23, 0.32]]) {
+      out.layers.paint.cyl(sx, sz, 0.026, 0.022, 0, 0.06, 7, lin('#f4efe2'), { top: lin('#e8dfc8'), s: 2 });
+    }
+    W.box(0.3, 0.04, 0.3, 0.42, 0.06, 0.4, lin('#a87848'), { s: 8 });
+    for (const [wx, wz] of [[0.3, 0.4], [0.42, 0.4]]) T.cyl(wx, wz, 0.03, 0.03, 0, 0.012, 8, lin('#3a2f26'));
+    out.layers.dirt.quad([-0.46, 0.006, 0.47], [0.46, 0.006, 0.47], [0.46, 0.006, 0.0], [-0.46, 0.006, 0.0], lin('#c9b997'), [[-0.46, -0.47], [0.46, -0.47], [0.46, 0], [-0.46, 0]]);
+    lotGreens(out, ctx, [[-0.4, -0.38, 0, 0.5], [0.42, 0.4, 3, 0.45]], [[-0.4, 0.4, 0.05]]);
+  }
+
+  return { mill, farm, bungalow, rowhouse, villa, restaurant, market, bank, hotel, warehouse, workshop, powerplant, kindergarten, museum, pharmacy, hospital, firehut, fountain, garden, pool, cinema, stadium };
 }

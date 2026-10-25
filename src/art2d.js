@@ -629,7 +629,53 @@ function farm(ctx, x, y, s, L, ghost) {
   ctx.fill();
 }
 
+function mill(ctx, x, y, s, L, ghost) {
+  const light = lightOf(this, x, y, s, ghost, L, 'shop');
+  // A little mill house, and a tower windmill behind it whose sails turn while people work.
+  const h0 = { x0: x + 0.12, x1: x + 0.5, y0: y + 0.5, y1: y + 0.86 };
+  const cx = x + 0.66;
+  const cy = y + 0.34;
+  for (let k = 0; k < 4; k++) {
+    const r = 0.2 - k * 0.015;
+    this.drawBox(ctx, L, cx - r, cy - r, cx + r, cy + r, k * 7, 7.4, k % 2 ? '#e4d9c4' : '#d9cdb4', k === 3);
+  }
+  pyramid(ctx, L, cx - 0.15, cy - 0.15, cx + 0.15, cy + 0.15, 28, 38, '#8a6a52');
+  const hub = gridToWorld(cx - 0.17, cy + 0.17, 24);
+  const turning = !ghost && !this.reduceMotion && light.fill > 0;
+  const a0 = turning ? this.time * 0.8 : 0.5;
+  ctx.strokeStyle = lit('#7a5a3c', 1, L);
+  ctx.lineWidth = 1.6;
+  for (let k = 0; k < 4; k++) {
+    const a = a0 + (k * Math.PI) / 2;
+    const ex = hub.x + Math.cos(a) * 17;
+    const ey = hub.y + Math.sin(a) * 17;
+    ctx.beginPath();
+    ctx.moveTo(hub.x, hub.y);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    ctx.fillStyle = litA('#f4ecdc', 1, L, 0.9);
+    ctx.beginPath();
+    ctx.moveTo(hub.x + Math.cos(a) * 5, hub.y + Math.sin(a) * 5);
+    ctx.lineTo(ex, ey);
+    ctx.lineTo(ex + Math.cos(a + 1.5) * 4.5, ey + Math.sin(a + 1.5) * 4.5);
+    ctx.lineTo(hub.x + Math.cos(a) * 5 + Math.cos(a + 1.5) * 4.5, hub.y + Math.sin(a) * 5 + Math.sin(a + 1.5) * 4.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = lit('#5a4231', 1, L);
+  ctx.beginPath();
+  ctx.arc(hub.x, hub.y, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  this.drawBox(ctx, L, h0.x0, h0.y0, h0.x1, h0.y1, 0, 10, '#e8d9bc', false);
+  this.drawWindow(ctx, L, this.faceQuad('L', h0.x0, h0.y0, h0.x1, h0.y1, 0.1, 0.4, 3, 8), 0.92, light.lit(0));
+  fillPoly(ctx, L, this.faceQuad('L', h0.x0, h0.y0, h0.x1, h0.y1, 0.55, 0.85, 0, 8), '#7a5a3c', 0.9);
+  this.gableRoof(ctx, L, h0.x0, h0.y0, h0.x1, h0.y1, 10, 6, '#a86a52', '#e8d9bc');
+  // Sacks of flour by the door.
+  for (const [sx, sy] of [[0.58, 0.86], [0.66, 0.9]]) this.drawBox(ctx, L, x + sx - 0.03, y + sy - 0.03, x + sx + 0.03, y + sy + 0.03, 0, 4, '#f4efe2');
+}
+
 export const ART2D = {
+  mill,
   farm,
   bungalow,
   rowhouse,
@@ -658,6 +704,7 @@ export const GROUND2D = { farm: farmGround, fountain: fountainGround, garden: ga
 
 // Contact-shadow footprints, as renderer.footprint returns them.
 export const FOOTPRINT2D = {
+  mill: { inset: 0.12, h: 34 },
   bungalow: { inset: 0.14, h: 16 },
   rowhouse: { inset: 0.12, h: 22 },
   villa: { inset: 0.18, h: 26 },

@@ -57,6 +57,7 @@ export const CAREERS = {
   garden: { titles: ['Gardener', 'Head gardener'], pay: [15000, 24000], smarts: 0 },
   pool: { titles: ['Lifeguard', 'Swimming coach', 'Pool manager'], pay: [16000, 26000, 38000], smarts: 10 },
   cinema: { titles: ['Ticket seller', 'Projectionist', 'Cinema manager'], pay: [15000, 24000, 40000], smarts: 10 },
+  mill: { titles: ['Mill hand', 'Miller', 'Master miller'], pay: [17000, 27000, 42000], smarts: 5 },
   farm: { titles: ['Farmhand', 'Farmer', 'Master farmer'], pay: [15000, 24000, 38000], smarts: 0 },
   stadium: { titles: ['Groundskeeper', 'Steward', 'Stadium manager'], pay: [17000, 25000, 48000], smarts: 10 },
 };
