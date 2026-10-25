@@ -90,10 +90,11 @@ const pct = (v) => `${Math.round(v * 100)}%`;
 export const SPEEDS = [1, 3, 10];
 
 export class Interface {
-  constructor({ onTool, onRandom, onFit, onSpeed, onView, onCloseInspect, sound, locks, onShare, onBackHome, hasBackup, display, costOf, budget, growth, onSlots, extremeWeather }) {
+  constructor({ onTool, onRandom, onFit, onSpeed, onView, onCloseInspect, sound, locks, onShare, onBackHome, hasBackup, display, costOf, budget, growth, onSlots, onMenu, extremeWeather }) {
     this.extremeWeather = extremeWeather; // { get(), set(level) }: off, gentle or wild
     this.growth = growth; // { get(), set(on) }: the town building itself
     this.onSlots = onSlots; // () → open the save slots sheet
+    this.onMenu = onMenu; // () → open the start menu
     this.sound = sound;
     this.costOf = costOf || (() => 0); // tool → price in the current mode (0 in Sandbox)
     this.budget = budget; // () → { money, net, sandbox } for the stats bubble
@@ -351,7 +352,7 @@ export class Interface {
       '</div>' +
       `<div class="sheet-actions"><button type="button" class="ghost-btn" data-more="fit">Recenter</button>` +
       `<button type="button" class="ghost-btn" data-more="random">New town…</button></div>` +
-      `<div class="sheet-actions"><button type="button" class="primary-btn" data-more="slots">Save slots…</button></div>`;
+      `<div class="sheet-actions"><button type="button" class="ghost-btn" data-more="menu">Main menu</button><button type="button" class="primary-btn" data-more="slots">Save slots…</button></div>`;
   }
 
   onMoreClick(e) {
@@ -367,6 +368,10 @@ export class Interface {
     else if (t.dataset.scroll) this.display.set('scroll', t.dataset.scroll);
     else if (t.dataset.growth) this.growth.set(t.dataset.growth === '1');
     else if (t.dataset.extreme) this.extremeWeather.set(t.dataset.extreme);
+    else if (t.dataset.more === 'menu') {
+      this.toggleMore(false);
+      return this.onMenu?.();
+    }
     else if (t.dataset.more === 'slots') {
       this.toggleMore(false);
       return this.onSlots?.();

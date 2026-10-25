@@ -34,6 +34,7 @@ import { Audio } from './audio.js';
 import { daylightAt, sunHeight, formatClock } from './time.js';
 import { lightingAt } from './lighting.js';
 import { World } from './world.js';
+import { StartMenu } from './startMenu.js';
 import { WorldPanel } from './worldUI.js';
 import { WarRoom } from './warRoom.js';
 import { MilitaryScreen, inDays } from './militaryUI.js';
@@ -215,6 +216,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onShare: () => shareTown(),
     onBackHome: () => backHome(),
     onSlots: () => slotsSheet.toggle(true),
+    onMenu: () => startMenu.open(),
     extremeWeather: {
       get: () => sim.disasters.level,
       set: (v) => {
@@ -1238,6 +1240,18 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   function reloadWorld() {
     if (watching()) showTown(world.cities[0], { immediate: true });
     world.load();
+    refreshWorldViews();
+  }
+  // Rival towns on or off for this town (the start menu's choice): the world is rebuilt to match.
+  function setRivals(on) {
+    if (world.rivals === on) return;
+    if (watching()) showTown(world.cities[0], { immediate: true });
+    world.setRivals(on);
+    city.dirty = true;
+    refreshWorldViews();
+    ui.toast(on ? 'Rival cities are on' : 'Rival cities are off: you build alone', 3000);
+  }
+  function refreshWorldViews() {
     viewing = world.cities[0];
     townViews.clear();
     watchSpots.clear();
@@ -1248,7 +1262,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     checkRaid();
   }
   city.on((ev) => {
-    if (ev.type === 'loaded') reloadWorld(); // another slot, a new town or a shared visit: its own world
+    if (ev.type === 'loaded') {
+      reloadWorld(); // another slot, a new town or a shared visit: its own world
+      startMenu.finish(); // picked from the start menu: give it the chosen rival setting
+    }
   });
   const worldPanel = new WorldPanel(world, {
     viewing: () => viewing,
@@ -1600,8 +1617,27 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onFail = (reason) => ui.toast(`⚠ ${SAVE_PROBLEMS[reason]}`, 9000);
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
+  // ---- Start menu ---------------------------------------------------------------------------------
+  // Shown when the game opens: continue, load or start a town, and choose whether rival cities are in it.
+  const startMenu = new StartMenu({
+    info: () => (visiting ? null : { name: world.cities[0].entry.name, population: city.stats.population || 0, slot: activeSlot(), fresh }),
+    rivals: () => world.rivals,
+    apply: (on) => {
+      setSetting('rivals', on);
+      setRivals(on);
+    },
+    onLoad: () => slotsSheet.toggle(true),
+    onNew: () => newTownSheet.toggle(true),
+    setSpeed: (n) => {
+      const before = ui.speed;
+      ui.setSpeed(n);
+      return before;
+    },
+  });
+  if (!readOnly && !visiting) startMenu.open();
+
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, autopilot, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { startMenu, city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, autopilot, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.

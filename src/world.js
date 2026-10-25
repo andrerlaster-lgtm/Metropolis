@@ -9,7 +9,9 @@
 //     cities: [{ id, name, owner: 'cpu', at: { x, y }, seed, data: <the town, as CityState.toJSON> }] }
 // `at` is where a town's top-left corner sits in world tiles. A save from before the world existed
 // gets a neighbour the first time it's opened; older versions of the game keep the data untouched.
-// More neighbours can be added with addNeighbour().
+// More neighbours can be added with addNeighbour(). `rivals: false` in the saved world turns the computer's
+// towns off for this town: they aren't run or shown (their saved data is kept, so switching back on
+// restores them), no raids come and there is no diplomacy. Missing means on, so older saves are unchanged.
 
 import { CityState } from './state.js';
 import { Simulation } from './simulation.js';
@@ -54,6 +56,17 @@ export class World {
     return this.home.systems.world;
   }
 
+  // Are the computer's towns part of this game?
+  get rivals() {
+    return this.state?.rivals !== false;
+  }
+
+  // Turn the rival towns on or off for this town, and rebuild the world to match.
+  setRivals(on) {
+    this.state.rivals = !!on;
+    this.load();
+  }
+
   get neighbours() {
     return this.cities.filter((c) => c.owner !== 'player');
   }
@@ -70,11 +83,11 @@ export class World {
     const st = home.systems.world;
     st.version = WORLD_VERSION;
     this.cities = [{ id: 'home', owner: 'player', entry: st.home, city: home, sim: this.homeSim, planner: null }];
-    for (const e of st.cities) {
+    for (const e of st.rivals === false ? [] : st.cities) {
       if (!e || typeof e !== 'object' || e.owner !== 'cpu') continue; // kinds a later version may add are kept, not run
       this.cities.push(this.open(e));
     }
-    if (!this.neighbours.length) this.addNeighbour();
+    if (st.rivals !== false && !this.neighbours.length) this.addNeighbour();
   }
 
   // A computer-run town from its saved entry, or founded fresh if it has none (or it's unreadable).

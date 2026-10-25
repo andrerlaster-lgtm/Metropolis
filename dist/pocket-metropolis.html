@@ -4739,6 +4739,65 @@ button.mil-sq {
   max-width: calc(100vw - 24px);
 }
 
+/* Start menu: a card over the paused town */
+.start-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(255, 250, 244, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.start-menu[hidden] {
+  display: none;
+}
+.sm-card {
+  width: min(440px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 24px 22px 20px;
+  border-radius: 28px;
+  display: grid;
+  gap: 14px;
+  text-align: center;
+}
+.sm-card h1 {
+  margin: 0;
+  font: 800 28px/1.1 var(--font-display, var(--font-body));
+}
+.sm-sub {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.sm-actions {
+  display: grid;
+  gap: 10px;
+}
+.sm-actions button {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  text-align: center;
+}
+.sm-actions small {
+  font-weight: 600;
+  opacity: 0.8;
+}
+.sm-rivals {
+  text-align: left;
+  border-top: 1px solid var(--meter-track);
+  padding-top: 12px;
+}
+.sm-rivals-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 </style>
 <main id="app">
       <canvas id="city" aria-label="Your city. Tap a tile to build, drag to pan, pinch or scroll to zoom."></canvas>
@@ -4827,6 +4886,7 @@ button.mil-sq {
         </button>
       </div>
       <nav class="toolbar glass" id="toolbar" aria-label="Build tools"></nav>
+      <section class="start-menu" id="start-menu" role="dialog" aria-label="Main menu" hidden></section>
       <section class="military" id="military" aria-label="Military base" hidden></section>
       <section class="more-sheet glass diplomacy-sheet" id="diplomacy-sheet" role="dialog" aria-label="Diplomacy" hidden></section>
       <section class="more-sheet glass skills-sheet" id="skills-sheet" role="dialog" aria-label="Town upgrades" hidden></section>
@@ -15343,7 +15403,7 @@ const __mod_settings = (() => {
 const { SEVERITY_COLORS } = __mod_config;
 const KEY = 'pocket-metropolis:settings';
 // minimap null = automatic; scroll 'auto' = trackpad scrolling pans and mouse wheels zoom ('zoom' or 'pan' always)
-const DEFAULTS = { colorBlind: false, largeText: false, minimap: null, scroll: 'auto' };
+const DEFAULTS = { colorBlind: false, largeText: false, minimap: null, scroll: 'auto', rivals: true };
 
 // Okabe–Ito colours: told apart with every common type of colour blindness.
 const CB_SEVERITY = { bad: '#d55e00', caution: '#e69f00', good: '#0072b2' };
@@ -21547,10 +21607,11 @@ const pct = (v) => `${Math.round(v * 100)}%`;
 const SPEEDS = [1, 3, 10];
 
 class Interface {
-  constructor({ onTool, onRandom, onFit, onSpeed, onView, onCloseInspect, sound, locks, onShare, onBackHome, hasBackup, display, costOf, budget, growth, onSlots, extremeWeather }) {
+  constructor({ onTool, onRandom, onFit, onSpeed, onView, onCloseInspect, sound, locks, onShare, onBackHome, hasBackup, display, costOf, budget, growth, onSlots, onMenu, extremeWeather }) {
     this.extremeWeather = extremeWeather; // { get(), set(level) }: off, gentle or wild
     this.growth = growth; // { get(), set(on) }: the town building itself
     this.onSlots = onSlots; // () → open the save slots sheet
+    this.onMenu = onMenu; // () → open the start menu
     this.sound = sound;
     this.costOf = costOf || (() => 0); // tool → price in the current mode (0 in Sandbox)
     this.budget = budget; // () → { money, net, sandbox } for the stats bubble
@@ -21808,7 +21869,7 @@ class Interface {
       '</div>' +
       `<div class="sheet-actions"><button type="button" class="ghost-btn" data-more="fit">Recenter</button>` +
       `<button type="button" class="ghost-btn" data-more="random">New town…</button></div>` +
-      `<div class="sheet-actions"><button type="button" class="primary-btn" data-more="slots">Save slots…</button></div>`;
+      `<div class="sheet-actions"><button type="button" class="ghost-btn" data-more="menu">Main menu</button><button type="button" class="primary-btn" data-more="slots">Save slots…</button></div>`;
   }
 
   onMoreClick(e) {
@@ -21824,6 +21885,10 @@ class Interface {
     else if (t.dataset.scroll) this.display.set('scroll', t.dataset.scroll);
     else if (t.dataset.growth) this.growth.set(t.dataset.growth === '1');
     else if (t.dataset.extreme) this.extremeWeather.set(t.dataset.extreme);
+    else if (t.dataset.more === 'menu') {
+      this.toggleMore(false);
+      return this.onMenu?.();
+    }
     else if (t.dataset.more === 'slots') {
       this.toggleMore(false);
       return this.onSlots?.();
@@ -25125,7 +25190,9 @@ const __mod_world = (() => {
 //     cities: [{ id, name, owner: 'cpu', at: { x, y }, seed, data: <the town, as CityState.toJSON> }] }
 // `at` is where a town's top-left corner sits in world tiles. A save from before the world existed
 // gets a neighbour the first time it's opened; older versions of the game keep the data untouched.
-// More neighbours can be added with addNeighbour().
+// More neighbours can be added with addNeighbour(). `rivals: false` in the saved world turns the computer's
+// towns off for this town: they aren't run or shown (their saved data is kept, so switching back on
+// restores them), no raids come and there is no diplomacy. Missing means on, so older saves are unchanged.
 
 const { CityState } = __mod_state;
 const { Simulation } = __mod_simulation;
@@ -25169,6 +25236,17 @@ class World {
     return this.home.systems.world;
   }
 
+  // Are the computer's towns part of this game?
+  get rivals() {
+    return this.state?.rivals !== false;
+  }
+
+  // Turn the rival towns on or off for this town, and rebuild the world to match.
+  setRivals(on) {
+    this.state.rivals = !!on;
+    this.load();
+  }
+
   get neighbours() {
     return this.cities.filter((c) => c.owner !== 'player');
   }
@@ -25185,11 +25263,11 @@ class World {
     const st = home.systems.world;
     st.version = WORLD_VERSION;
     this.cities = [{ id: 'home', owner: 'player', entry: st.home, city: home, sim: this.homeSim, planner: null }];
-    for (const e of st.cities) {
+    for (const e of st.rivals === false ? [] : st.cities) {
       if (!e || typeof e !== 'object' || e.owner !== 'cpu') continue; // kinds a later version may add are kept, not run
       this.cities.push(this.open(e));
     }
-    if (!this.neighbours.length) this.addNeighbour();
+    if (st.rivals !== false && !this.neighbours.length) this.addNeighbour();
   }
 
   // A computer-run town from its saved entry, or founded fresh if it has none (or it's unreadable).
@@ -25305,6 +25383,94 @@ class World {
 }
 
 return { WORLD_VERSION, NEIGHBOUR_SIZE, townName, World };
+})();
+
+// ---- startMenu.js ----
+const __mod_startMenu = (() => {
+// The start menu: shown when the game opens (and from ☰ → Main menu). Continue the town you were in,
+// pick a saved town, or start a new one, and choose whether the computer's rival towns are part of the
+// game. The choice is applied to whichever town you go on to play: the one you continue, the one you
+// load or the one you start. Pure screen: the game's own sheets do the loading and starting.
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+class StartMenu {
+  // deps: { info() → { name, population, slot } | null, rivals() → bool, apply(rivals: bool),
+  //         onLoad(), onNew(), setSpeed(n) → previous speed }
+  constructor(deps) {
+    this.d = deps;
+    this.el = document.getElementById('start-menu');
+    this.isOpen = false;
+    this.choice = true;
+    this.before = null;
+    this.el.addEventListener('click', (e) => this.onClick(e));
+  }
+
+  open() {
+    this.choice = this.d.rivals();
+    this.isOpen = true;
+    this.el.hidden = false;
+    if (this.before == null) this.before = this.d.setSpeed(0); // the town waits while you choose
+    this.render();
+  }
+
+  close() {
+    if (!this.isOpen) return;
+    this.isOpen = false;
+    this.el.hidden = true;
+    if (this.before != null) this.d.setSpeed(this.before || 1);
+    this.before = null;
+  }
+
+  // A town was loaded or started from here: give it the chosen setting and get out of the way.
+  finish() {
+    if (!this.isOpen) return;
+    this.d.apply(this.choice);
+    this.close();
+  }
+
+  render() {
+    const info = this.d.info();
+    const on = this.choice;
+    this.el.innerHTML = `
+      <div class="sm-card glass">
+        <h1>Pocket Metropolis</h1>
+        <p class="sm-sub">Build a town, live a life, lead a family.</p>
+        <div class="sm-actions">
+          ${info ? `<button type="button" class="primary-btn sm-continue" data-sm="continue"><b>${info.fresh ? 'Start playing' : 'Continue'}</b><small>${esc(info.name)} · ${info.population.toLocaleString()} people${info.fresh ? '' : info.slot ? ` · slot ${info.slot}` : ''}</small></button>` : ''}
+          <button type="button" class="ghost-btn" data-sm="load"><b>Load a saved town…</b></button>
+          <button type="button" class="ghost-btn" data-sm="new"><b>New town…</b></button>
+        </div>
+        <div class="sm-rivals">
+          <div class="sm-rivals-head"><b>Rival cities</b>
+            <span class="seg" role="group" aria-label="Rival cities">
+              <button type="button" data-sm-rivals="1" aria-pressed="${on}">On</button>
+              <button type="button" data-sm-rivals="0" aria-pressed="${!on}">Off</button>
+            </span>
+          </div>
+          <p class="sk-intro">${on ? 'A computer-run town grows beside yours. You can trade, talk and make treaties, and it may raid you.' : 'You build alone: no rival towns, no raids and no diplomacy. Your base and army stay, but nobody attacks.'}
+          This applies to the town you continue, load or start. Change it any time from ☰ → Main menu.</p>
+        </div>
+      </div>`;
+  }
+
+  onClick(e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.smRivals != null) {
+      this.choice = b.dataset.smRivals === '1';
+      return this.render();
+    }
+    const a = b.dataset.sm;
+    if (a === 'continue') {
+      this.d.apply(this.choice);
+      this.close();
+    } else if (a === 'load') this.d.onLoad();
+    else if (a === 'new') this.d.onNew();
+  }
+}
+
+return { StartMenu };
 })();
 
 // ---- diplomacy.js ----
@@ -29922,6 +30088,7 @@ const { Audio } = __mod_audio;
 const { daylightAt, sunHeight, formatClock } = __mod_time;
 const { lightingAt } = __mod_lighting;
 const { World } = __mod_world;
+const { StartMenu } = __mod_startMenu;
 const { WorldPanel } = __mod_worldUI;
 const { WarRoom } = __mod_warRoom;
 const { MilitaryScreen, inDays } = __mod_militaryUI;
@@ -30102,6 +30269,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onShare: () => shareTown(),
     onBackHome: () => backHome(),
     onSlots: () => slotsSheet.toggle(true),
+    onMenu: () => startMenu.open(),
     extremeWeather: {
       get: () => sim.disasters.level,
       set: (v) => {
@@ -31125,6 +31293,18 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   function reloadWorld() {
     if (watching()) showTown(world.cities[0], { immediate: true });
     world.load();
+    refreshWorldViews();
+  }
+  // Rival towns on or off for this town (the start menu's choice): the world is rebuilt to match.
+  function setRivals(on) {
+    if (world.rivals === on) return;
+    if (watching()) showTown(world.cities[0], { immediate: true });
+    world.setRivals(on);
+    city.dirty = true;
+    refreshWorldViews();
+    ui.toast(on ? 'Rival cities are on' : 'Rival cities are off: you build alone', 3000);
+  }
+  function refreshWorldViews() {
     viewing = world.cities[0];
     townViews.clear();
     watchSpots.clear();
@@ -31135,7 +31315,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     checkRaid();
   }
   city.on((ev) => {
-    if (ev.type === 'loaded') reloadWorld(); // another slot, a new town or a shared visit: its own world
+    if (ev.type === 'loaded') {
+      reloadWorld(); // another slot, a new town or a shared visit: its own world
+      startMenu.finish(); // picked from the start menu: give it the chosen rival setting
+    }
   });
   const worldPanel = new WorldPanel(world, {
     viewing: () => viewing,
@@ -31487,8 +31670,27 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   saver.onFail = (reason) => ui.toast(`⚠ ${SAVE_PROBLEMS[reason]}`, 9000);
   saver.onRecover = () => ui.toast('Saving works again. Your town is safe', 3000);
 
+  // ---- Start menu ---------------------------------------------------------------------------------
+  // Shown when the game opens: continue, load or start a town, and choose whether rival cities are in it.
+  const startMenu = new StartMenu({
+    info: () => (visiting ? null : { name: world.cities[0].entry.name, population: city.stats.population || 0, slot: activeSlot(), fresh }),
+    rivals: () => world.rivals,
+    apply: (on) => {
+      setSetting('rivals', on);
+      setRivals(on);
+    },
+    onLoad: () => slotsSheet.toggle(true),
+    onNew: () => newTownSheet.toggle(true),
+    setSpeed: (n) => {
+      const before = ui.speed;
+      ui.setSpeed(n);
+      return before;
+    },
+  });
+  if (!readOnly && !visiting) startMenu.open();
+
   // Handy for poking at the simulation from the console.
-  window.pocketMetropolis = { city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, autopilot, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
+  window.pocketMetropolis = { startMenu, city, sim, camera, renderer, open3D, close3D, warRoom, militaryScreen, diplomacySheet, skillsSheet, townHall, mayor, autopilot, get view3d() { return view3d; }, get world() { return world; }, get viewing() { return viewing; }, showTown, worldPanel, history, audio, ui, saver, guard, input, cityPanel, decisionCard, slotsSheet, newTownSheet, lifeUI, startFollow, stopFollow, carryOn };
 }
 
 // Only one tab plays at a time; find out whether this one may before anything is loaded or saved.
