@@ -9,6 +9,7 @@ import { shortName, addressOf } from './streets.js';
 import { rampStops, settings } from './settings.js';
 import { notableType } from './notables.js';
 import { crosswalkMask } from './sidewalks.js';
+import { ART2D, GROUND2D, FOOTPRINT2D } from './art2d.js';
 
 const SLAB_DEPTH = 18;
 // Unlit lighting for the cached ground layer; the frame's real light is multiplied on afterwards.
@@ -933,6 +934,7 @@ export class Renderer {
     if (s?.type === 'park') this.drawParkGround(ctx, t, L);
     else if (s?.type === 'playground') this.drawPlaygroundGround(ctx, t, L);
     else if (s?.type === 'field') this.drawFieldGround(ctx, t, L);
+    else if (s && GROUND2D[s.type]) GROUND2D[s.type].call(this, ctx, t, L);
     else if (!s) this.drawMeadow(ctx, t, L);
   }
 
@@ -1515,7 +1517,7 @@ export class Renderer {
     if (s.type === 'mall') return { inset: 0.06, h: 20 };
     if (s.type === 'factory') return { inset: 0.1, h: 22 };
     if (s.type === 'rubble') return { inset: 0.18, h: 6 };
-    return null;
+    return FOOTPRINT2D[s.type] || null;
   }
 
   drawShadow(ctx, t, L) {
@@ -1816,6 +1818,9 @@ export class Renderer {
           ctx.fill();
         }
         return;
+      default:
+        // The kinds added in Phase 4 are drawn in art2d.js.
+        return ART2D[s.type]?.call(this, ctx, x, y, s, L, ghost);
     }
   }
 

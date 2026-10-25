@@ -42,6 +42,26 @@ const ICONS = {
   cafe: svg('<path d="M5 10h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5c0 1.5 1.5 1.5 1.5 3M12 3.5c0 1.5 1.5 1.5 1.5 3"/>'),
   mall: svg('<path d="M3 10h18v10H3z"/><path d="M5 10 7 5h10l2 5"/><path d="M10 20v-5h4v5"/><path d="M6 13h2M16 13h2"/>'),
   factory: svg('<path d="M3 20V11l5 3v-3l5 3v-3l5 3V4h3v16z"/><path d="M7 17h2M12 17h2"/>'),
+  bungalow: svg('<path d="M3 12.5 12 6l9 6.5"/><path d="M5.5 11v7.5h13V11"/><path d="M10.5 18.5v-4h3v4"/>'),
+  rowhouse: svg('<path d="M2.5 11 6 7.5 9.5 11M9.5 11 13 7.5l3.5 3.5M16.5 11 20 7.5l2 2"/><path d="M3.5 11v8h17v-8"/><path d="M8.5 19v-3h2v3M14.5 19v-3h2v3"/>'),
+  villa: svg('<path d="M3 11.5 12 5l9 6.5"/><path d="M5 10.5V19h14v-8.5"/><path d="M9 19v-4.5h6V19"/><path d="M8 12.5h.01M16 12.5h.01" stroke-width="2.6"/><path d="M18 8V5h2v4.5"/>'),
+  restaurant: svg('<path d="M7 3v7a2 2 0 0 0 2 2v9M5 3v6M9 3v6"/><path d="M17 21V3c-2.2 1.2-3 4-3 7 0 1.6.8 2.5 3 2.5"/>'),
+  market: svg('<path d="M3 9h18l-1.5-4.5h-15z"/><path d="M5 9v11M19 9v11"/><path d="M3 9c0 1.7 1.3 2.5 2.5 2.5S8 10.7 8 9c0 1.7 1.3 2.5 2.5 2.5S13 10.7 13 9c0 1.7 1.3 2.5 2.5 2.5S18 10.7 18 9c0 1.7 1.3 2.5 3 0"/><path d="M8.5 20v-4h7v4"/>'),
+  bank: svg('<path d="M3.5 9.5 12 4l8.5 5.5z"/><path d="M6 11v6M10 11v6M14 11v6M18 11v6"/><path d="M3.5 20h17M4.5 17.5h15"/>'),
+  hotel: svg('<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2"/><path d="M10 21v-4h4v4"/>'),
+  warehouse: svg('<path d="M3 20V9.5L12 4l9 5.5V20z"/><path d="M7.5 20v-7h9v7"/><path d="M7.5 15h9M7.5 17.5h9"/>'),
+  workshop: svg('<path d="m14.5 5.5 4 4-9 9H5.5v-4z"/><path d="m13 7 4 4"/><path d="M15 3.5l1.5 1.5"/>'),
+  powerplant: svg('<path d="M13.5 3 6 13h5l-1.5 8L18 10.5h-5z"/>'),
+  kindergarten: svg('<circle cx="9" cy="9" r="3"/><circle cx="16.5" cy="10.5" r="2.2"/><path d="M4 20c0-3.3 2.2-5.5 5-5.5s5 2.200 5 5.500"/><path d="M14.5 20c0-2.5 1.2-4 3-4s3 1.500 3 4"/>'),
+  museum: svg('<path d="M3 9.5 12 4l9 5.5"/><path d="M5.5 11v7M9.5 11v7M14.5 11v7M18.5 11v7"/><path d="M3 20.5h18"/><path d="M12 7.5h.01" stroke-width="2.6"/>'),
+  pharmacy: svg('<rect x="3.5" y="9" width="17" height="11" rx="2"/><path d="M12 11.5v6M9 14.5h6"/><path d="M5 9V6.5h14V9"/>'),
+  hospital: svg('<rect x="4" y="3.500" width="16" height="17" rx="2"/><path d="M12 8v8M8 12h8"/><path d="M9 20.5v-3h6v3"/>'),
+  firehut: svg('<path d="M4 20V10l8-5 8 5v10z"/><path d="M8 20v-6h8v6"/><path d="M12 7.5c.6 1.200 2 1.800 2 3.200a2 2 0 0 1-4 0c0-.9.500-1.500 1-2 .1.700.5 1 1 1.200"/>'),
+  fountain: svg('<path d="M12 13V7"/><path d="M12 7c-1.500-1-3-.5-4 1M12 7c1.500-1 3-.5 4 1"/><path d="M12 9.500c-2-.5-4 .500-4.500 2.500M12 9.500c2-.5 4 .5 4.500 2.500"/><path d="M4 14.500h16l-1.500 5h-13z"/>'),
+  garden: svg('<path d="M12 20v-8"/><path d="M12 13c-3 0-5-2-5-5 3 0 5 2 5 5zM12 15c3 0 5-2 5-5-3 0-5 2-5 5z"/><path d="M5 20h14"/>'),
+  pool: svg('<path d="M3 14.500c1.500 1.500 3 1.500 4.500 0s3-1.500 4.500 0 3 1.500 4.500 0 3-1.500 4.500 0"/><path d="M3 19c1.500 1.500 3 1.500 4.500 0s3-1.500 4.500 0 3 1.500 4.500 0 3-1.500 4.500 0"/><path d="M8 11.500V5.500a2 2 0 0 1 4 0M14 11.500V5.500a2 2 0 0 1 4 0M8 8.500h6"/>'),
+  cinema: svg('<rect x="3.500" y="6" width="17" height="14" rx="2"/><path d="m3.500 10 17-4M7.500 8.800l-1.500-3.500M12.500 7.600 11 4M17 6.500 15.500 3"/><path d="m10.500 12.500 4 2.500-4 2.500z"/>'),
+  stadium: svg('<ellipse cx="12" cy="9.500" rx="9" ry="4"/><path d="M3 9.500v6c0 2.200 4 4 9 4s9-1.800 9-4v-6"/><path d="M8 10v8M12 10.500v8.500M16 10v8"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
   playground: svg('<path d="M4 20 7 6h3l3 14"/><path d="M5.5 13h6"/><path d="M14 8h6v12"/><path d="M14 8c0 5 2 8 6 9"/>'),
   field: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/><circle cx="12" cy="12" r="2.5"/><path d="M3 9.5h2.5v5H3M21 9.5h-2.5v5H21"/>'),
@@ -153,7 +173,7 @@ export class Interface {
         this.toggleMore(false);
         return this.closeTray();
       }
-      const t = TOOLS.find((tool) => tool.key === e.key.toLowerCase());
+      const t = TOOLS.find((tool) => tool.key && tool.key === e.key.toLowerCase());
       if (t) this.setTool(t.id);
     });
     this.setTool(this.tool);
@@ -198,7 +218,7 @@ export class Interface {
           `<button type="button" class="tray-item${this.locked(t.id) ? ' locked' : ''}" data-tool="${t.id}" aria-pressed="${t.id === this.tool}"` +
           `${this.locked(t.id) ? ` aria-label="${t.label}, locked until ${this.locks.unlockLabel(t.id)}"` : ''}>` +
           `<span class="tool-icon tint-${t.id}">${ICONS[t.id]}</span><span>${t.label}</span>` +
-          (this.costOf(t.id) ? `<small class="price">${money(this.costOf(t.id))}</small>` : `<kbd>${t.key.toUpperCase()}</kbd>`) +
+          (this.costOf(t.id) ? `<small class="price">${money(this.costOf(t.id))}</small>` : t.key ? `<kbd>${t.key.toUpperCase()}</kbd>` : '') +
           `${this.locked(t.id) ? `<span class="lock" aria-hidden="true">${ICONS.lock}</span>` : ''}</button>`
       )
       .join('');
@@ -235,7 +255,8 @@ export class Interface {
       const choice = TOOLS.find((t) => t.id === this.groupChoice[g.id]);
       b.setAttribute('aria-pressed', String(g.id === group.id));
       const price = this.costOf(choice.id) ? ` · ${money(this.costOf(choice.id))}` : '';
-      b.title = g.tools.length > 1 ? `${g.label}: ${choice.label} (${choice.key.toUpperCase()})${price}` : `${choice.label} (${choice.key.toUpperCase()})${price}`;
+      const hint = choice.key ? ` (${choice.key.toUpperCase()})` : '';
+      b.title = g.tools.length > 1 ? `${g.label}: ${choice.label}${hint}${price}` : `${choice.label}${hint}${price}`;
       b.innerHTML =
         `<span class="tool-icon tint-${choice.id}">${ICONS[choice.id]}</span>` +
         `<span class="tool-label">${g.tools.length > 1 ? choice.label : g.label}</span>` +

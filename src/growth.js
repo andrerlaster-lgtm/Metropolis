@@ -25,9 +25,9 @@ import { addChronicle } from './chronicle.js';
 
 export const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
-const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320 };
+const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320, bungalow: 90, rowhouse: 120, villa: 160, restaurant: 90, market: 120, bank: 260, hotel: 300, warehouse: 200, workshop: 150, powerplant: 500, kindergarten: 200, museum: 500, pharmacy: 160, hospital: 700, firehut: 200, fountain: 140, garden: 130, pool: 260, cinema: 340, stadium: 800 };
 const BLOCK = 5; // a side street can branch every this many tiles
-const PUBLIC = new Set(['road', 'school', 'clinic', 'library', 'firestation', 'university', 'park', 'playground', 'field', 'tree']);
+const PUBLIC = new Set(['road', 'school', 'clinic', 'library', 'firestation', 'university', 'park', 'playground', 'field', 'tree', 'kindergarten', 'museum', 'pharmacy', 'hospital', 'firehut', 'fountain', 'garden', 'pool', 'stadium']);
 const FIRSTS = {
   shop: 'The first shop opened its doors',
   cafe: 'The first café poured its first cup',
@@ -45,6 +45,15 @@ const FIRSTS = {
   park: 'The town laid out its first park',
   playground: 'Children got their first playground',
   field: 'A sports field opened',
+  restaurant: 'The first restaurant opened its kitchen',
+  bank: 'The town got its first bank',
+  hotel: 'A hotel opened for visitors',
+  powerplant: 'The first power plant lit the town',
+  hospital: 'A hospital opened its doors',
+  museum: 'A museum opened, with the town\'s first exhibits',
+  cinema: 'The first picture show opened',
+  stadium: 'A stadium opened, packed on the first day',
+  fountain: 'A fountain began to splash in the square',
 };
 
 export class Growth {
@@ -196,15 +205,15 @@ export class Growth {
       case 'work':
         return this.buildWork();
       case 'food':
-        return this.buildNear(this.unmetHomes('eat'), this.rng() < 0.5 ? ['bakery', 'cafe', 'shop'] : ['cafe', 'bakery', 'shop']);
+        return this.buildNear(this.unmetHomes('eat'), this.rng() < 0.5 ? ['bakery', 'cafe', 'restaurant', 'market', 'shop'] : ['cafe', 'restaurant', 'bakery', 'market', 'shop']);
       case 'play':
-        return this.buildNear(this.unmetHomes('play', 'social'), ['park', 'playground', 'cafe', 'field']);
+        return this.buildNear(this.unmetHomes('play', 'social'), ['park', 'playground', 'garden', 'fountain', 'cafe', 'field', 'pool', 'cinema', 'stadium']);
       case 'school':
-        return this.buildNear(this.needing('school'), ['school']);
+        return this.buildNear(this.needing('school'), ['school', 'kindergarten', 'museum']);
       case 'clinic':
-        return this.buildNear(this.needing('health'), ['clinic']);
+        return this.buildNear(this.needing('health'), (this.city.stats?.population || 0) > 450 ? ['hospital', 'clinic', 'pharmacy'] : ['clinic', 'pharmacy']);
       case 'fire':
-        return this.buildNear(this.needing('fire'), ['firestation']);
+        return this.buildNear(this.needing('fire'), ['firestation', 'firehut']);
       case 'library':
         return this.buildNear(this.city.homes().filter((h) => h.structure.residents > 0), ['library']);
       case 'university':
@@ -289,6 +298,9 @@ export class Growth {
     let type = era === 0 ? (this.rng() < 0.5 ? 'cottage' : 'house') : 'house';
     if (core && this.allowed('tower') && this.rng() < 0.35) type = 'tower';
     else if (core && this.allowed('apartments') && this.rng() < 0.45) type = 'apartments';
+    else if (core && this.allowed('rowhouse') && this.rng() < 0.3) type = 'rowhouse';
+    else if (!core && this.allowed('villa') && this.rng() < 0.12) type = 'villa';
+    else if (!core && this.allowed('bungalow') && this.rng() < 0.25) type = 'bungalow';
     else if (era >= 1 && this.rng() < 0.15) type = 'cottage';
     return this.place(type, lot) || this.place('house', lot);
   }
@@ -324,6 +336,13 @@ export class Growth {
       ['shop', 3],
       ['cafe', 1.2],
       ['bakery', 1],
+      ['restaurant', 0.9],
+      ['market', 0.7],
+      ['bank', pop > 180 ? 0.5 : 0],
+      ['hotel', pop > 220 ? 0.4 : 0],
+      ['workshop', 0.6],
+      ['warehouse', this.count(['factory', 'workshop']) >= 2 ? 0.6 : 0],
+      ['powerplant', pop > 500 && !this.count(['powerplant']) ? 0.8 : 0],
       ['factory', this.count(['factory']) < 1 + pop / 250 ? 1.5 : 0.3],
       ['office', 2],
       ['mall', pop > 250 && this.count(['mall']) < pop / 400 ? 1 : 0],
@@ -336,7 +355,7 @@ export class Growth {
       (t) => {
         const dist = Math.hypot(t.x - c.x, t.y - c.y);
         // Factories go to the edge of town; everything else near the middle.
-        return type === 'factory' ? dist ** 2 + 0.1 : 1 / (1 + dist * dist * 0.15);
+        return type === 'factory' || type === 'powerplant' || type === 'warehouse' ? dist ** 2 + 0.1 : 1 / (1 + dist * dist * 0.15);
       },
       this.rng,
     );

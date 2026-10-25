@@ -13,6 +13,7 @@ import { crosswalkMask } from '../src/sidewalks.js';
 import { MeshData } from '../src/view3d/mesh.js';
 import { buildStructure, MODEL_TYPES } from '../src/view3d/models.js';
 import { buildGround } from '../src/view3d/ground.js';
+import { STORY_TYPES } from '../src/view3d/storybook.js';
 import { CameraRig, EYE } from '../src/view3d/rig.js';
 
 const sets = () => ({ ground: new MeshData(), water: new MeshData(), solid: new MeshData(), glass: new MeshData(), lit: new MeshData(), glow: new MeshData(), lamps: [] });
@@ -43,8 +44,9 @@ function checkMesh(md, label) {
 }
 
 test('every kind of building, tree and park has a 3D model', () => {
-  const missing = Object.keys(STRUCTURES).filter((k) => k !== 'road' && !MODEL_TYPES.includes(k));
-  assert.deepEqual(missing, [], 'add a model in src/view3d/models.js for new structure types');
+  // The storybook look draws every type itself; models.js is only the safety net for older ones.
+  const missing = Object.keys(STRUCTURES).filter((k) => k !== 'road' && !MODEL_TYPES.includes(k) && !STORY_TYPES.includes(k));
+  assert.deepEqual(missing, [], 'add a model in src/view3d/storybook.js for new structure types');
 });
 
 test('models are finite and sit on their own tile, in every rotation', () => {
