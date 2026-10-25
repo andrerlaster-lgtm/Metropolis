@@ -13,8 +13,11 @@
 import { FIRST_NAMES } from './lifeData.js';
 import { pick, clamp } from './utils.js';
 import { maxHpOf } from './militaryData.js';
+import { pickRotation } from './lifeActivities.js';
 
-export const MAYOR_VERSION = 1;
+export const MAYOR_VERSION = 2;
+// Besides the four everyday duties, each day brings this many opportunities, chosen from the rest.
+export const OPPORTUNITIES = 5;
 export const ACTIONS_PER_DAY = 3;
 export const ADULT = 18;
 const LOG_KEEP = 30;
@@ -24,10 +27,23 @@ export const SKILL_LABELS = { charisma: 'Charisma', business: 'Business', comman
 
 // What each duty does; `skill` is the one that makes it work better and grows when it's used.
 export const DUTIES = [
-  { id: 'speech', skill: 'charisma', name: 'Give a speech', text: 'Homes all over town are happier for a few days.' },
-  { id: 'fundraiser', skill: 'business', name: 'Hold a fundraiser', text: 'Money for the town, more as it grows.' },
-  { id: 'inspect', skill: 'command', name: 'Inspect the base', text: 'Soldiers gain experience and damaged defences get patched up.' },
-  { id: 'envoy', skill: 'diplomacy', name: 'Meet a neighbour’s mayor', text: 'They trust you more and hold fewer grudges.' },
+  { id: 'speech', skill: 'charisma', core: true, tags: ['happiness'], name: 'Give a speech', text: 'Homes all over town are happier for a few days.' },
+  { id: 'fundraiser', skill: 'business', core: true, tags: ['money'], name: 'Hold a fundraiser', text: 'Money for the town, more as it grows.' },
+  { id: 'inspect', skill: 'command', core: true, tags: ['military'], name: 'Inspect the base', text: 'Soldiers gain experience and damaged defences get patched up.' },
+  { id: 'envoy', skill: 'diplomacy', core: true, tags: ['diplomacy'], name: 'Meet a neighbour’s mayor', text: 'They trust you more and hold fewer grudges.' },
+  // Opportunities: a few of these come up each day (Mayor.offered), and some need something in town.
+  { id: 'festival', skill: 'charisma', tags: ['happiness'], name: 'Throw a festival', text: 'Costs money; homes are much happier for three days.' },
+  { id: 'tour', skill: 'charisma', tags: ['happiness'], name: 'Tour the streets', text: 'Shake hands door to door: homes a little happier for four days.' },
+  { id: 'ribbon', skill: 'charisma', tags: ['growth'], name: 'Cut a ribbon', text: 'Newcomers hear the good news: the town grows faster for a few days.' },
+  { id: 'greening', skill: 'charisma', tags: ['growth', 'happiness'], name: 'Plant trees with schoolchildren', text: 'A few trees go up near homes that need them.' },
+  { id: 'grant', skill: 'business', tags: ['money'], name: 'Apply for a grant', text: 'A bigger payout than a fundraiser, if the application lands.' },
+  { id: 'trade', skill: 'business', tags: ['money', 'diplomacy'], name: 'Open trade talks', text: 'A neighbour pays for goods and trusts you a little more.' },
+  { id: 'market_day', skill: 'business', tags: ['money', 'happiness'], name: 'Hold a market day', text: 'Needs a shop or market. Sales tax for the town and a lift for spirits.' },
+  { id: 'scholars', skill: 'business', tags: ['growth'], name: 'Invite scholars and engineers', text: 'Costs money; the next era comes a year sooner.' },
+  { id: 'parade', skill: 'command', tags: ['military', 'happiness'], name: 'Hold a parade', text: 'Needs a base. Soldiers gain experience and the town cheers.' },
+  { id: 'supply', skill: 'command', tags: ['military'], name: 'Resupply the defences', text: 'Needs a base. Costs money; badly damaged defences are mended in full.' },
+  { id: 'summit', skill: 'diplomacy', tags: ['diplomacy'], name: 'Host a summit', text: 'Every neighbour trusts you a little more.' },
+  { id: 'gift', skill: 'diplomacy', tags: ['diplomacy'], name: 'Send a gift to a neighbour', text: 'Costs money; a lot more trust and fewer grudges.' },
 ];
 export const DUTY = Object.fromEntries(DUTIES.map((d) => [d.id, d]));
 
@@ -66,6 +82,41 @@ export class Mayor {
   }
 
   // Duties a day: 3, or 4 with a Town council.
+  // The day's opportunities: the everyday duties are always there; of the rest, a few come up each
+  // day, favouring ones that weren't on offer yesterday. Saved in state.offered = { day, ids }.
+  offered() {
+    const st = this.state;
+    const today = Math.floor(day(this.city));
+    if (!st.offered || st.offered.day !== today || !Array.isArray(st.offered.ids)) {
+      const extras = DUTIES.filter((d) => !d.core && !this.needsError(d.id));
+      st.offered = { day: today, ids: pickRotation(extras, st.offered?.ids || [], OPPORTUNITIES, this.rand) };
+    }
+    return DUTIES.filter((d) => d.core || st.offered.ids.includes(d.id));
+  }
+
+  // What it costs, in money, to do a duty now (Sandbox towns pay nothing).
+  costOf(id) {
+    if (this.d.economy?.()?.sandbox) return 0;
+    const pop = this.city.stats?.population || 0;
+    if (id === 'festival') return Math.round((150 + 0.6 * pop) / 10) * 10;
+    if (id === 'gift') return Math.round((200 + 0.5 * pop) / 10) * 10;
+    if (id === 'supply') return Math.round((100 + 0.3 * pop) / 10) * 10;
+    if (id === 'scholars') return Math.round((400 + 1.5 * pop) / 10) * 10;
+    return 0;
+  }
+
+  // Duties of a day-long chance: why one can't be offered at all right now (what it needs in town).
+  needsError(id) {
+    const war = this.d.war?.();
+    const types = new Set(this.city.tiles.map((t) => t.structure?.type));
+    if (['parade', 'supply'].includes(id) && !war?.military) return 'Your town has no base yet';
+    if (id === 'supply' && !war?.military?.damaged?.().length) return 'Nothing needs mending';
+    if (['trade', 'summit', 'gift'].includes(id) && !this.neighbour()) return 'There’s no neighbouring town';
+    if (id === 'market_day' && !types.has('market') && !types.has('shop')) return 'The town needs a shop or a market';
+    if (id === 'scholars' && (this.d.eras?.()?.index ?? 0) >= 4) return 'The town is in its last era';
+    return null;
+  }
+
   actionsPerDay() {
     return ACTIONS_PER_DAY + (this.up.actions || 0);
   }
@@ -212,10 +263,17 @@ export class Mayor {
     const st = this.state;
     const d = DUTY[id];
     if (!d) return 'No such duty';
+    if (!d.core && !this.offered().some((x) => x.id === id)) return 'Not on offer today';
     if (st.done[id]) return 'Already done today';
     if (st.actions <= 0) return 'No actions left today. More tomorrow';
     if (id === 'inspect' && !this.d.war?.()?.military) return 'Your town has no base yet';
     if (id === 'envoy' && !this.neighbour()) return 'There’s no neighbouring town';
+    if (!d.core) {
+      const need = this.needsError(id);
+      if (need) return need;
+      const cost = this.costOf(id);
+      if (cost && !this.d.economy?.()?.canAfford(cost)) return `Needs $${cost.toLocaleString()}`;
+    }
     return null;
   }
 
@@ -240,6 +298,24 @@ export class Mayor {
       const n = this.neighbour();
       return n ? `+${Math.round(this.trustGain(f, n))} trust with ${n.entry.name}` : '';
     }
+    const cost = this.costOf(id);
+    const paid = cost ? `costs $${cost.toLocaleString()}` : '';
+    const join = (a) => [paid, a].filter(Boolean).join(', ');
+    if (id === 'festival') return join(`+${Math.round(this.festivalAmount(f) * 100)}% happiness`);
+    if (id === 'tour') return `+${Math.round(0.012 * f * (this.up.speech ?? 1) * 100)}% happiness`;
+    if (id === 'ribbon') return `growth ×${(1 + 0.25 * f).toFixed(2)} for 3 days`;
+    if (id === 'greening') return `up to ${this.treesCount(f)} trees`;
+    if (id === 'grant') return `$${this.grantAmount(f, pop, 1).toLocaleString()} if it lands`;
+    if (id === 'trade') return `about $${this.tradeAmount(f, pop).toLocaleString()}`;
+    if (id === 'market_day') return `about $${this.marketAmount(f).toLocaleString()}`;
+    if (id === 'scholars') return join('next era 1 year sooner');
+    if (id === 'parade') return `+${Math.round(this.drillXp(f) / 2)} experience each`;
+    if (id === 'supply') return join('mends the worst-hit defences');
+    if (id === 'summit') {
+      const n = this.neighbour();
+      return n ? `+${Math.round(this.trustGain(f, n) / 2)} trust with each` : '';
+    }
+    if (id === 'gift') return join('+trust, fewer grudges');
     return '';
   }
 
@@ -259,6 +335,34 @@ export class Mayor {
   trustGain(f, n) {
     const atWar = this.d.war?.()?.diplomacy?.atWar(n.id);
     return 6 * f * (atWar ? 0.5 : 1) * (this.up.envoy ?? 1);
+  }
+
+  festivalAmount(f) {
+    return 0.045 * f * (this.up.speech ?? 1);
+  }
+  treesCount(f) {
+    return Math.max(2, Math.round(4 * f));
+  }
+  grantAmount(f, pop, luck) {
+    return Math.round(((250 + 3 * pop) * f * luck * (this.up.fundraiser ?? 1)) / 10) * 10;
+  }
+  tradeAmount(f, pop) {
+    return Math.round(((60 + 0.8 * pop) * f) / 10) * 10;
+  }
+  marketAmount(f) {
+    const shops = this.city.tiles.filter((t) => ['shop', 'market', 'mall', 'bakery', 'cafe'].includes(t.structure?.type)).length;
+    return Math.round((40 + 22 * Math.min(shops, 14)) * f / 10) * 10;
+  }
+  // Add money to the town's books (a fundraiser's way).
+  earn(n) {
+    const eco = this.d.economy?.();
+    if (!eco || !n) return;
+    eco.state.money += n;
+    eco.state.today.income += n;
+  }
+  // Pay for a duty out of the town's money.
+  pay(n) {
+    if (n) this.d.economy?.()?.spend(n);
   }
 
   // Do a duty. Returns { text } or { error }.
@@ -310,11 +414,115 @@ export class Mayor {
       dip.note?.(n.id, `Mayor ${st.name} visited ${n.entry.name} for talks.`);
       text = `${st.name} met the mayor of ${n.entry.name}. Their trust in you rose by ${Math.round(gain)}.`;
     }
+    else text = this.performMore(id, f, now);
     st.actions -= 1;
     st.done[id] = true;
     st.skills[d.skill] = Math.min(100, st.skills[d.skill] + SKILL_GAIN * (this.up.mayorGain ?? 1)); // Town clerks (skills.js)
     this.note(text);
     return { text };
+  }
+
+  // The opportunities. Each uses the systems the everyday duties use: decisions (spirit), growth,
+  // eras, the economy, the base and diplomacy.
+  performMore(id, f, now) {
+    const st = this.state;
+    const pop = this.city.stats?.population || 0;
+    const war = this.d.war?.();
+    const dec = this.d.decisions?.();
+    const cost = this.costOf(id);
+    if (id === 'festival') {
+      this.pay(cost);
+      const amount = this.festivalAmount(f);
+      dec?.state.effects.push({ amount, until: now + 3, id: 'festival' });
+      return `${st.name} threw a festival in the square. Homes are ${Math.round(amount * 100)}% happier for three days.`;
+    }
+    if (id === 'tour') {
+      const amount = 0.012 * f * (this.up.speech ?? 1);
+      dec?.state.effects.push({ amount, until: now + 4, id: 'tour' });
+      return `${st.name} toured the streets, shaking hands. Spirits are up a little for four days.`;
+    }
+    if (id === 'ribbon') {
+      const mult = 1 + 0.25 * f;
+      this.d.growth?.()?.boost(mult, 3, 'Ribbon cutting');
+      return `${st.name} cut the ribbon on the town's newest corner. Word got round: growth ×${mult.toFixed(2)} for three days.`;
+    }
+    if (id === 'greening') {
+      const g = this.d.growth?.();
+      let n = 0;
+      for (let i = 0; i < this.treesCount(f) && g; i++) if (g.plantTree()) n++;
+      return n ? `${st.name} planted ${n} tree${n === 1 ? '' : 's'} with the schoolchildren.` : `${st.name} led the schoolchildren out with spades, but there was nowhere left to plant.`;
+    }
+    if (id === 'grant') {
+      const lands = this.rand() < 0.55 + 0.4 * (st.skills.business / 100);
+      const n = lands ? this.grantAmount(f, pop, 1) : this.grantAmount(f, pop, 0.15);
+      this.earn(n);
+      return lands ? `${st.name}’s grant application landed: $${n.toLocaleString()} for the town.` : `The grant mostly fell through. ${st.name} brought back $${n.toLocaleString()} for the effort.`;
+    }
+    if (id === 'trade') {
+      const n = this.neighbour();
+      const dip = war.diplomacy;
+      const r = dip.rel(n.id);
+      r.trust = clamp(r.trust + this.trustGain(f, n) / 2, -100, 100);
+      const money = this.tradeAmount(f, pop);
+      this.earn(money);
+      dip.note?.(n.id, `Mayor ${st.name} opened trade talks with ${n.entry.name}.`);
+      return `${st.name} opened trade talks with ${n.entry.name}: $${money.toLocaleString()} in the first deals, and a little more trust.`;
+    }
+    if (id === 'market_day') {
+      const n = this.marketAmount(f);
+      this.earn(n);
+      dec?.state.effects.push({ amount: 0.015 * f, until: now + 2, id: 'market_day' });
+      return `${st.name} opened a market day. The town took $${n.toLocaleString()} in sales tax and everyone enjoyed the bustle.`;
+    }
+    if (id === 'scholars') {
+      this.pay(cost);
+      this.d.eras?.()?.hurry(1);
+      return `${st.name} invited scholars and engineers to town. The next era is a year closer.`;
+    }
+    if (id === 'parade') {
+      const m = war.military;
+      const xp = Math.round(this.drillXp(f) / 2);
+      const fit = m.fit();
+      for (const s of fit) s.xp += xp;
+      dec?.state.effects.push({ amount: 0.015 * f, until: now + 2, id: 'parade' });
+      return `${st.name} held a parade: ${fit.length} soldier${fit.length === 1 ? '' : 's'} marched (+${xp} experience) and the town cheered.`;
+    }
+    if (id === 'supply') {
+      this.pay(cost);
+      const m = war.military;
+      let patched = 0;
+      let hp = Math.round(300 * f * (this.up.inspect ?? 1));
+      for (const s of m.damaged().sort((a, b) => a.hp / maxHpOf(a.type, a.level) - b.hp / maxHpOf(b.type, b.level))) {
+        if (hp <= 0) break;
+        const n = Math.min(hp, Math.max(0, maxHpOf(s.type, s.level) - s.hp));
+        s.hp += n;
+        hp -= n;
+        if (n > 0) patched++;
+      }
+      return `${st.name} resupplied the defences: ${patched} mended.`;
+    }
+    if (id === 'summit') {
+      const dip = war.diplomacy;
+      const list = war.world.neighbours;
+      for (const n of list) {
+        const r = dip.rel(n.id);
+        r.trust = clamp(r.trust + this.trustGain(f, n) / 2, -100, 100);
+        dip.note?.(n.id, `Mayor ${st.name} hosted a summit.`);
+      }
+      return `${st.name} hosted a summit. ${list.length === 1 ? list[0].entry.name : 'The neighbouring towns'} trust${list.length === 1 ? 's' : ''} you a little more.`;
+    }
+    if (id === 'gift') {
+      this.pay(cost);
+      const n = this.neighbour();
+      const dip = war.diplomacy;
+      const r = dip.rel(n.id);
+      const gain = this.trustGain(f, n) * 1.6;
+      r.trust = clamp(r.trust + gain, -100, 100);
+      r.grievance = Math.max(0, (r.grievance || 0) - 10 * f);
+      dip.note?.(n.id, `Mayor ${st.name} sent ${n.entry.name} a gift.`);
+      return `${st.name} sent a gift to ${n.entry.name}. Their trust in you rose by ${Math.round(gain)}.`;
+    }
+    return '';
   }
 
   note(text) {

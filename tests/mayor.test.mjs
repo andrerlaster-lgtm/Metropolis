@@ -49,7 +49,8 @@ test('your main person’s father is the mayor, with three actions a day', () =>
   assert.match(mayor.relation(), /Ada’s father/);
   assert.equal(mayor.title(), 'Mayor');
   for (const k of ['charisma', 'business', 'command', 'diplomacy']) assert.ok(st.skills[k] >= 30 && st.skills[k] <= 55, k);
-  assert.deepEqual(DUTIES.map((d) => d.id), ['speech', 'fundraiser', 'inspect', 'envoy']);
+  assert.deepEqual(DUTIES.filter((d) => d.core).map((d) => d.id), ['speech', 'fundraiser', 'inspect', 'envoy']);
+  assert.equal(DUTIES.length, 16);
 });
 
 test('a speech makes homes happier for two days, through the town’s spirit', () => {

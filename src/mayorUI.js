@@ -2,7 +2,7 @@
 // they did lately and who takes over next. Also keeps the mayor chip on the town card up to date
 // and gives the City panel its Mayor line. Changes go through Mayor.perform.
 
-import { DUTIES, SKILL_LABELS } from './mayor.js';
+import { SKILL_LABELS } from './mayor.js';
 import { MAYOR_FOCUS } from './autopilot.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -78,7 +78,7 @@ export class TownHall {
     const st = m.state;
     const auto = this.d.autopilot?.().state.mayor;
     const pro = m.prospects();
-    const key = JSON.stringify([st.name, st.who, st.age, st.actions, st.done, st.skills, st.log[0]?.text, DUTIES.map((d) => m.preview(d.id)), auto, pro]);
+    const key = JSON.stringify([st.name, st.who, st.age, st.actions, st.done, st.skills, st.log[0]?.text, m.offered().map((d) => [d.id, m.preview(d.id), m.dutyError(d.id)]), auto, pro]);
     if (!force && key === this._key) return;
     this._key = key;
     const next = m.nextInLine();
@@ -91,7 +91,7 @@ export class TownHall {
       <dl class="th-skills">${Object.entries(SKILL_LABELS)
         .map(([k, label]) => `<div><dt>${label}</dt><dd><span class="sbar"><span style="width:${st.skills[k]}%"></span></span><b>${st.skills[k]}</b></dd></div>`)
         .join('')}</dl>
-      <div class="th-duties">${DUTIES.map((d) => this.dutyHTML(d)).join('')}</div>
+      <div class="th-duties">${m.offered().map((d) => this.dutyHTML(d)).join('')}</div>
       ${auto ? this.autoHTML(auto) : ''}
       ${next ? `<p class="sk-intro">Who leads next: ${esc(next)}</p>` : ''}
       ${pro ? this.prospectsHTML(pro) : ''}
