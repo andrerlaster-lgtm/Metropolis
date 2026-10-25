@@ -16,6 +16,7 @@ import { STRUCTURES, SERVICE_RATING, DAY_LENGTH_SECONDS } from '../src/config.js
 function schoolTown(residents, type = 'school') {
   const city = new CityState(24, 24);
   city.apply(type, 10, 10);
+  for (const [x, y] of [[12, 10], [8, 10], [10, 12], [10, 8]]) city.apply('road', x, y); // beside each home
   const homes = [city.getTile(11, 10), city.getTile(9, 10), city.getTile(10, 11), city.getTile(10, 9)];
   for (const h of homes) {
     city.apply('house', h.x, h.y);
@@ -81,6 +82,7 @@ test('residents are shared between the buildings that reach them', () => {
   city.apply('school', 8, 15);
   city.apply('school', 22, 15);
   const mid = city.getTile(15, 15);
+  city.apply('road', 15, 14);
   city.apply('house', 15, 15);
   mid.structure.residents = 100;
   computeCoverage(city);
@@ -100,6 +102,7 @@ test('a bigger building takes a bigger share, so neighbours end up equally busy'
   const city = new CityState(30, 30);
   city.apply('school', 14, 15);
   city.apply('library', 16, 15); // about the same distance from the home, a fraction of the capacity
+  city.apply('road', 15, 18);
   city.apply('house', 15, 17);
   city.getTile(15, 17).structure.residents = 100;
   computeCoverage(city);
@@ -175,6 +178,7 @@ test('the simulation moves quality over game days, and keeps it between the floo
   const city = new CityState(24, 24);
   city.apply('library', 10, 10);
   const lib = city.getTile(10, 10);
+  for (const [x, y] of [[9, 8], [11, 8], [9, 12], [11, 12], [8, 9], [12, 9]]) city.apply('road', x, y); // every tower has a road beside it
   const towers = [[8, 8], [10, 8], [12, 8], [8, 10], [12, 10], [8, 12], [10, 12], [12, 12]].map(([x, y]) => (city.apply('tower', x, y), city.getTile(x, y)));
   const crowd = (n) => towers.forEach((t) => (t.structure.residents = n));
   crowd(2);

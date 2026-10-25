@@ -490,9 +490,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     return n > 1 ? `${n} ${name}${name.endsWith('s') || name === 'water' || name === 'road' ? '' : 's'}` : name;
   };
   renderer.onGrow = () => audio.play('grow', { gap: 0.25 });
-  const nope = (x, y) => {
+  const nope = (x, y, why = null) => {
     renderer.nudge(x, y);
     audio.play('nope');
+    if (why) ui.toast(why, 2600);
   };
 
   function uiInsets() {
@@ -1084,7 +1085,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       }
       if (!t) return;
       if (!sim.milestones.isUnlocked(tool)) return ui.setTool(tool);
-      if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y);
+      if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y, city.placeError(tool, t.x, t.y));
     },
     onBulldoze: (sx, sy) => {
       if (watching()) return;
@@ -1131,8 +1132,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       stroke = null;
       if (!commit || !s || watching()) return;
       const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
-      if (!coords.length) return nope(s.start.x, s.start.y);
+      const why = s.tiles.map((c) => city.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
+      if (!coords.length) return nope(s.start.x, s.start.y, why);
       if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
+      else if (why) ui.toast(`${s.tiles.length - coords.length} skipped: ${why.toLowerCase()}`, 2600);
     },
   });
 

@@ -2,6 +2,7 @@
 // The jobs-and-commutes matcher gives exactly the results it gave before it was optimised: who works
 // where, every route, traffic on every road. The expected fingerprints below were recorded from the
 // original matcher (commit 518bfb4); any change to the matcher's results changes them.
+// They cover the road matching only (`walking: false`); walking to work has its own tests (walkToWork.test.mjs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -55,7 +56,7 @@ test('the matcher gives exactly its original results', () => {
   const got = {};
   for (const [kind, size, seed] of CASES) {
     const city = town(kind, size, seed);
-    const r = computeLaborMarket(city);
+    const r = computeLaborMarket(city, { walking: false });
     assert.ok(r.employed > 0 || kind === 'seed', `${kind}-${size}-${seed} has commuters`);
     got[`${kind}-${size}-${seed}`] = fingerprint(city, r);
   }

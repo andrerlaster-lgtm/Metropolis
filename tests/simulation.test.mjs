@@ -33,26 +33,36 @@ test('residents take the nearest jobs they can reach by road', () => {
   assert.ok(r.flows.every((f) => f.path[0] === f.from && f.path.at(-1) === f.to));
 });
 
-test('homes without a road connection cannot reach jobs', () => {
+// A home from a town saved before homes needed a road: it can't be placed any more, but it can exist.
+function oldHome(city, x, y, residents) {
+  city.getTile(x, y).structure = { id: city.nextId++, type: 'house', residents };
+  city.refreshAllRoadMasks();
+}
+
+test('by road alone, homes without a road connection cannot reach jobs', () => {
   const city = new CityState(8, 8);
   street(city, 2, 0, 7);
   city.apply('shop', 3, 1);
-  city.apply('house', 3, 6);
-  city.getTile(3, 6).structure.residents = 4;
-  const r = computeLaborMarket(city);
+  oldHome(city, 3, 6, 4);
+  const r = computeLaborMarket(city, { walking: false });
   assert.equal(r.employed, 0);
   assert.equal(r.unemployed, workersIn(city.getTile(3, 6)));
   assert.equal(city.getTile(3, 6).employment, 0);
+  // But they walk (labor.js): a road isn't what stands between a home and a job.
+  const walked = computeLaborMarket(city);
+  assert.equal(walked.employed, workersIn(city.getTile(3, 6)));
+  assert.equal(city.getTile(3, 6).employment, 1);
 });
 
-test('jobs on a separate road network stay out of reach', () => {
+test('by road alone, jobs on a separate road network stay out of reach; on foot they are not', () => {
   const city = new CityState(10, 10);
   street(city, 2, 0, 3);
   street(city, 2, 6, 9);
   city.apply('house', 1, 1);
   city.apply('office', 8, 1);
   city.getTile(1, 1).structure.residents = 4;
-  assert.equal(computeLaborMarket(city).employed, 0);
+  assert.equal(computeLaborMarket(city, { walking: false }).employed, 0);
+  assert.ok(computeLaborMarket(city).employed > 0, 'a short walk across the gap');
 });
 
 test('schools and clinics raise desirability nearby, fading with distance', () => {

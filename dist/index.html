@@ -5114,12 +5114,27 @@ class CityState {
     return null;
   }
 
+  // Why a building can't go here, or null when it can. Homes (anything that holds residents) need a
+  // road beside them; everything else (shops, offices, services, parks…) can stand anywhere and is
+  // reached on foot. A home that is already there can be replaced or rebuilt without a road, so towns
+  // saved before this rule keep their roadless homes (advisor.js flags them).
+  placeError(tool, x, y) {
+    const t = this.getTile(x, y);
+    if (!t) return 'Off the map';
+    if (!STRUCTURES[tool]?.capacity) return null;
+    const s = t.structure;
+    const holdsPeople = (type) => !!STRUCTURES[type]?.capacity;
+    if (s && (holdsPeople(s.type) || (s.type === 'rubble' && holdsPeople(s.was)))) return null;
+    return this.accessRoad(x, y) ? null : 'Homes need a road beside them';
+  }
+
   canApply(tool, x, y) {
     const t = this.getTile(x, y);
     if (!t) return false;
     if (tool === 'bulldoze') return !!t.structure || t.terrain === 'water';
     if (tool === 'water') return t.terrain !== 'water' || !!t.structure;
     if (!STRUCTURES[tool]) return false;
+    if (this.placeError(tool, x, y)) return false;
     // Building the same thing again over storm damage rebuilds it.
     const s = t.structure;
     return s?.type !== tool || !!s.broken || !!s.snowed || (s.damage || 0) >= 0.34;
@@ -5343,249 +5358,6 @@ function pick(items, rand = Math.random) {
 }
 
 return { clamp, lerp, smoothstep, hash2, mulberry32, pickWeighted, pick };
-})();
-
-// ---- desirability.js ----
-const __mod_desirability = (() => {
-// Desirability: how much people want to live on a tile. Each factor is an independent, pluggable function.
-// To add a system later (services, jobs, pollution…), implement its `compute` and flip `enabled`.
-//
-// Factors marked `layout` depend only on the map layout around the tile (terrain, building types and
-// usable roads, within `reach` tiles). Their values are cached per tile and only recomputed near tiles
-// whose layout changed, which is checked on every recompute, so a change is never missed whatever made
-// it. The results are exactly what computing every factor afresh would give.
-
-const { STRUCTURES, SERVICES, REPUTATION } = __mod_config;
-const { clamp } = __mod_utils;
-const BASE = 0.28;
-
-function sumAround(city, tile, radius, valueOf) {
-  let sum = 0;
-  for (let dy = -radius; dy <= radius; dy++) {
-    for (let dx = -radius; dx <= radius; dx++) {
-      if (!dx && !dy) continue;
-      const n = city.getTile(tile.x + dx, tile.y + dy);
-      if (!n) continue;
-      const dist = Math.hypot(dx, dy);
-      if (dist > radius + 0.5) continue;
-      sum += valueOf(n) * (1 - dist / (radius + 1.5));
-    }
-  }
-  return sum;
-}
-
-const FACTORS = [
-  {
-    id: 'greenery',
-    label: 'Parks & trees',
-    enabled: true,
-    layout: true,
-    reach: 3,
-    compute: (city, tile) =>
-      Math.min(0.35, sumAround(city, tile, 3, (n) => (n.structure ? STRUCTURES[n.structure.type].greenery * 0.06 : 0))),
-  },
-  {
-    id: 'waterfront',
-    label: 'Water views',
-    enabled: true,
-    layout: true,
-    reach: 2,
-    compute: (city, tile) => Math.min(0.08, sumAround(city, tile, 2, (n) => (n.terrain === 'water' ? 0.04 : 0))),
-  },
-  {
-    id: 'access',
-    label: 'Road access',
-    enabled: true,
-    layout: true,
-    reach: 2,
-    compute: (city, tile) => {
-      let best = 9;
-      for (let dy = -2; dy <= 2; dy++) {
-        for (let dx = -2; dx <= 2; dx++) {
-          if (city.isRoad(tile.x + dx, tile.y + dy)) best = Math.min(best, Math.abs(dx) + Math.abs(dy));
-        }
-      }
-      return best <= 1 ? 0.1 : best <= 2 ? 0.04 : -0.08;
-    },
-  },
-  {
-    id: 'services',
-    label: 'Schools & clinics',
-    enabled: true,
-    compute: (city, tile) => {
-      let sum = 0;
-      for (const s of SERVICES) sum += tile.coverage[s.id] || 0;
-      return 0.16 * (sum / SERVICES.length);
-    },
-  },
-  {
-    id: 'employment',
-    label: 'Jobs',
-    enabled: true,
-    // Homes rate their own residents' job prospects; empty lots rate jobs within reach.
-    compute: (city, tile) => {
-      if (tile.structure && STRUCTURES[tile.structure.type].capacity > 0 && tile.structure.residents > 0) {
-        return 0.16 * tile.employment;
-      }
-      const jobs = city.derived.labor;
-      if (!jobs || !jobs.jobs) return 0;
-      return 0.16 * Math.min(1, (jobs.jobs - jobs.employed) / Math.max(4, jobs.employed * 0.15));
-    },
-  },
-  {
-    id: 'traffic',
-    label: 'Traffic',
-    enabled: true,
-    compute: (city, tile) => {
-      let worst = 0;
-      for (let dy = -2; dy <= 2; dy++) {
-        for (let dx = -2; dx <= 2; dx++) {
-          const n = city.getTile(tile.x + dx, tile.y + dy);
-          if (!n || !n.roadMask) continue;
-          const d = Math.max(Math.abs(dx), Math.abs(dy));
-          worst = Math.max(worst, n.congestion * (1 - d / 3));
-        }
-      }
-      return -0.14 * worst;
-    },
-  },
-  {
-    id: 'pollution',
-    label: 'Factory smoke',
-    enabled: true,
-    layout: true,
-    reach: 4,
-    // Homes near a factory are less pleasant; the effect fades over about five tiles.
-    compute: (city, tile) => {
-      let worst = 0;
-      for (let dy = -4; dy <= 4; dy++) {
-        for (let dx = -4; dx <= 4; dx++) {
-          const n = city.getTile(tile.x + dx, tile.y + dy);
-          if (!n?.structure || !STRUCTURES[n.structure.type].pollution) continue;
-          worst = Math.max(worst, 1 - Math.hypot(dx, dy) / 5.5);
-        }
-      }
-      return -0.18 * worst;
-    },
-  },
-  { id: 'safety', label: 'Safety', enabled: false, compute: () => 0 },
-  {
-    id: 'culture',
-    label: 'Artist nearby',
-    enabled: true,
-    // A Great Artist makes their street more appealing.
-    compute: (city, tile) => {
-      let best = 0;
-      for (const a of city.derived.notableEffects?.artists || []) {
-        const d = Math.hypot(a.x - tile.x, a.y - tile.y);
-        if (d <= 3.5) best = Math.max(best, 1 - d / 4.5);
-      }
-      return 0.08 * best;
-    },
-  },
-  {
-    id: 'spirit',
-    label: 'Town spirit',
-    enabled: true,
-    // Town decisions lift or dent how everyone feels about living here, for a while.
-    compute: (city) => city.derived.spirit || 0,
-  },
-  {
-    id: 'reputation',
-    label: 'Town reputation',
-    enabled: true,
-    // A well-thought-of town draws people; a run-down name puts them off.
-    compute: (city) => ((city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.homeAppeal,
-  },
-  { id: 'overcrowding', label: 'Overcrowding', enabled: false, compute: () => 0 },
-  { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
-  { id: 'utilities', label: 'Utilities', enabled: false, compute: () => 0 },
-  {
-    id: 'upgrades',
-    label: 'Town upgrades',
-    enabled: true,
-    // Festivals and Civic pride (skills.js) lift every home a little.
-    compute: (city) => city.derived.skills?.happy || 0,
-  },
-  {
-    id: 'entertainment',
-    label: 'Playgrounds & sport',
-    enabled: true,
-    compute: (city, tile) => 0.1 * (tile.coverage?.fun || 0),
-  },
-];
-
-// ---- Layout cache ---------------------------------------------------------------------------
-
-const ACTIVE = FACTORS.filter((f) => f.enabled);
-// Factors the town's upgrades make count for more or less (skills.js), by the same name.
-const SCALED = new Set(['greenery', 'traffic', 'pollution', 'entertainment', 'waterfront', 'services', 'employment']);
-const LAYOUT = ACTIVE.filter((f) => f.layout);
-const REACH = Math.max(...LAYOUT.map((f) => f.reach));
-const TYPE_CODE = Object.fromEntries(Object.keys(STRUCTURES).map((type, i) => [type, i + 1]));
-
-// Everything a layout factor can see of a tile, packed into one number: water, building type, and
-// whether a road is washed out or snowed in (those aren't usable roads).
-function layoutCode(t) {
-  const s = t.structure;
-  if (!s) return t.terrain === 'water' ? 1 : 0;
-  return (t.terrain === 'water' ? 1 : 0) | (TYPE_CODE[s.type] << 1) | (s.broken ? 1 << 10 : 0) | (s.snowed ? 1 << 11 : 0);
-}
-
-const caches = new WeakMap(); // city → { w, h, codes, valid, values }
-
-// The layout cache, brought up to date: any tile whose layout changed since the last call makes the
-// cached factors of every tile within reach of it stale.
-function layoutCache(city) {
-  const W = city.width;
-  const H = city.height;
-  const n = W * H;
-  let c = caches.get(city);
-  if (!c || c.w !== W || c.h !== H) {
-    c = { w: W, h: H, codes: new Int32Array(n).fill(-1), valid: new Uint8Array(n), values: LAYOUT.map(() => new Float64Array(n)) };
-    caches.set(city, c);
-  }
-  const { codes, valid } = c;
-  for (let i = 0; i < n; i++) {
-    const code = layoutCode(city.tiles[i]);
-    if (code === codes[i]) continue;
-    codes[i] = code;
-    const x = i % W;
-    const y = (i - x) / W;
-    for (let yy = Math.max(0, y - REACH); yy <= Math.min(H - 1, y + REACH); yy++) {
-      for (let xx = Math.max(0, x - REACH); xx <= Math.min(W - 1, x + REACH); xx++) valid[yy * W + xx] = 0;
-    }
-  }
-  return c;
-}
-
-function recomputeDesirability(city) {
-  const cache = layoutCache(city);
-  const { valid, values } = cache;
-  const tiles = city.tiles;
-  for (let i = 0; i < tiles.length; i++) {
-    const tile = tiles[i];
-    if (!valid[i]) {
-      for (let k = 0; k < LAYOUT.length; k++) values[k][i] = LAYOUT[k].compute(city, tile);
-      valid[i] = 1;
-    }
-    // Same factors, same order, same sum as computing each one afresh. The object is reused.
-    let d = BASE;
-    const factors = tile.factors || (tile.factors = {});
-    let k = 0;
-    const sk = city.derived.skills;
-    for (const f of ACTIVE) {
-      let v = f.layout ? values[k++][i] : f.compute(city, tile);
-      if (sk && SCALED.has(f.id)) v *= sk[f.id];
-      factors[f.id] = v;
-      d += v;
-    }
-    tile.desirability = clamp(d, 0, 1);
-  }
-  city.dirty = false;
-}
-
-return { FACTORS, recomputeDesirability };
 })();
 
 // ---- weather.js ----
@@ -6390,9 +6162,23 @@ const __mod_labor = (() => {
 // Labor market and traffic. Residents look for the nearest jobs they can reach by road; each
 // commute then loads the road tiles along its route, and busy roads cost more to use. Adapted from Cimulity's aggregate
 // nearest-with-overflow matching (MIT, github.com/zeikar/cimulity).
+//
+// A second pass finds jobs for everyone the roads left out: people with no road at their door, and
+// people whose road network has no free job left. They walk, along sidewalks, across parks and over
+// open grass, around buildings and water, to the nearest free job, up to a limit. Walking never loads a
+// road, so it never counts as traffic. A workplace needs no road: if a walking route reaches it, it
+// employs people. A long walk is remembered per home (`commuteWalk`) and lowers how much people like
+// living there (desirability.js) and shows up as a complaint (advisor.js).
 
 const { soundness } = __mod_disasters;
 const { STRUCTURES, WORKER_SHARE, ROAD_CAPACITY } = __mod_config;
+// Walking: what it costs to cross a tile on foot (a step along a sidewalk is 1), and how far people
+// will walk to work. A walk of COMFORT or less is fine; past LONG residents complain.
+const WALK_COST = { road: 1, park: 0.9, playground: 1, field: 1.1, tree: 1.3, open: 1.6 };
+const WALK_MAX = 30;
+const WALK_COMFORT = 8;
+const WALK_LONG = 16;
+
 // How much a full road slows commuters down: a jammed tile costs 1 + JAM_PENALTY steps.
 const JAM_PENALTY = 3;
 // Neighbours in the order routes are explored: north, east, south, west.
@@ -6485,7 +6271,7 @@ function workersIn(home) {
 // and congestion. Each flow is { from, to, count, path } where path lists road tiles.
 // Options for "what if" tests: `extraRoads` (a Set of tile indices treated as road) and `dryRun`
 // (write nothing to the tiles; just return the result).
-function computeLaborMarket(city, { extraRoads = null, dryRun = false } = {}) {
+function computeLaborMarket(city, { extraRoads = null, dryRun = false, walking = true } = {}) {
   const W = city.width;
   const H = city.height;
   const size = W * H;
@@ -6526,18 +6312,20 @@ function computeLaborMarket(city, { extraRoads = null, dryRun = false } = {}) {
   const flows = [];
   let employed = 0;
   let unemployed = 0;
+  const homeWorkers = new Int32Array(homes.length);
+  const homeLeft = new Int32Array(homes.length);
 
   // Commuters pick the cheapest route, and a road gets dearer as it fills up, so later commuters
   // spill onto alternatives when there are any (a second street, a shortcut, a ring road).
-  for (const h of homes) {
+  for (let hi = 0; hi < homes.length; hi++) {
+    const h = homes[hi];
     if (!dryRun) h.employment = 0;
     const workers = workersIn(h);
     if (workers <= 0) continue;
+    homeWorkers[hi] = workers;
+    homeLeft[hi] = workers;
     const r = city.accessRoad(h.x, h.y);
-    if (!r) {
-      unemployed += workers;
-      continue;
-    }
+    if (!r) continue; // no road at the door: the walking pass below looks after them
     let left = workers;
     const stamp = ++mem.stamp;
     const start = r.y * W + r.x;
@@ -6589,19 +6377,433 @@ function computeLaborMarket(city, { extraRoads = null, dryRun = false } = {}) {
         heapPush(n, nc);
       }
     }
+    homeLeft[hi] = left;
+  }
+
+  // Everyone still without a job walks to the nearest free one (never in a what-if for new roads).
+  const walks = [];
+  const walkCost = new Float64Array(homes.length);
+  let walkers = 0;
+  if (walking && !dryRun) walkers = walkToWork(city, homes, homeLeft, workplaces, jobsAt, filled, walks, walkCost);
+
+  for (let hi = 0; hi < homes.length; hi++) {
+    const workers = homeWorkers[hi];
+    if (workers <= 0) continue;
+    const left = homeLeft[hi];
     employed += workers - left;
     unemployed += left;
-    if (!dryRun) h.employment = (workers - left) / workers;
+    if (!dryRun) homes[hi].employment = (workers - left) / workers;
   }
 
   if (!dryRun) {
     for (let w = 0; w < nw; w++) workplaces[w].workersFilled = filled[w];
     for (let i = 0; i < size; i++) city.tiles[i].congestion = Math.min(1, load[i] / roadCap);
+    for (let hi = 0; hi < homes.length; hi++) homes[hi].commuteWalk = walkCost[hi];
   }
-  return { flows, employed, unemployed, jobs, load };
+  return { flows, employed, unemployed, jobs, load, walks, walkers };
 }
 
-return { workersIn, computeLaborMarket };
+// A tile people can walk across: not water, and either bare ground or something walkable (a road that
+// isn't washed out, a park, a playground, a field, a tree). Buildings are only ever a start or an end.
+function canWalk(t) {
+  if (!t || t.terrain !== 'grass') return false;
+  const s = t.structure;
+  if (!s) return true;
+  if (s.type === 'road') return !s.broken;
+  return !!STRUCTURES[s.type].walkable;
+}
+// Is there a way in: a walkable tile beside the building (so a worker can step through its door)?
+function hasEntrance(city, tile) {
+  for (let d = 0; d < 4; d++) if (canWalk(city.getTile(tile.x + DX[d], tile.y + DY[d]))) return true;
+  return false;
+}
+function walkStep(t) {
+  const s = t.structure;
+  return s ? WALK_COST[s.type] ?? WALK_COST.open : WALK_COST.open;
+}
+
+// The walking pass. Everyone left without a job (homeLeft) walks to the nearest workplace with a free
+// job that a walking route reaches within WALK_MAX. One search from all the free jobs at once gives
+// every tile its walking distance to the nearest one, so a home only has to look at its own
+// neighbours; it is redone only when a workplace fills up. Returns how many people walk to work.
+// Writes into `filled`, `walks` ([{ from, to, count, cost }], tile indices) and `walkCost` (a home's
+// average walk to work, for the people who walk).
+function walkToWork(city, homes, homeLeft, workplaces, jobsAt, filled, walks, walkCost) {
+  const W = city.width;
+  const H = city.height;
+  const size = W * H;
+  let any = false;
+  for (let hi = 0; hi < homes.length && !any; hi++) any = homeLeft[hi] > 0;
+  if (!any) return 0;
+  const nw = workplaces.length;
+  const open = new Uint8Array(size);
+  const step = new Float64Array(size);
+  for (let i = 0; i < size; i++) {
+    const t = city.tiles[i];
+    if (canWalk(t)) {
+      open[i] = 1;
+      step[i] = walkStep(t);
+    }
+  }
+  // The tiles beside each workplace (where a walker steps in), and the workplaces at each such tile.
+  const at = new Map();
+  for (let w = 0; w < nw; w++) {
+    const t = workplaces[w];
+    for (let d = 0; d < 4; d++) {
+      const nx = t.x + DX[d];
+      const ny = t.y + DY[d];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const n = ny * W + nx;
+      if (!open[n]) continue;
+      const list = at.get(n);
+      if (list) list.push(w);
+      else at.set(n, [w]);
+    }
+  }
+  const free = (n) => {
+    const list = at.get(n);
+    if (!list) return -1;
+    for (const w of list) if (jobsAt[w] - filled[w] > 0) return w;
+    return -1;
+  };
+  const dist = new Float64Array(size);
+  const src = new Int32Array(size);
+  const field = () => {
+    dist.fill(Infinity);
+    src.fill(-1);
+    mem.n = 0;
+    for (const n of at.keys()) {
+      if (free(n) < 0) continue;
+      dist[n] = 0;
+      src[n] = n;
+      heapPush(n, 0);
+    }
+    while (mem.n) {
+      heapPop();
+      const k = popKey;
+      const c = popPri;
+      if (c > dist[k]) continue;
+      if (c >= WALK_MAX) continue;
+      const x = k % W;
+      const y = (k - x) / W;
+      for (let d = 0; d < 4; d++) {
+        const nx = x + DX[d];
+        const ny = y + DY[d];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const n = ny * W + nx;
+        if (!open[n]) continue;
+        const nc = c + step[n];
+        if (nc >= dist[n] || nc > WALK_MAX) continue;
+        dist[n] = nc;
+        src[n] = src[k];
+        heapPush(n, nc);
+      }
+    }
+  };
+  field();
+  const flowAt = new Map();
+  let walkers = 0;
+  for (let hi = 0; hi < homes.length; hi++) {
+    let left = homeLeft[hi];
+    if (left <= 0) continue;
+    const h = homes[hi];
+    const total = left;
+    let costSum = 0;
+    while (left > 0) {
+      // The way out of the front door with the shortest walk to a free job.
+      let best = -1;
+      let bd = Infinity;
+      for (let d = 0; d < 4; d++) {
+        const nx = h.x + DX[d];
+        const ny = h.y + DY[d];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const n = ny * W + nx;
+        if (open[n] && dist[n] < bd) {
+          bd = dist[n];
+          best = n;
+        }
+      }
+      if (best < 0 || !Number.isFinite(bd)) break;
+      const entry = src[best];
+      let w = free(entry);
+      if (w < 0) {
+        field(); // that one has just filled up
+        continue;
+      }
+      const take = Math.min(left, jobsAt[w] - filled[w]);
+      filled[w] += take;
+      left -= take;
+      walkers += take;
+      costSum += take * (bd + 1);
+      const key = hi * 65536 + w;
+      const f = flowAt.get(key);
+      if (f) f.count += take;
+      else {
+        const flow = { from: h.y * W + h.x, to: workplaces[w].y * W + workplaces[w].x, count: take, cost: bd + 1 };
+        flowAt.set(key, flow);
+        walks.push(flow);
+      }
+      if (free(entry) < 0) field(); // nothing left there: look again from what is still free
+    }
+    homeLeft[hi] = left;
+    const walked = total - left;
+    walkCost[hi] = walked > 0 ? costSum / walked : 0;
+  }
+  return walkers;
+}
+
+return { WALK_COST, WALK_MAX, WALK_COMFORT, WALK_LONG, workersIn, computeLaborMarket, canWalk, hasEntrance };
+})();
+
+// ---- desirability.js ----
+const __mod_desirability = (() => {
+// Desirability: how much people want to live on a tile. Each factor is an independent, pluggable function.
+// To add a system later (services, jobs, pollution…), implement its `compute` and flip `enabled`.
+//
+// Factors marked `layout` depend only on the map layout around the tile (terrain, building types and
+// usable roads, within `reach` tiles). Their values are cached per tile and only recomputed near tiles
+// whose layout changed, which is checked on every recompute, so a change is never missed whatever made
+// it. The results are exactly what computing every factor afresh would give.
+
+const { STRUCTURES, SERVICES, REPUTATION } = __mod_config;
+const { WALK_COMFORT, WALK_MAX } = __mod_labor;
+const { clamp } = __mod_utils;
+const BASE = 0.28;
+
+function sumAround(city, tile, radius, valueOf) {
+  let sum = 0;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (!dx && !dy) continue;
+      const n = city.getTile(tile.x + dx, tile.y + dy);
+      if (!n) continue;
+      const dist = Math.hypot(dx, dy);
+      if (dist > radius + 0.5) continue;
+      sum += valueOf(n) * (1 - dist / (radius + 1.5));
+    }
+  }
+  return sum;
+}
+
+const FACTORS = [
+  {
+    id: 'greenery',
+    label: 'Parks & trees',
+    enabled: true,
+    layout: true,
+    reach: 3,
+    compute: (city, tile) =>
+      Math.min(0.35, sumAround(city, tile, 3, (n) => (n.structure ? STRUCTURES[n.structure.type].greenery * 0.06 : 0))),
+  },
+  {
+    id: 'waterfront',
+    label: 'Water views',
+    enabled: true,
+    layout: true,
+    reach: 2,
+    compute: (city, tile) => Math.min(0.08, sumAround(city, tile, 2, (n) => (n.terrain === 'water' ? 0.04 : 0))),
+  },
+  {
+    id: 'access',
+    label: 'Road access',
+    enabled: true,
+    layout: true,
+    reach: 2,
+    compute: (city, tile) => {
+      let best = 9;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          if (city.isRoad(tile.x + dx, tile.y + dy)) best = Math.min(best, Math.abs(dx) + Math.abs(dy));
+        }
+      }
+      return best <= 1 ? 0.1 : best <= 2 ? 0.04 : -0.08;
+    },
+  },
+  {
+    id: 'services',
+    label: 'Schools & clinics',
+    enabled: true,
+    compute: (city, tile) => {
+      let sum = 0;
+      for (const s of SERVICES) sum += tile.coverage[s.id] || 0;
+      return 0.16 * (sum / SERVICES.length);
+    },
+  },
+  {
+    id: 'employment',
+    label: 'Jobs',
+    enabled: true,
+    // Homes rate their own residents' job prospects; empty lots rate jobs within reach.
+    compute: (city, tile) => {
+      if (tile.structure && STRUCTURES[tile.structure.type].capacity > 0 && tile.structure.residents > 0) {
+        return 0.16 * tile.employment;
+      }
+      const jobs = city.derived.labor;
+      if (!jobs || !jobs.jobs) return 0;
+      return 0.16 * Math.min(1, (jobs.jobs - jobs.employed) / Math.max(4, jobs.employed * 0.15));
+    },
+  },
+  {
+    id: 'traffic',
+    label: 'Traffic',
+    enabled: true,
+    compute: (city, tile) => {
+      let worst = 0;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const n = city.getTile(tile.x + dx, tile.y + dy);
+          if (!n || !n.roadMask) continue;
+          const d = Math.max(Math.abs(dx), Math.abs(dy));
+          worst = Math.max(worst, n.congestion * (1 - d / 3));
+        }
+      }
+      return -0.14 * worst;
+    },
+  },
+  {
+    id: 'pollution',
+    label: 'Factory smoke',
+    enabled: true,
+    layout: true,
+    reach: 4,
+    // Homes near a factory are less pleasant; the effect fades over about five tiles.
+    compute: (city, tile) => {
+      let worst = 0;
+      for (let dy = -4; dy <= 4; dy++) {
+        for (let dx = -4; dx <= 4; dx++) {
+          const n = city.getTile(tile.x + dx, tile.y + dy);
+          if (!n?.structure || !STRUCTURES[n.structure.type].pollution) continue;
+          worst = Math.max(worst, 1 - Math.hypot(dx, dy) / 5.5);
+        }
+      }
+      return -0.18 * worst;
+    },
+  },
+  { id: 'safety', label: 'Safety', enabled: false, compute: () => 0 },
+  {
+    id: 'culture',
+    label: 'Artist nearby',
+    enabled: true,
+    // A Great Artist makes their street more appealing.
+    compute: (city, tile) => {
+      let best = 0;
+      for (const a of city.derived.notableEffects?.artists || []) {
+        const d = Math.hypot(a.x - tile.x, a.y - tile.y);
+        if (d <= 3.5) best = Math.max(best, 1 - d / 4.5);
+      }
+      return 0.08 * best;
+    },
+  },
+  {
+    id: 'spirit',
+    label: 'Town spirit',
+    enabled: true,
+    // Town decisions lift or dent how everyone feels about living here, for a while.
+    compute: (city) => city.derived.spirit || 0,
+  },
+  {
+    id: 'reputation',
+    label: 'Town reputation',
+    enabled: true,
+    // A well-thought-of town draws people; a run-down name puts them off.
+    compute: (city) => ((city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.homeAppeal,
+  },
+  {
+    id: 'commute',
+    label: 'Walk to work',
+    enabled: true,
+    // People who walk to work (labor.js) mind a long way: nothing up to a short walk, then down to −0.12.
+    compute: (city, tile) => (tile.commuteWalk > WALK_COMFORT ? -0.12 * Math.min(1, (tile.commuteWalk - WALK_COMFORT) / (WALK_MAX - WALK_COMFORT)) : 0),
+  },
+  { id: 'overcrowding', label: 'Overcrowding', enabled: false, compute: () => 0 },
+  { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
+  { id: 'utilities', label: 'Utilities', enabled: false, compute: () => 0 },
+  {
+    id: 'upgrades',
+    label: 'Town upgrades',
+    enabled: true,
+    // Festivals and Civic pride (skills.js) lift every home a little.
+    compute: (city) => city.derived.skills?.happy || 0,
+  },
+  {
+    id: 'entertainment',
+    label: 'Playgrounds & sport',
+    enabled: true,
+    compute: (city, tile) => 0.1 * (tile.coverage?.fun || 0),
+  },
+];
+
+// ---- Layout cache ---------------------------------------------------------------------------
+
+const ACTIVE = FACTORS.filter((f) => f.enabled);
+// Factors the town's upgrades make count for more or less (skills.js), by the same name.
+const SCALED = new Set(['greenery', 'traffic', 'pollution', 'entertainment', 'waterfront', 'services', 'employment']);
+const LAYOUT = ACTIVE.filter((f) => f.layout);
+const REACH = Math.max(...LAYOUT.map((f) => f.reach));
+const TYPE_CODE = Object.fromEntries(Object.keys(STRUCTURES).map((type, i) => [type, i + 1]));
+
+// Everything a layout factor can see of a tile, packed into one number: water, building type, and
+// whether a road is washed out or snowed in (those aren't usable roads).
+function layoutCode(t) {
+  const s = t.structure;
+  if (!s) return t.terrain === 'water' ? 1 : 0;
+  return (t.terrain === 'water' ? 1 : 0) | (TYPE_CODE[s.type] << 1) | (s.broken ? 1 << 10 : 0) | (s.snowed ? 1 << 11 : 0);
+}
+
+const caches = new WeakMap(); // city → { w, h, codes, valid, values }
+
+// The layout cache, brought up to date: any tile whose layout changed since the last call makes the
+// cached factors of every tile within reach of it stale.
+function layoutCache(city) {
+  const W = city.width;
+  const H = city.height;
+  const n = W * H;
+  let c = caches.get(city);
+  if (!c || c.w !== W || c.h !== H) {
+    c = { w: W, h: H, codes: new Int32Array(n).fill(-1), valid: new Uint8Array(n), values: LAYOUT.map(() => new Float64Array(n)) };
+    caches.set(city, c);
+  }
+  const { codes, valid } = c;
+  for (let i = 0; i < n; i++) {
+    const code = layoutCode(city.tiles[i]);
+    if (code === codes[i]) continue;
+    codes[i] = code;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let yy = Math.max(0, y - REACH); yy <= Math.min(H - 1, y + REACH); yy++) {
+      for (let xx = Math.max(0, x - REACH); xx <= Math.min(W - 1, x + REACH); xx++) valid[yy * W + xx] = 0;
+    }
+  }
+  return c;
+}
+
+function recomputeDesirability(city) {
+  const cache = layoutCache(city);
+  const { valid, values } = cache;
+  const tiles = city.tiles;
+  for (let i = 0; i < tiles.length; i++) {
+    const tile = tiles[i];
+    if (!valid[i]) {
+      for (let k = 0; k < LAYOUT.length; k++) values[k][i] = LAYOUT[k].compute(city, tile);
+      valid[i] = 1;
+    }
+    // Same factors, same order, same sum as computing each one afresh. The object is reused.
+    let d = BASE;
+    const factors = tile.factors || (tile.factors = {});
+    let k = 0;
+    const sk = city.derived.skills;
+    for (const f of ACTIVE) {
+      let v = f.layout ? values[k++][i] : f.compute(city, tile);
+      if (sk && SCALED.has(f.id)) v *= sk[f.id];
+      factors[f.id] = v;
+      d += v;
+    }
+    tile.desirability = clamp(d, 0, 1);
+  }
+  city.dirty = false;
+}
+
+return { FACTORS, recomputeDesirability };
 })();
 
 // ---- coverage.js ----
@@ -7557,15 +7759,18 @@ class AgentSystem {
 
   // Someone who lives close to work walks there in the morning and home again in the evening.
   spawnCommuteWalk() {
-    const flows = this.city.derived.labor?.flows;
-    if (!flows?.length) return false;
-    const flow = pickWeighted(flows, (f) => (f.path.length <= 10 ? f.count : 0));
+    const labor = this.city.derived.labor;
+    // Short road commutes, and the walks of everyone the roads left out (labor.js `walks`: from a home to
+    // a workplace, over sidewalks, parks and open grass).
+    const options = [...(labor?.flows || []).filter((f) => f.path.length <= 10).map((f) => ({ ...f, reach: 14 })), ...(labor?.walks || []).map((f) => ({ ...f, reach: 34 }))];
+    if (!options.length) return false;
+    const flow = pickWeighted(options, (f) => f.count);
     if (!flow) return false;
     const W = this.city.width;
     const home = { x: flow.from % W, y: Math.floor(flow.from / W) };
     const job = { x: flow.to % W, y: Math.floor(flow.to / W) };
     const homeward = this.city.clock > 0.55;
-    const route = homeward ? this.paths.route(job, home, 14) : this.paths.route(home, job, 14);
+    const route = homeward ? this.paths.route(job, home, flow.reach) : this.paths.route(home, job, flow.reach);
     if (!route) return false;
     this.walkers.push(this.walker(route, { home: homeward ? job : home, look: makeLook(false), oneWay: true }));
     return true;
@@ -10386,6 +10591,7 @@ const __mod_life = (() => {
 // events, schooling and careers they get.
 
 const { STRUCTURES, DAY_LENGTH_SECONDS } = __mod_config;
+const { hasEntrance } = __mod_labor;
 const { FIRST_NAMES, LAST_NAMES, PRONOUNS, CAREERS, stageFor } = __mod_lifeData;
 const { pickEvent, isEligible, fill, choicesFor, rollOutcome, applyEffects, chooseByPolicy, STAT_KEYS } = __mod_lifeEngine;
 const { LIFE_EVENTS } = __mod_lifeEvents;
@@ -10918,7 +11124,7 @@ class LifeSystem {
     const from = c.home || { x: this.city.width / 2, y: this.city.height / 2 };
     return this.city
       .workplaces()
-      .filter((w) => CAREERS[w.structure.type] && this.city.accessRoad(w.x, w.y) && w.workersFilled < STRUCTURES[w.structure.type].jobs)
+      .filter((w) => CAREERS[w.structure.type] && hasEntrance(this.city, w) && w.workersFilled < STRUCTURES[w.structure.type].jobs) // a road isn't needed: people walk
       .filter((w) => !(c.job && c.job.x === w.x && c.job.y === w.y))
       .sort((a, b) => Math.abs(a.x - from.x) + Math.abs(a.y - from.y) - (Math.abs(b.x - from.x) + Math.abs(b.y - from.y)));
   }
@@ -13753,6 +13959,7 @@ const __mod_advisor = (() => {
 
 const { STRUCTURES, SERVICE_RATING } = __mod_config;
 const { roadPlanFor } = __mod_roadPlanner;
+const { WALK_LONG } = __mod_labor;
 const MAX_THOUGHTS = 5;
 const MAX_TILES = 240;
 // How urgent a thought is: 'bad' (red, fix soon), 'caution' (yellow, worth a look) or 'good' (green).
@@ -13808,9 +14015,17 @@ function computeThoughts(city, milestones) {
     add('repairs', rubble || roads >= 2 ? 'bad' : 'caution', 5.5, `Storm damage needs fixing: ${what}.`, 'Crews repair one thing at a time while there is money. Repair all fixes everything now', broken[0], broken, { repair: true });
   }
 
+  // Homes now need a road when they're built, but older towns can still have some without. Their
+  // people walk everywhere (labor.js), so it's a caution, not an emergency.
   const cutOff = homes.filter((h) => !city.accessRoad(h.x, h.y));
   if (cutOff.length) {
-    add('no-road', 'bad', 5, cutOff.length === 1 ? 'A home has no road. Nobody can get to work.' : `${cutOff.length} homes have no road. Nobody there can get to work.`, 'Connect them with a road', cutOff[0], cutOff);
+    add('no-road', 'caution', 4.5, cutOff.length === 1 ? 'A home has no road. Its people walk everywhere.' : `${cutOff.length} homes have no road. Their people walk everywhere.`, 'A road beside them would make getting to work and around town easier', cutOff[0], cutOff);
+  }
+
+  // A long walk to work: people can walk to any job, but not happily for ever.
+  const farWalk = lived.filter((h) => (h.commuteWalk || 0) > WALK_LONG && h.employment > 0);
+  if (farWalk.length) {
+    add('long-walk', 'caution', 3.5, farWalk.length === 1 ? 'Someone has a long walk to work.' : `${farWalk.length} homes have a long walk to work.`, 'Build a road, or jobs closer to home', worstOf(farWalk), farWalk);
   }
 
   const labor = city.derived.labor;
@@ -19758,7 +19973,7 @@ const { ERAS, yearOf } = __mod_eras;
 const { notableType } = __mod_notables;
 const { FACTORS } = __mod_desirability;
 const { formatClock } = __mod_time;
-const { workersIn } = __mod_labor;
+const { workersIn, WALK_COMFORT } = __mod_labor;
 const { seasonFor, WEATHER_LABELS } = __mod_weather;
 const { typingTarget } = __mod_input;
 const svg = (body) =>
@@ -20219,7 +20434,8 @@ class Interface {
     else if ((s?.damage || 0) >= 0.15) facts.push(['Condition', `${s.damage >= 0.34 ? 'Badly damaged' : 'Damaged'} (${Math.round(s.damage * 100)}%)${s.damage >= 0.34 ? ': half its space is unusable' : ''}`]);
     if (t.earning) facts.push([t.earning > 0 ? 'Pays in taxes' : 'Upkeep', `${money(Math.abs(t.earning))}/day`]);
     if (s?.type === 'road') facts.push(['Traffic', t.congestion < 0.02 ? 'Clear' : `${pct(t.congestion)} busy`]);
-    if (!city.accessRoad(t.x, t.y) && def && !def.walkable) facts.push(['Road access', 'None nearby']);
+    if (!city.accessRoad(t.x, t.y) && def && !def.walkable) facts.push(['Road access', def.capacity ? 'None nearby. Homes need a road' : 'None nearby. People walk here']);
+    if (def?.capacity && t.commuteWalk > 0) facts.push(['Walk to work', t.commuteWalk <= WALK_COMFORT ? `about ${Math.round(t.commuteWalk)} tiles` : `about ${Math.round(t.commuteWalk)} tiles. A long way`]);
     const showFactors = t.terrain !== 'water' && s?.type !== 'road';
     const factors = showFactors
       ? FACTORS.filter((f) => f.enabled).map((f) => ({ label: f.label, v: t.factors[f.id] || 0 }))
@@ -28367,9 +28583,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     return n > 1 ? `${n} ${name}${name.endsWith('s') || name === 'water' || name === 'road' ? '' : 's'}` : name;
   };
   renderer.onGrow = () => audio.play('grow', { gap: 0.25 });
-  const nope = (x, y) => {
+  const nope = (x, y, why = null) => {
     renderer.nudge(x, y);
     audio.play('nope');
+    if (why) ui.toast(why, 2600);
   };
 
   function uiInsets() {
@@ -28961,7 +29178,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       }
       if (!t) return;
       if (!sim.milestones.isUnlocked(tool)) return ui.setTool(tool);
-      if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y);
+      if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y, city.placeError(tool, t.x, t.y));
     },
     onBulldoze: (sx, sy) => {
       if (watching()) return;
@@ -29008,8 +29225,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       stroke = null;
       if (!commit || !s || watching()) return;
       const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
-      if (!coords.length) return nope(s.start.x, s.start.y);
+      const why = s.tiles.map((c) => city.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
+      if (!coords.length) return nope(s.start.x, s.start.y, why);
       if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
+      else if (why) ui.toast(`${s.tiles.length - coords.length} skipped: ${why.toLowerCase()}`, 2600);
     },
   });
 
