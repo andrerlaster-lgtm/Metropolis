@@ -4418,3 +4418,24 @@ button.mil-sq {
   background: var(--panel);
   color: var(--ink);
 }
+
+/* Legacy events (legacyEvents.js): what kind of event, and consequences coming back */
+.event-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+.event-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--meter-track);
+  color: var(--ink);
+  font: 800 11px/1.4 var(--font-body);
+}
+.event-tag.tag-political { background: #dfe7f7; color: #2f4a80; }
+.event-tag.tag-military { background: #ece4f7; color: #5a3f8a; }
+.event-tag.tag-economic { background: #f7ecd4; color: #7a5a10; }
+.event-tag.tag-family { background: #f9e0e8; color: #8a2f52; }
+.event-tag.tag-social { background: #dff2e6; color: #2f6f4a; }
+.event-tag.tag-echo { background: #fff3cf; color: #6b4e00; }

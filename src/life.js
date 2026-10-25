@@ -4,16 +4,20 @@
 
 import { STRUCTURES, DAY_LENGTH_SECONDS } from './config.js';
 import { FIRST_NAMES, LAST_NAMES, PRONOUNS, CAREERS, stageFor } from './lifeData.js';
-import { pickEvent, fill, choicesFor, rollOutcome, applyEffects, STAT_KEYS } from './lifeEngine.js';
+import { pickEvent, isEligible, fill, choicesFor, rollOutcome, applyEffects, chooseByPolicy, STAT_KEYS } from './lifeEngine.js';
 import { LIFE_EVENTS } from './lifeEvents.js';
 import { ACTIVITIES, energyFor } from './lifeActivities.js';
 import { ACHIEVEMENTS, ribbonFor } from './lifeAchievements.js';
 import { pick, hash2 } from './utils.js';
 import { addressOf } from './streets.js';
+import { Legacy, originWords } from './legacy.js';
+import { ERAS, yearOf } from './eras.js';
 
 // One year of life passes per in-game day; Age up skips ahead.
 export const YEAR_SECONDS = DAY_LENGTH_SECONDS;
 const MAX_LOG = 200;
+// Big life choices auto mode never makes for you: which job to take, which home to buy.
+const PLAYER_ONLY = new Set(['job_hunt', 'buy_home']);
 const FALLBACKS = new Set(['job', 'work', 'a classmate', 'someone special', 'the little one', 'the baby']);
 const CITY_TIER = 3; // the "City" milestone, for the Watched it grow achievement
 
@@ -35,6 +39,9 @@ export class LifeSystem {
     this.city = city;
     this.rng = rng;
     this.events = events;
+    this.legacy = new Legacy(city); // the family line's memory across generations
+    // Set by the game (main.js) so events can reach the town: { mayor, economy, decisions, war }, each () → system.
+    this.hooks = {};
   }
 
   get state() {
@@ -295,15 +302,46 @@ export class LifeSystem {
 
   // ---- Events ------------------------------------------------------------
 
-  fireEvent(forceId = null) {
+  // The next event: a consequence that has come due for this family comes first (legacy.js), then
+  // one picked at random, less likely the more recently the family lived through it or its kind.
+  fireEvent(forceId = null, echo = null) {
     const c = this.char;
     const ctx = this.ctx();
-    const ev = forceId ? this.events.find((e) => e.id === forceId) : pickEvent(this.events, ctx, this.rng);
+    let ev = forceId ? this.events.find((e) => e.id === forceId) : null;
+    if (!ev && !forceId) {
+      for (const entry of this.legacy.due(c.last)) {
+        const due = this.events.find((e) => e.id === entry.id);
+        if (!due) {
+          this.legacy.take(entry);
+          continue;
+        }
+        ctx.echo = entry;
+        if (!isEligible(due, ctx, { allowScheduled: true })) continue;
+        this.legacy.take(entry);
+        ev = due;
+        echo = entry;
+        break;
+      }
+      ctx.echo = echo;
+      if (!ev) ev = pickEvent(this.events, ctx, this.rng, (e) => this.legacy.weightFor(e));
+    }
     if (!ev) return null;
+    ctx.echo = echo;
     c.seen[ev.id] = c.age;
-    c.pending = { id: ev.id, age: c.age, choices: choicesFor(ev, ctx) };
+    this.legacy.note(ev);
+    c.pending = { id: ev.id, age: c.age, choices: choicesFor(ev, ctx), ...(echo ? { echo } : {}) };
     this.city.emit('lifeEvent', { id: ev.id });
     return c.pending;
+  }
+
+  // Answer the waiting event by a policy ('safe', 'bold' or 'focus' with stat weights), for auto mode.
+  // Events opened by an activity (job hunting, buying a home) are left to the player.
+  autoChoice(policy, weights = {}) {
+    const p = this.char?.pending;
+    if (!p) return null;
+    const ev = this.events.find((e) => e.id === p.id);
+    if (!ev || ev.manual || PLAYER_ONLY.has(ev.id)) return null;
+    return chooseByPolicy(ev, p.choices.length, this.ctx(), policy, weights);
   }
 
   // What the event card shows for the waiting event.
@@ -323,6 +361,8 @@ export class LifeSystem {
       title: ev.title ? textOf(ev.title) : null,
       text: textOf(ev.text),
       choices: c.pending.choices.map((ch) => fill(ch.label, vars)),
+      category: ev.category || null,
+      echo: c.pending.echo ? { from: originWords(c.pending.echo.origin, c), year: c.pending.echo.origin?.year ?? null } : null,
     };
   }
 
@@ -339,6 +379,10 @@ export class LifeSystem {
     if (outcome.do) outcome.do(ctx, choice.data);
     const text = fill(outcome.text, mergeVars(before, this.vars()));
     this.log(text);
+    // Consequences that come back years (or generations) later.
+    for (const l of [].concat(outcome.later || [])) {
+      this.legacy.schedule(l.event, l.years, { data: l.data ?? null, origin: { name: `${c.first} ${c.last}`, gen: c.generation || 1, year: yearOf(this.city) }, family: c.last, rng: this.rng });
+    }
     c.pending = null;
     if (outcome.next) this.fireEvent(outcome.next);
     this.checkAchievements();
@@ -454,6 +498,13 @@ export class LifeSystem {
       address: c.home ? addressOf(this.city.getTile(c.home.x, c.home.y)) : 'no fixed address',
       job: c.job ? CAREERS[c.job.type].titles[c.job.level].toLowerCase() : 'job',
       workplace: c.job ? STRUCTURES[c.job.type].label.toLowerCase() : 'work',
+      year: yearOf(this.city),
+      era: this.era().label.toLowerCase(),
+      town: this.city.systems.world?.home?.name || 'town',
+      who: originWords(c.pending?.echo?.origin, c),
+      heirloom: this.legacy.state.heirlooms.at(-1)?.name || 'the old family keepsake',
+      rival: this.legacy.recall('rival') || 'the rival family',
+      neighbourtown: this.hooks.war?.()?.world?.neighbours?.[0]?.entry.name || 'the next town',
     };
   }
 
@@ -555,6 +606,69 @@ export class LifeSystem {
     return this.openHomes()[0] || (occupiedOk ? homes[0] : null) || null;
   }
 
+  era() {
+    return ERAS[Math.min(ERAS.length - 1, Math.max(0, this.city.systems.era?.index ?? 0))];
+  }
+
+  // Who leads the town, as seen from the character: 'you', 'family' (a parent or relative stands in) or null.
+  leader() {
+    const st = this.hooks.mayor?.()?.state;
+    if (!st || !this.char) return null;
+    if (st.who === 'you') return 'you';
+    if (st.who === 'father' || st.who === 'regent') return 'family';
+    return null;
+  }
+
+  // The town as events see it.
+  townFacts() {
+    const war = this.hooks.war?.();
+    const s = this.city.stats || {};
+    const n = war?.world?.neighbours || [];
+    const atWar = !!war?.diplomacy && n.some((t) => war.diplomacy.atWar(t.id));
+    if (atWar) this.legacy.remember('sawWar'); // for the peace parade when it ends
+    return {
+      population: s.population || 0,
+      happiness: s.happiness ?? 50,
+      employment: s.employment ?? 1,
+      money: this.hooks.economy?.()?.money ?? this.city.systems.economy?.money ?? 0,
+      atWar,
+      hasBase: !!war?.military,
+      has: (type) => this.city.tiles.some((t) => t.structure?.type === type),
+    };
+  }
+
+  // Effects on the whole town from a life event: { money, spirit: [amount, days], trust, soldierXp }.
+  // Returns the changes to show on the outcome card. Anything the game hasn't connected is skipped.
+  townEffect(t) {
+    const out = [];
+    const eco = this.hooks.economy?.();
+    if (t.money && eco) {
+      const st = eco.state;
+      const n = t.money < 0 ? -Math.min(st.money, -t.money) : t.money;
+      st.money += n;
+      if (n > 0) st.today.income += n;
+      else st.today.expenses -= n;
+      if (n) out.push({ key: 'town', label: 'Town money', delta: n, money: true });
+    }
+    const dec = this.hooks.decisions?.();
+    if (t.spirit && dec) {
+      dec.state.effects.push({ amount: t.spirit[0], until: this.city.day + this.city.clock + t.spirit[1], id: 'life' });
+      out.push({ key: 'town', label: 'Town happiness', delta: Math.round(t.spirit[0] * 100), pct: true });
+    }
+    const war = this.hooks.war?.();
+    const nb = war?.world?.neighbours?.[0];
+    if (t.trust && war?.diplomacy && nb) {
+      const r = war.diplomacy.rel(nb.id);
+      r.trust = Math.max(-100, Math.min(100, r.trust + t.trust));
+      out.push({ key: 'town', label: `Trust with ${nb.entry.name}`, delta: t.trust });
+    }
+    if (t.soldierXp && war?.military) {
+      for (const s of war.military.fit()) s.xp += t.soldierXp;
+      out.push({ key: 'town', label: 'Soldier experience', delta: t.soldierXp });
+    }
+    return out;
+  }
+
   ctx() {
     const c = this.char;
     const life = this;
@@ -563,6 +677,13 @@ export class LifeSystem {
       city: this.city,
       rng: this.rng,
       facts: this.facts(),
+      era: this.era(),
+      year: yearOf(this.city),
+      leader: this.leader(),
+      town: this.townFacts(),
+      legacy: this.legacy,
+      echo: c?.pending?.echo || null,
+      townEffect: (t) => life.townEffect(t),
       has: (t) => c.traits.includes(t),
       person(who) {
         if (who === 'mother' || who === 'father') return c.family[who]?.alive ? c.family[who] : null;

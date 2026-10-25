@@ -7,7 +7,7 @@ import { PRONOUNS, SKIN_TONES, HAIR_COLORS, OUTFIT_COLORS, TRAITS, CAREERS, stag
 import { STAT_LABELS } from './lifeEngine.js';
 import { addressOf } from './streets.js';
 import { ACTIVITY_GROUPS, energyFor } from './lifeActivities.js';
-import { KID_FOCUS } from './autopilot.js';
+import { KID_FOCUS, EVENT_POLICIES } from './autopilot.js';
 import { ACHIEVEMENTS } from './lifeAchievements.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -27,6 +27,8 @@ export function avatarSVG(look = {}, size = 56) {
   </svg>`;
 }
 
+const CATEGORY_LABEL = { personal: 'Personal', family: 'Family', political: 'Politics', economic: 'Money & work', military: 'War & the base', social: 'Town life' };
+
 export class LifeInterface {
   constructor(handlers) {
     this.h = handlers; // { life, onFocus, onCreate, onAgeUp, onChoose, onActivity, onContinue, onNewLife, onOpen }
@@ -42,8 +44,9 @@ export class LifeInterface {
     this.panel.addEventListener('click', (e) => this.onPanelClick(e));
     this.panel.addEventListener('input', (e) => this.onPanelInput(e));
     this.panel.addEventListener('change', (e) => {
-      if (!e.target.matches?.('[data-kidfocus]')) return;
-      this.h.setAutoKid?.({ focus: e.target.value });
+      if (e.target.matches?.('[data-kidevents]')) this.h.setAutoKid?.({ events: e.target.value });
+      else if (e.target.matches?.('[data-kidfocus]')) this.h.setAutoKid?.({ focus: e.target.value });
+      else return;
       this.render();
     });
     this.panel.addEventListener('submit', (e) => {
@@ -237,6 +240,7 @@ export class LifeInterface {
     if (!auto) return '';
     const f = KID_FOCUS.find((x) => x.id === auto.focus) || KID_FOCUS[0];
     return `<div class="auto-row"><button type="button" class="pill small${auto.on ? ' is-on' : ''}" data-act="autokid" aria-pressed="${auto.on}">Auto: ${auto.on ? 'on' : 'off'}</button>
+      <label class="auto-focus">Life events <select data-kidevents aria-label="What ${esc(c.first)} does when a life event asks a question">${EVENT_POLICIES.map((x) => `<option value="${x.id}"${x.id === (auto.events || 'ask') ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>
       <label class="auto-focus">Focus <select data-kidfocus aria-label="What ${esc(c.first)} works on">${KID_FOCUS.map((x) => `<option value="${x.id}"${x.id === auto.focus ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>
       <small>${esc(auto.on ? `${c.first} picks their own activities through the year. ${f.hint}.` : `Turn on to let ${c.first} pick their own activities. ${f.hint}.`)}</small></div>`;
   }
@@ -352,8 +356,8 @@ export class LifeInterface {
       const chips = this.outcome.changes
         .map((ch) => {
           const up = ch.delta > 0;
-          const label = ch.key === 'rel' ? `${ch.who.split(' ')[0]}` : ch.key === 'money' ? 'Money' : STAT_LABELS[ch.key];
-          const amount = ch.key === 'money' ? money(Math.abs(ch.delta)) : Math.abs(ch.delta);
+          const label = ch.key === 'rel' ? `${ch.who.split(' ')[0]}` : ch.key === 'money' ? 'Money' : ch.key === 'town' ? ch.label : STAT_LABELS[ch.key];
+          const amount = ch.key === 'money' || ch.money ? money(Math.abs(ch.delta)) : `${Math.abs(ch.delta)}${ch.pct ? '%' : ''}`;
           return `<span class="delta ${up ? 'up' : 'down'}">${up ? '+' : '−'}${amount} ${label}</span>`;
         })
         .join('');
@@ -373,6 +377,7 @@ export class LifeInterface {
     this._cardFor = `${view.id}|${c.age}`;
     this.card.innerHTML = `<div class="card-head">${avatarSVG(c.look, 36)}<span>${esc(c.first)}, ${c.age} · ${stageFor(c.age).label}</span>
         <button type="button" class="later" data-act="later">Later</button></div>
+      ${view.category || view.echo ? `<p class="event-tags">${view.category ? `<span class="event-tag tag-${esc(view.category)}">${esc(CATEGORY_LABEL[view.category] || view.category)}</span>` : ''}${view.echo ? `<span class="event-tag tag-echo" title="A consequence of something chosen years ago">↺ Set in motion by ${esc(view.echo.from)}${view.echo.year ? ` in ${view.echo.year}` : ''}</span>` : ''}</p>` : ''}
       ${view.title ? `<h3>${esc(view.title)}</h3>` : ''}
       <p class="bubble">${esc(view.text)}</p>
       <div class="choices">${view.choices.map((ch, i) => `<button type="button" class="choice" data-choice="${i}"><kbd>${i + 1}</kbd><span>${esc(ch)}</span></button>`).join('')}</div>`;
