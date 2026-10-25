@@ -3,6 +3,7 @@
 // events, schooling and careers they get.
 
 import { STRUCTURES, DAY_LENGTH_SECONDS } from './config.js';
+import { hasEntrance } from './labor.js';
 import { FIRST_NAMES, LAST_NAMES, PRONOUNS, CAREERS, stageFor } from './lifeData.js';
 import { pickEvent, isEligible, fill, choicesFor, rollOutcome, applyEffects, chooseByPolicy, STAT_KEYS } from './lifeEngine.js';
 import { LIFE_EVENTS } from './lifeEvents.js';
@@ -536,7 +537,7 @@ export class LifeSystem {
     const from = c.home || { x: this.city.width / 2, y: this.city.height / 2 };
     return this.city
       .workplaces()
-      .filter((w) => CAREERS[w.structure.type] && this.city.accessRoad(w.x, w.y) && w.workersFilled < STRUCTURES[w.structure.type].jobs)
+      .filter((w) => CAREERS[w.structure.type] && hasEntrance(this.city, w) && w.workersFilled < STRUCTURES[w.structure.type].jobs) // a road isn't needed: people walk
       .filter((w) => !(c.job && c.job.x === w.x && c.job.y === w.y))
       .sort((a, b) => Math.abs(a.x - from.x) + Math.abs(a.y - from.y) - (Math.abs(b.x - from.x) + Math.abs(b.y - from.y)));
   }

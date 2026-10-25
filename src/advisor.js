@@ -3,6 +3,7 @@
 
 import { STRUCTURES, SERVICE_RATING } from './config.js';
 import { roadPlanFor } from './roadPlanner.js';
+import { WALK_LONG } from './labor.js';
 
 const MAX_THOUGHTS = 5;
 const MAX_TILES = 240;
@@ -59,9 +60,17 @@ export function computeThoughts(city, milestones) {
     add('repairs', rubble || roads >= 2 ? 'bad' : 'caution', 5.5, `Storm damage needs fixing: ${what}.`, 'Crews repair one thing at a time while there is money. Repair all fixes everything now', broken[0], broken, { repair: true });
   }
 
+  // Homes now need a road when they're built, but older towns can still have some without. Their
+  // people walk everywhere (labor.js), so it's a caution, not an emergency.
   const cutOff = homes.filter((h) => !city.accessRoad(h.x, h.y));
   if (cutOff.length) {
-    add('no-road', 'bad', 5, cutOff.length === 1 ? 'A home has no road. Nobody can get to work.' : `${cutOff.length} homes have no road. Nobody there can get to work.`, 'Connect them with a road', cutOff[0], cutOff);
+    add('no-road', 'caution', 4.5, cutOff.length === 1 ? 'A home has no road. Its people walk everywhere.' : `${cutOff.length} homes have no road. Their people walk everywhere.`, 'A road beside them would make getting to work and around town easier', cutOff[0], cutOff);
+  }
+
+  // A long walk to work: people can walk to any job, but not happily for ever.
+  const farWalk = lived.filter((h) => (h.commuteWalk || 0) > WALK_LONG && h.employment > 0);
+  if (farWalk.length) {
+    add('long-walk', 'caution', 3.5, farWalk.length === 1 ? 'Someone has a long walk to work.' : `${farWalk.length} homes have a long walk to work.`, 'Build a road, or jobs closer to home', worstOf(farWalk), farWalk);
   }
 
   const labor = city.derived.labor;

@@ -7,6 +7,7 @@
 // it. The results are exactly what computing every factor afresh would give.
 
 import { STRUCTURES, SERVICES, REPUTATION } from './config.js';
+import { WALK_COMFORT, WALK_MAX } from './labor.js';
 import { clamp } from './utils.js';
 
 const BASE = 0.28;
@@ -148,6 +149,13 @@ export const FACTORS = [
     enabled: true,
     // A well-thought-of town draws people; a run-down name puts them off.
     compute: (city) => ((city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.homeAppeal,
+  },
+  {
+    id: 'commute',
+    label: 'Walk to work',
+    enabled: true,
+    // People who walk to work (labor.js) mind a long way: nothing up to a short walk, then down to −0.12.
+    compute: (city, tile) => (tile.commuteWalk > WALK_COMFORT ? -0.12 * Math.min(1, (tile.commuteWalk - WALK_COMFORT) / (WALK_MAX - WALK_COMFORT)) : 0),
   },
   { id: 'overcrowding', label: 'Overcrowding', enabled: false, compute: () => 0 },
   { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
