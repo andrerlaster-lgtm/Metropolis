@@ -4,6 +4,7 @@
 import { STRUCTURES, SERVICE_RATING } from './config.js';
 import { roadPlanFor } from './roadPlanner.js';
 import { WALK_LONG } from './labor.js';
+import { shortage } from './resources.js';
 
 const MAX_THOUGHTS = 5;
 const MAX_TILES = 240;
@@ -123,6 +124,12 @@ export function computeThoughts(city, milestones) {
     } else if (purse.money < 200 && econ.net < 100) {
       add('budget', 'caution', 2.5, 'The town is nearly out of money.', 'Taxes come in every day; homes and businesses pay the most', econ.top?.[0] || null, econ.top?.[0] ? [econ.top[0]] : []);
     }
+  }
+
+  // Supplies: only worth a word once the town is big enough to need them.
+  const sup = city.derived.resources && lived.length >= 12 ? shortage(city.derived.resources) : null;
+  if (sup && unlocked(sup.kind === 'food' ? 'farm' : sup.kind === 'goods' ? 'workshop' : 'powerplant')) {
+    add('supplies', 'caution', 2.6, { food: 'Food is running short for so many people.', goods: 'The shops and offices want more goods.', power: 'The town needs more power.' }[sup.kind], `Build ${sup.fix}`, null, []);
   }
 
   if (unlocked('clinic')) {

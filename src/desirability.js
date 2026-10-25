@@ -6,7 +6,7 @@
 // whose layout changed, which is checked on every recompute, so a change is never missed whatever made
 // it. The results are exactly what computing every factor afresh would give.
 
-import { STRUCTURES, SERVICES, REPUTATION } from './config.js';
+import { STRUCTURES, SERVICES, REPUTATION, SUPPLY_BONUS } from './config.js';
 import { WALK_COMFORT, WALK_MAX } from './labor.js';
 import { clamp } from './utils.js';
 
@@ -159,7 +159,17 @@ export const FACTORS = [
   },
   { id: 'overcrowding', label: 'Overcrowding', enabled: false, compute: () => 0 },
   { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
-  { id: 'utilities', label: 'Utilities', enabled: false, compute: () => 0 },
+  {
+    id: 'utilities',
+    label: 'Food & power',
+    enabled: true,
+    // A fed town, and from the Motor age a powered one, is a little nicer to live in (resources.js).
+    compute: (city) => {
+      const r = city.derived.resources;
+      if (!r) return 0;
+      return SUPPLY_BONUS.food * (r.food.need > 0 ? r.food.ratio : 0) + (r.power.active ? SUPPLY_BONUS.power * r.power.ratio : 0);
+    },
+  },
   {
     id: 'upgrades',
     label: 'Town upgrades',

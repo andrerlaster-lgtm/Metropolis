@@ -25,7 +25,7 @@ import { addChronicle } from './chronicle.js';
 
 export const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
-const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320, bungalow: 90, rowhouse: 120, villa: 160, restaurant: 90, market: 120, bank: 260, hotel: 300, warehouse: 200, workshop: 150, powerplant: 500, kindergarten: 200, museum: 500, pharmacy: 160, hospital: 700, firehut: 200, fountain: 140, garden: 130, pool: 260, cinema: 340, stadium: 800 };
+const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320, bungalow: 90, rowhouse: 120, villa: 160, restaurant: 90, market: 120, bank: 260, hotel: 300, warehouse: 200, workshop: 150, powerplant: 500, kindergarten: 200, museum: 500, pharmacy: 160, hospital: 700, firehut: 200, fountain: 140, garden: 130, pool: 260, cinema: 340, stadium: 800, farm: 140 };
 const BLOCK = 5; // a side street can branch every this many tiles
 const PUBLIC = new Set(['road', 'school', 'clinic', 'library', 'firestation', 'university', 'park', 'playground', 'field', 'tree', 'kindergarten', 'museum', 'pharmacy', 'hospital', 'firehut', 'fountain', 'garden', 'pool', 'stadium']);
 const FIRSTS = {
@@ -173,6 +173,12 @@ export class Growth {
     d.road = roads > buildings * 1.6 + 20 ? 0 : lots < 4 ? 3 : lots < 8 ? 0.6 : 0;
     d.tree = lived.some((h) => (h.factors?.greenery || 0) < 0.03) ? 0.35 : 0.1;
     return d;
+  }
+
+  // Is the town short of food? (resources.js)
+  foodShort() {
+    const f = this.city.derived.resources?.food;
+    return !!f && f.need > 0 && f.ratio < 0.9;
   }
 
   count(types) {
@@ -341,6 +347,7 @@ export class Growth {
       ['bank', pop > 180 ? 0.5 : 0],
       ['hotel', pop > 220 ? 0.4 : 0],
       ['workshop', 0.6],
+      ['farm', this.foodShort() ? 2 : 0.3],
       ['warehouse', this.count(['factory', 'workshop']) >= 2 ? 0.6 : 0],
       ['powerplant', pop > 500 && !this.count(['powerplant']) ? 0.8 : 0],
       ['factory', this.count(['factory']) < 1 + pop / 250 ? 1.5 : 0.3],
@@ -355,7 +362,7 @@ export class Growth {
       (t) => {
         const dist = Math.hypot(t.x - c.x, t.y - c.y);
         // Factories go to the edge of town; everything else near the middle.
-        return type === 'factory' || type === 'powerplant' || type === 'warehouse' ? dist ** 2 + 0.1 : 1 / (1 + dist * dist * 0.15);
+        return type === 'factory' || type === 'powerplant' || type === 'warehouse' || type === 'farm' ? dist ** 2 + 0.1 : 1 / (1 + dist * dist * 0.15);
       },
       this.rng,
     );

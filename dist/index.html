@@ -435,6 +435,7 @@ body {
 .tint-firestation { --tint: #ffc0b6; }
 .tint-university { --tint: #efcdbb; }
 .tint-bakery { --tint: #f6d7ae; }
+.tint-farm { --tint: #e6dd9a; }
 .tint-tree { --tint: var(--tint-tree); }
 .tint-park { --tint: var(--tint-park); }
 .tint-road { --tint: var(--tint-road); }
@@ -4903,7 +4904,7 @@ const STRUCTURES = {
   shop: { label: 'Shop', capacity: 0, jobs: 5, greenery: 0, height: 22 },
   cafe: { label: 'Café', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'fun', radius: 3 },
   mall: { label: 'Mall', capacity: 0, jobs: 24, greenery: 0, height: 26 },
-  factory: { label: 'Factory', capacity: 0, jobs: 20, greenery: 0, height: 34, pollution: 1 },
+  factory: { label: 'Factory', capacity: 0, jobs: 20, greenery: 0, height: 34, pollution: 1, produces: { goods: 70 } },
   office: { label: 'Office', capacity: 0, jobs: 16, greenery: 0, height: 58 },
   school: { label: 'School', capacity: 0, jobs: 4, greenery: 0, height: 30, service: 'school', radius: 7, serves: 250 },
   clinic: { label: 'Clinic', capacity: 0, jobs: 4, greenery: 0, height: 28, service: 'health', radius: 7, serves: 320 },
@@ -4924,12 +4925,12 @@ const STRUCTURES = {
   rowhouse: { label: 'Row houses', capacity: 7, jobs: 0, greenery: 0, height: 30 },
   villa: { label: 'Villa', capacity: 3, jobs: 0, greenery: 1, height: 26 },
   restaurant: { label: 'Restaurant', capacity: 0, jobs: 8, greenery: 0, height: 22, service: 'fun', radius: 4 },
-  market: { label: 'Market', capacity: 0, jobs: 6, greenery: 0.3, height: 16 },
+  market: { label: 'Market', capacity: 0, jobs: 6, greenery: 0.3, height: 16, produces: { food: 20 } },
   bank: { label: 'Bank', capacity: 0, jobs: 12, greenery: 0, height: 40 },
   hotel: { label: 'Hotel', capacity: 0, jobs: 14, greenery: 0, height: 46, service: 'fun', radius: 3 },
   warehouse: { label: 'Warehouse', capacity: 0, jobs: 14, greenery: 0, height: 24 },
-  workshop: { label: 'Workshop', capacity: 0, jobs: 9, greenery: 0, height: 22 },
-  powerplant: { label: 'Power plant', capacity: 0, jobs: 18, greenery: 0, height: 52, pollution: 1 },
+  workshop: { label: 'Workshop', capacity: 0, jobs: 9, greenery: 0, height: 22, produces: { goods: 25 } },
+  powerplant: { label: 'Power plant', capacity: 0, jobs: 18, greenery: 0, height: 52, pollution: 1, produces: { power: 260 } },
   kindergarten: { label: 'Kindergarten', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'school', radius: 4, serves: 90 },
   museum: { label: 'Museum', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'school', radius: 6, serves: 140 },
   pharmacy: { label: 'Pharmacy', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'health', radius: 4, serves: 110 },
@@ -4940,7 +4941,19 @@ const STRUCTURES = {
   pool: { label: 'Swimming pool', capacity: 0, jobs: 4, greenery: 0.3, height: 16, service: 'fun', radius: 5 },
   cinema: { label: 'Cinema', capacity: 0, jobs: 8, greenery: 0, height: 30, service: 'fun', radius: 6 },
   stadium: { label: 'Stadium', capacity: 0, jobs: 14, greenery: 0, height: 34, service: 'fun', radius: 10 },
+  // Phase 8: the first producer that needs open land rather than a road.
+  farm: { label: 'Farm', capacity: 0, jobs: 4, greenery: 0.5, walkable: true, height: 16, produces: { food: 70 } },
 };
+
+// Resources (resources.js): what the town makes and uses each day.
+const RESOURCES = {
+  food: { label: 'Food', note: 'Farms and markets feed the homes' },
+  goods: { label: 'Goods', note: 'Workshops and factories supply the businesses' },
+  power: { label: 'Power', note: 'Power plants light the town from the Motor age' },
+};
+const RESOURCE_NEED = { foodPerResident: 0.5, goodsPerWorker: 0.25, powerFromEra: 2, powerPerResident: 0.5, powerPerWorker: 0.3 };
+// What a fully supplied town gets: homes a little happier, and a little more tax from shops and the like.
+const SUPPLY_BONUS = { food: 0.04, power: 0.03, retailTax: 0.08 };
 
 // Share of residents who go out to work.
 const WORKER_SHARE = 0.6;
@@ -5018,6 +5031,7 @@ const COSTS = {
   pool: 1600,
   cinema: 2000,
   stadium: 7000,
+  farm: 250,
   playground: 400,
   field: 1500,
   tree: 10,
@@ -5030,7 +5044,7 @@ const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestation: 25
 // Taxes per in-game day: every resident pays a little, every worker a little more, and each business
 // pays per filled job.
 const TAX = { resident: 0.8, worker: 1.2 };
-const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8 };
+const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8, farm: 1.4 };
 const START_MONEY = { land: 10000, town: 25000 };
 
 // Resident thoughts: red needs fixing, yellow is worth a look, green is going well.
@@ -5073,6 +5087,7 @@ const TOOL_GROUPS = [
       { id: 'bank', label: 'Bank' },
       { id: 'hotel', label: 'Hotel' },
       { id: 'workshop', label: 'Workshop' },
+      { id: 'farm', label: 'Farm' },
       { id: 'warehouse', label: 'Warehouse' },
       { id: 'factory', label: 'Factory', key: 'y' },
       { id: 'powerplant', label: 'Power plant' },
@@ -5126,7 +5141,7 @@ const CAR_COLORS = ['#ff9f8f', '#8fd0bd', '#b49ad1', '#ffd98f', '#9cc4ea', '#f7f
 const SHIRT_COLORS = ['#ff8f7e', '#7fc4ad', '#a98bd0', '#ffcf6e', '#86b5e6', '#f49ab8', '#ffffff'];
 const SKIN_TONES = ['#f6d5bd', '#e8b896', '#c98e6a', '#8d5a3f', '#f1c7a5'];
 
-return { TILE_W, TILE_H, DEFAULT_MAP_SIZE, SAVE_VERSION, DAY_LENGTH_SECONDS, SIM_STEP, PALETTE, BUILDING_VARIANTS, VARIANT_KEYS, STRUCTURES, WORKER_SHARE, ROAD_CAPACITY, SERVICES, COVERAGE_IDS, SERVICE_RATING, REPUTATION, MILESTONES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, SEVERITY_COLORS, TOOL_GROUPS, TOOLS, VIEWS, CAR_COLORS, SHIRT_COLORS, SKIN_TONES };
+return { TILE_W, TILE_H, DEFAULT_MAP_SIZE, SAVE_VERSION, DAY_LENGTH_SECONDS, SIM_STEP, PALETTE, BUILDING_VARIANTS, VARIANT_KEYS, STRUCTURES, RESOURCES, RESOURCE_NEED, SUPPLY_BONUS, WORKER_SHARE, ROAD_CAPACITY, SERVICES, COVERAGE_IDS, SERVICE_RATING, REPUTATION, MILESTONES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, SEVERITY_COLORS, TOOL_GROUPS, TOOLS, VIEWS, CAR_COLORS, SHIRT_COLORS, SKIN_TONES };
 })();
 
 // ---- state.js ----
@@ -5609,7 +5624,7 @@ const ERAS = [
     years: 0,
     nominal: 1850,
     blurb: 'Dirt lanes, timber cottages and horse carts.',
-    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground', 'bungalow', 'market', 'pharmacy', 'firehut', 'garden'],
+    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground', 'bungalow', 'market', 'pharmacy', 'firehut', 'garden', 'farm'],
   },
   {
     id: 'railway',
@@ -6687,7 +6702,7 @@ const __mod_desirability = (() => {
 // whose layout changed, which is checked on every recompute, so a change is never missed whatever made
 // it. The results are exactly what computing every factor afresh would give.
 
-const { STRUCTURES, SERVICES, REPUTATION } = __mod_config;
+const { STRUCTURES, SERVICES, REPUTATION, SUPPLY_BONUS } = __mod_config;
 const { WALK_COMFORT, WALK_MAX } = __mod_labor;
 const { clamp } = __mod_utils;
 const BASE = 0.28;
@@ -6839,7 +6854,17 @@ const FACTORS = [
   },
   { id: 'overcrowding', label: 'Overcrowding', enabled: false, compute: () => 0 },
   { id: 'walkability', label: 'Walkability', enabled: false, compute: () => 0 },
-  { id: 'utilities', label: 'Utilities', enabled: false, compute: () => 0 },
+  {
+    id: 'utilities',
+    label: 'Food & power',
+    enabled: true,
+    // A fed town, and from the Motor age a powered one, is a little nicer to live in (resources.js).
+    compute: (city) => {
+      const r = city.derived.resources;
+      if (!r) return 0;
+      return SUPPLY_BONUS.food * (r.food.need > 0 ? r.food.ratio : 0) + (r.power.active ? SUPPLY_BONUS.power * r.power.ratio : 0);
+    },
+  },
   {
     id: 'upgrades',
     label: 'Town upgrades',
@@ -6926,6 +6951,60 @@ function recomputeDesirability(city) {
 }
 
 return { FACTORS, recomputeDesirability };
+})();
+
+// ---- resources.js ----
+const __mod_resources = (() => {
+// Resources: a small supply system. Three things the town makes and uses each day: food (farms and
+// markets feed the homes), goods (workshops and factories supply the businesses) and power (power
+// plants, from the Motor age). Everything here is worked out afresh each refresh from the buildings
+// and who works in them, so nothing is saved and old towns need nothing converted.
+//
+// Supplies only ever help: a fed town is a little happier, a well-supplied one earns a little more.
+// A shortage just means missing the bonus, and the City panel says what would help. Producers are the
+// `produces` numbers in config.js (per day, scaled by how many of the jobs are filled).
+
+const { STRUCTURES, RESOURCES, RESOURCE_NEED } = __mod_config;
+// → { food: { made, need, ratio }, goods: {…}, power: {…, active} } with ratio 0..1 (1 when nothing is needed).
+function computeResources(city, eraIndex = 0) {
+  const made = { food: 0, goods: 0, power: 0 };
+  let residents = 0;
+  let workers = 0;
+  for (const t of city.tiles) {
+    const s = t.structure;
+    if (!s) continue;
+    const def = STRUCTURES[s.type];
+    if (def.capacity) residents += s.residents || 0;
+    if (!def.jobs) continue;
+    workers += t.workersFilled || 0;
+    if (def.produces) {
+      const staffed = def.jobs ? Math.min(1, (t.workersFilled || 0) / def.jobs) : 1;
+      for (const [k, v] of Object.entries(def.produces)) made[k] += v * (0.4 + 0.6 * staffed); // a idle building still makes a little
+    }
+  }
+  // Open-ground producers (a farm has jobs but needs no road, so it's counted above like any workplace).
+  const need = {
+    food: residents * RESOURCE_NEED.foodPerResident,
+    goods: workers * RESOURCE_NEED.goodsPerWorker,
+    power: eraIndex >= RESOURCE_NEED.powerFromEra ? residents * RESOURCE_NEED.powerPerResident + workers * RESOURCE_NEED.powerPerWorker : 0,
+  };
+  const out = {};
+  for (const k of Object.keys(RESOURCES)) {
+    out[k] = { made: Math.round(made[k]), need: Math.round(need[k]), ratio: need[k] > 0 ? Math.min(1, made[k] / need[k]) : 1 };
+  }
+  out.power.active = need.power > 0;
+  return out;
+}
+
+// What would fix the weakest supply, in words (for the City panel and the advisor).
+function shortage(res) {
+  const low = ['food', 'power', 'goods'].filter((k) => res[k] && res[k].need > 0 && res[k].ratio < 0.95).sort((a, b) => res[a].ratio - res[b].ratio)[0];
+  if (!low) return null;
+  const fix = { food: 'a farm or a market', goods: 'a workshop or a factory', power: 'a power plant' }[low];
+  return { kind: low, ratio: res[low].ratio, fix };
+}
+
+return { computeResources, shortage };
 })();
 
 // ---- coverage.js ----
@@ -8250,6 +8329,7 @@ const CAREERS = {
   garden: { titles: ['Gardener', 'Head gardener'], pay: [15000, 24000], smarts: 0 },
   pool: { titles: ['Lifeguard', 'Swimming coach', 'Pool manager'], pay: [16000, 26000, 38000], smarts: 10 },
   cinema: { titles: ['Ticket seller', 'Projectionist', 'Cinema manager'], pay: [15000, 24000, 40000], smarts: 10 },
+  farm: { titles: ['Farmhand', 'Farmer', 'Master farmer'], pay: [15000, 24000, 38000], smarts: 0 },
   stadium: { titles: ['Groundskeeper', 'Steward', 'Stadium manager'], pay: [17000, 25000, 48000], smarts: 10 },
 };
 
@@ -11985,7 +12065,10 @@ const __mod_economy = (() => {
 // The balance and a daily ledger are saved in city.systems.economy. Per-building earnings are
 // derived each market refresh into tile.earning and city.derived.economy.
 
-const { STRUCTURES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, WORKER_SHARE } = __mod_config;
+const { STRUCTURES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, WORKER_SHARE, SUPPLY_BONUS } = __mod_config;
+// Shops and the like earn a little more tax when goods are in supply (resources.js).
+const RETAIL = new Set(['shop', 'cafe', 'bakery', 'mall', 'restaurant', 'market']);
+
 const KEEP_DAYS = 7;
 
 // The category a building's money shows up under in the budget.
@@ -12032,6 +12115,7 @@ const CATEGORY_LABELS = {
   pool: 'Swimming pools',
   cinema: 'Cinemas',
   stadium: 'Stadiums',
+  farm: 'Farms',
   bonds: 'Town bonds',
   interest: 'Savings bank',
 };
@@ -12109,7 +12193,7 @@ class Economy {
         const workers = Math.round(s.residents * WORKER_SHARE) * (t.employment || 0);
         e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
       } else if (BUSINESS_TAX[s.type]) {
-        e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1);
+        e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1) * (RETAIL.has(s.type) ? 1 + SUPPLY_BONUS.retailTax * (city.derived.resources?.goods.need > 0 ? city.derived.resources.goods.ratio : 0) : 1);
       } else if (UPKEEP[s.type]) {
         e = -UPKEEP[s.type] * this.modifiers.upkeep;
       }
@@ -12422,7 +12506,7 @@ const TRAIT_WORDS = {
 
 // Where each kind of outing happens. Weights favour the most fitting place.
 const VENUES = {
-  eat: { cafe: 3, bakery: 2.5, restaurant: 3, mall: 2, market: 1.5, hotel: 1, shop: 1 },
+  eat: { cafe: 3, bakery: 2.5, restaurant: 3, mall: 2, market: 1.5, farm: 0.6, hotel: 1, shop: 1 },
   social: { cafe: 3, restaurant: 2, park: 2, fountain: 1.5, garden: 1.2, library: 1.5, museum: 1, cinema: 2, playground: 1.5, field: 1.5, mall: 1, hotel: 0.8 },
   play: { park: 2.5, playground: 2, field: 2.5, pool: 2.5, stadium: 3, cinema: 1.5, garden: 1, cafe: 0.8 },
   shop: { mall: 3, shop: 2, market: 2.5 },
@@ -12973,7 +13057,7 @@ const { clamp, pickWeighted } = __mod_utils;
 const { addChronicle } = __mod_chronicle;
 const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
-const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320, bungalow: 90, rowhouse: 120, villa: 160, restaurant: 90, market: 120, bank: 260, hotel: 300, warehouse: 200, workshop: 150, powerplant: 500, kindergarten: 200, museum: 500, pharmacy: 160, hospital: 700, firehut: 200, fountain: 140, garden: 130, pool: 260, cinema: 340, stadium: 800 };
+const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320, bungalow: 90, rowhouse: 120, villa: 160, restaurant: 90, market: 120, bank: 260, hotel: 300, warehouse: 200, workshop: 150, powerplant: 500, kindergarten: 200, museum: 500, pharmacy: 160, hospital: 700, firehut: 200, fountain: 140, garden: 130, pool: 260, cinema: 340, stadium: 800, farm: 140 };
 const BLOCK = 5; // a side street can branch every this many tiles
 const PUBLIC = new Set(['road', 'school', 'clinic', 'library', 'firestation', 'university', 'park', 'playground', 'field', 'tree', 'kindergarten', 'museum', 'pharmacy', 'hospital', 'firehut', 'fountain', 'garden', 'pool', 'stadium']);
 const FIRSTS = {
@@ -13121,6 +13205,12 @@ class Growth {
     d.road = roads > buildings * 1.6 + 20 ? 0 : lots < 4 ? 3 : lots < 8 ? 0.6 : 0;
     d.tree = lived.some((h) => (h.factors?.greenery || 0) < 0.03) ? 0.35 : 0.1;
     return d;
+  }
+
+  // Is the town short of food? (resources.js)
+  foodShort() {
+    const f = this.city.derived.resources?.food;
+    return !!f && f.need > 0 && f.ratio < 0.9;
   }
 
   count(types) {
@@ -13289,6 +13379,7 @@ class Growth {
       ['bank', pop > 180 ? 0.5 : 0],
       ['hotel', pop > 220 ? 0.4 : 0],
       ['workshop', 0.6],
+      ['farm', this.foodShort() ? 2 : 0.3],
       ['warehouse', this.count(['factory', 'workshop']) >= 2 ? 0.6 : 0],
       ['powerplant', pop > 500 && !this.count(['powerplant']) ? 0.8 : 0],
       ['factory', this.count(['factory']) < 1 + pop / 250 ? 1.5 : 0.3],
@@ -13303,7 +13394,7 @@ class Growth {
       (t) => {
         const dist = Math.hypot(t.x - c.x, t.y - c.y);
         // Factories go to the edge of town; everything else near the middle.
-        return type === 'factory' || type === 'powerplant' || type === 'warehouse' ? dist ** 2 + 0.1 : 1 / (1 + dist * dist * 0.15);
+        return type === 'factory' || type === 'powerplant' || type === 'warehouse' || type === 'farm' ? dist ** 2 + 0.1 : 1 / (1 + dist * dist * 0.15);
       },
       this.rng,
     );
@@ -14528,6 +14619,7 @@ const __mod_advisor = (() => {
 const { STRUCTURES, SERVICE_RATING } = __mod_config;
 const { roadPlanFor } = __mod_roadPlanner;
 const { WALK_LONG } = __mod_labor;
+const { shortage } = __mod_resources;
 const MAX_THOUGHTS = 5;
 const MAX_TILES = 240;
 // How urgent a thought is: 'bad' (red, fix soon), 'caution' (yellow, worth a look) or 'good' (green).
@@ -14646,6 +14738,12 @@ function computeThoughts(city, milestones) {
     } else if (purse.money < 200 && econ.net < 100) {
       add('budget', 'caution', 2.5, 'The town is nearly out of money.', 'Taxes come in every day; homes and businesses pay the most', econ.top?.[0] || null, econ.top?.[0] ? [econ.top[0]] : []);
     }
+  }
+
+  // Supplies: only worth a word once the town is big enough to need them.
+  const sup = city.derived.resources && lived.length >= 12 ? shortage(city.derived.resources) : null;
+  if (sup && unlocked(sup.kind === 'food' ? 'farm' : sup.kind === 'goods' ? 'workshop' : 'powerplant')) {
+    add('supplies', 'caution', 2.6, { food: 'Food is running short for so many people.', goods: 'The shops and offices want more goods.', power: 'The town needs more power.' }[sup.kind], `Build ${sup.fix}`, null, []);
   }
 
   if (unlocked('clinic')) {
@@ -14768,6 +14866,7 @@ const __mod_simulation = (() => {
 const { STRUCTURES, DAY_LENGTH_SECONDS, SIM_STEP } = __mod_config;
 const { recomputeDesirability } = __mod_desirability;
 const { computeLaborMarket } = __mod_labor;
+const { computeResources } = __mod_resources;
 const { computeCoverage } = __mod_coverage;
 const { Reputation } = __mod_reputation;
 const { computeStreets } = __mod_streets;
@@ -14886,6 +14985,7 @@ class Simulation {
     this.applyNotables();
     computeCoverage(this.city);
     this.city.derived.labor = computeLaborMarket(this.city);
+    this.city.derived.resources = computeResources(this.city, this.city.systems.era?.index ?? 0);
     recomputeDesirability(this.city);
     this.economy.assess();
     this._notableRates = this.notables.rates();
@@ -15841,7 +15941,50 @@ function pool(ctx, x, y, s, L, ghost) {
   }
 }
 
+function farmGround(ctx, t, L) {
+  const { x, y } = t;
+  fillPoly(ctx, L, [[x + 0.04, y + 0.04], [x + 0.96, y + 0.04], [x + 0.96, y + 0.96], [x + 0.04, y + 0.96]], '#c9b36a');
+  // Ploughed rows of green crop across the field, a path of bare earth down the middle.
+  for (let k = 0; k < 6; k++) {
+    const gy = y + 0.08 + k * 0.145;
+    fillPoly(ctx, L, [[x + 0.08, gy], [x + 0.6, gy], [x + 0.6, gy + 0.1], [x + 0.08, gy + 0.1]], k % 2 ? '#8fbf5f' : '#7fb255');
+    fillPoly(ctx, L, [[x + 0.66, gy], [x + 0.92, gy], [x + 0.92, gy + 0.1], [x + 0.66, gy + 0.1]], k % 2 ? '#e0c25a' : '#d4b34c');
+  }
+}
+
+function farm(ctx, x, y, s, L, ghost) {
+  if (ghost) farmGround.call(this, ctx, { x, y }, L);
+  const light = lightOf(this, x, y, s, ghost, L, 'shop');
+  // A red barn with a gambrel-style roof, and a tall silo beside it.
+  const b = { x0: x + 0.6, x1: x + 0.9, y0: y + 0.1, y1: y + 0.44 };
+  this.drawBox(ctx, L, b.x0, b.y0, b.x1, b.y1, 0, 10, '#c4574a', false);
+  fillPoly(ctx, L, this.faceQuad('L', b.x0, b.y0, b.x1, b.y1, 0.3, 0.7, 0, 8), '#f2e8d8', 0.95);
+  this.drawWindow(ctx, L, this.faceQuad('R', b.x0, b.y0, b.x1, b.y1, 0.35, 0.65, 4, 8), 0.8, light.lit(0));
+  this.gableRoof(ctx, L, b.x0, b.y0, b.x1, b.y1, 10, 6, '#7a5a4e', '#c4574a');
+  this.drawBox(ctx, L, x + 0.5, y + 0.14, x + 0.6, y + 0.24, 0, 20, '#d9d2c4');
+  const c = gridToWorld(x + 0.55, y + 0.19, 20);
+  ctx.fillStyle = lit('#b9b1a2', 1, L);
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y, 6.5, 3.4, 0, Math.PI, 0);
+  ctx.fill();
+  // A scarecrow in the crops.
+  const p = gridToWorld(x + 0.3, y + 0.7, 0);
+  ctx.strokeStyle = lit('#7a5a3c', 1, L);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  ctx.lineTo(p.x, p.y - 12);
+  ctx.moveTo(p.x - 4, p.y - 9);
+  ctx.lineTo(p.x + 4, p.y - 9);
+  ctx.stroke();
+  ctx.fillStyle = lit('#e8c070', 1, L);
+  ctx.beginPath();
+  ctx.arc(p.x, p.y - 13, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 const ART2D = {
+  farm,
   bungalow,
   rowhouse,
   villa,
@@ -15865,7 +16008,7 @@ const ART2D = {
 };
 
 // Types that paint something on the ground tile itself (under their props).
-const GROUND2D = { fountain: fountainGround, garden: gardenGround, pool: poolGround };
+const GROUND2D = { farm: farmGround, fountain: fountainGround, garden: gardenGround, pool: poolGround };
 
 // Contact-shadow footprints, as renderer.footprint returns them.
 const FOOTPRINT2D = {
@@ -20730,6 +20873,7 @@ const COLORS = {
   pool: '#8fd0f0',
   cinema: '#c4a0d8',
   stadium: '#90c88a',
+  farm: '#d8c76e',
 };
 
 class Minimap {
@@ -21258,6 +21402,7 @@ const ICONS = {
   pool: svg('<path d="M3 14.500c1.500 1.500 3 1.500 4.500 0s3-1.500 4.500 0 3 1.500 4.500 0 3-1.500 4.500 0"/><path d="M3 19c1.500 1.500 3 1.500 4.500 0s3-1.500 4.500 0 3 1.500 4.500 0 3-1.500 4.500 0"/><path d="M8 11.500V5.500a2 2 0 0 1 4 0M14 11.500V5.500a2 2 0 0 1 4 0M8 8.500h6"/>'),
   cinema: svg('<rect x="3.500" y="6" width="17" height="14" rx="2"/><path d="m3.500 10 17-4M7.500 8.800l-1.500-3.500M12.500 7.600 11 4M17 6.500 15.500 3"/><path d="m10.500 12.500 4 2.500-4 2.500z"/>'),
   stadium: svg('<ellipse cx="12" cy="9.500" rx="9" ry="4"/><path d="M3 9.500v6c0 2.200 4 4 9 4s9-1.800 9-4v-6"/><path d="M8 10v8M12 10.500v8.500M16 10v8"/>'),
+  farm: svg('<path d="M3 20h18"/><path d="M4 20c1-4 4-6 8-6s7 2 8 6"/><path d="M6 14v-2M12 14v-4M18 14v-2"/><path d="M12 10c-2 0-3-1.500-3-3 2 0 3 1 3 3zM12 10c2 0 3-1.500 3-3-2 0-3 1-3 3z"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
   playground: svg('<path d="M4 20 7 6h3l3 14"/><path d="M5.5 13h6"/><path d="M14 8h6v12"/><path d="M14 8c0 5 2 8 6 9"/>'),
   field: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14"/><circle cx="12" cy="12" r="2.5"/><path d="M3 9.5h2.5v5H3M21 9.5h-2.5v5H21"/>'),
@@ -22734,13 +22879,14 @@ const __mod_eraUI = (() => {
 // and years), how fast the town is growing, and the chronicle of firsts, eras, decisions and family.
 
 const { ERAS } = __mod_eras;
-const { REPUTATION } = __mod_config;
+const { REPUTATION, RESOURCES } = __mod_config;
+const { shortage } = __mod_resources;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const ICON = { first: '★', era: '◆', decision: '⚖', family: '♥', note: '•' };
 
 function eraKey(eras, growth, city) {
   const p = eras.progress();
-  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100)]);
+  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100), ['food', 'goods', 'power'].map((k) => { const r = city.derived.resources?.[k]; return r ? [r.made, r.need] : 0; })]);
 }
 
 function eraHTML(eras, growth) {
@@ -22756,10 +22902,24 @@ function eraHTML(eras, growth) {
         `<p class="era-need">Next: <b>${esc(p.next.label)}</b> needs ${p.needPop.toLocaleString()} people (now ${p.pop.toLocaleString()}) and ${p.needYears} years since founding (now ${p.years}).</p>`
       : '<p class="era-need">The town has reached its brightest era.</p>') +
     reputationHTML(eras.city.derived.reputation) +
+    suppliesHTML(eras.city.derived.resources) +
     (growth
       ? `<p class="era-need">${growth.on ? `Growing by itself at ${Math.round(rate * 100)}% pace. Happier towns grow faster; decisions can speed it up or slow it down.` : 'Growth is off: the town only changes when you build. Turn it on in ☰ Settings.'}</p>` +
         (boosts ? `<p class="dtags">${boosts}</p>` : '')
       : '')
+  );
+}
+
+// Food, goods and power: what is made against what is needed, and what would help (resources.js).
+function suppliesHTML(res) {
+  if (!res) return '';
+  const rows = ['food', 'goods', 'power'].filter((k) => res[k].need > 0);
+  if (!rows.length) return '';
+  const s = shortage(res);
+  return (
+    `<p class="era-need"><b>Supplies:</b> ${rows.map((k) => `${RESOURCES[k].label} ${res[k].made}/${res[k].need}`).join(' · ')}. ` +
+    (s ? `Short of ${RESOURCES[s.kind].label.toLowerCase()}: ${esc(s.fix)} would help.` : 'Everyone is well supplied.') +
+    ' A fed and powered town is a little happier, and goods help shops earn more.</p>'
   );
 }
 
@@ -29692,6 +29852,7 @@ const TOOL_SOUNDS = {
   pool: 'pop',
   cinema: 'popBig',
   stadium: 'popBig',
+  farm: 'plant',
   playground: 'pop',
   field: 'plant',
   tree: 'plant',

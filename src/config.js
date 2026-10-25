@@ -56,7 +56,7 @@ export const STRUCTURES = {
   shop: { label: 'Shop', capacity: 0, jobs: 5, greenery: 0, height: 22 },
   cafe: { label: 'Café', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'fun', radius: 3 },
   mall: { label: 'Mall', capacity: 0, jobs: 24, greenery: 0, height: 26 },
-  factory: { label: 'Factory', capacity: 0, jobs: 20, greenery: 0, height: 34, pollution: 1 },
+  factory: { label: 'Factory', capacity: 0, jobs: 20, greenery: 0, height: 34, pollution: 1, produces: { goods: 70 } },
   office: { label: 'Office', capacity: 0, jobs: 16, greenery: 0, height: 58 },
   school: { label: 'School', capacity: 0, jobs: 4, greenery: 0, height: 30, service: 'school', radius: 7, serves: 250 },
   clinic: { label: 'Clinic', capacity: 0, jobs: 4, greenery: 0, height: 28, service: 'health', radius: 7, serves: 320 },
@@ -77,12 +77,12 @@ export const STRUCTURES = {
   rowhouse: { label: 'Row houses', capacity: 7, jobs: 0, greenery: 0, height: 30 },
   villa: { label: 'Villa', capacity: 3, jobs: 0, greenery: 1, height: 26 },
   restaurant: { label: 'Restaurant', capacity: 0, jobs: 8, greenery: 0, height: 22, service: 'fun', radius: 4 },
-  market: { label: 'Market', capacity: 0, jobs: 6, greenery: 0.3, height: 16 },
+  market: { label: 'Market', capacity: 0, jobs: 6, greenery: 0.3, height: 16, produces: { food: 20 } },
   bank: { label: 'Bank', capacity: 0, jobs: 12, greenery: 0, height: 40 },
   hotel: { label: 'Hotel', capacity: 0, jobs: 14, greenery: 0, height: 46, service: 'fun', radius: 3 },
   warehouse: { label: 'Warehouse', capacity: 0, jobs: 14, greenery: 0, height: 24 },
-  workshop: { label: 'Workshop', capacity: 0, jobs: 9, greenery: 0, height: 22 },
-  powerplant: { label: 'Power plant', capacity: 0, jobs: 18, greenery: 0, height: 52, pollution: 1 },
+  workshop: { label: 'Workshop', capacity: 0, jobs: 9, greenery: 0, height: 22, produces: { goods: 25 } },
+  powerplant: { label: 'Power plant', capacity: 0, jobs: 18, greenery: 0, height: 52, pollution: 1, produces: { power: 260 } },
   kindergarten: { label: 'Kindergarten', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'school', radius: 4, serves: 90 },
   museum: { label: 'Museum', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'school', radius: 6, serves: 140 },
   pharmacy: { label: 'Pharmacy', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'health', radius: 4, serves: 110 },
@@ -93,7 +93,19 @@ export const STRUCTURES = {
   pool: { label: 'Swimming pool', capacity: 0, jobs: 4, greenery: 0.3, height: 16, service: 'fun', radius: 5 },
   cinema: { label: 'Cinema', capacity: 0, jobs: 8, greenery: 0, height: 30, service: 'fun', radius: 6 },
   stadium: { label: 'Stadium', capacity: 0, jobs: 14, greenery: 0, height: 34, service: 'fun', radius: 10 },
+  // Phase 8: the first producer that needs open land rather than a road.
+  farm: { label: 'Farm', capacity: 0, jobs: 4, greenery: 0.5, walkable: true, height: 16, produces: { food: 70 } },
 };
+
+// Resources (resources.js): what the town makes and uses each day.
+export const RESOURCES = {
+  food: { label: 'Food', note: 'Farms and markets feed the homes' },
+  goods: { label: 'Goods', note: 'Workshops and factories supply the businesses' },
+  power: { label: 'Power', note: 'Power plants light the town from the Motor age' },
+};
+export const RESOURCE_NEED = { foodPerResident: 0.5, goodsPerWorker: 0.25, powerFromEra: 2, powerPerResident: 0.5, powerPerWorker: 0.3 };
+// What a fully supplied town gets: homes a little happier, and a little more tax from shops and the like.
+export const SUPPLY_BONUS = { food: 0.04, power: 0.03, retailTax: 0.08 };
 
 // Share of residents who go out to work.
 export const WORKER_SHARE = 0.6;
@@ -171,6 +183,7 @@ export const COSTS = {
   pool: 1600,
   cinema: 2000,
   stadium: 7000,
+  farm: 250,
   playground: 400,
   field: 1500,
   tree: 10,
@@ -183,7 +196,7 @@ export const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestat
 // Taxes per in-game day: every resident pays a little, every worker a little more, and each business
 // pays per filled job.
 export const TAX = { resident: 0.8, worker: 1.2 };
-export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8 };
+export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8, farm: 1.4 };
 export const START_MONEY = { land: 10000, town: 25000 };
 
 // Resident thoughts: red needs fixing, yellow is worth a look, green is going well.
@@ -226,6 +239,7 @@ export const TOOL_GROUPS = [
       { id: 'bank', label: 'Bank' },
       { id: 'hotel', label: 'Hotel' },
       { id: 'workshop', label: 'Workshop' },
+      { id: 'farm', label: 'Farm' },
       { id: 'warehouse', label: 'Warehouse' },
       { id: 'factory', label: 'Factory', key: 'y' },
       { id: 'powerplant', label: 'Power plant' },

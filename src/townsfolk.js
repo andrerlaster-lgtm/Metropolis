@@ -53,7 +53,7 @@ const TRAIT_WORDS = {
 
 // Where each kind of outing happens. Weights favour the most fitting place.
 const VENUES = {
-  eat: { cafe: 3, bakery: 2.5, restaurant: 3, mall: 2, market: 1.5, hotel: 1, shop: 1 },
+  eat: { cafe: 3, bakery: 2.5, restaurant: 3, mall: 2, market: 1.5, farm: 0.6, hotel: 1, shop: 1 },
   social: { cafe: 3, restaurant: 2, park: 2, fountain: 1.5, garden: 1.2, library: 1.5, museum: 1, cinema: 2, playground: 1.5, field: 1.5, mall: 1, hotel: 0.8 },
   play: { park: 2.5, playground: 2, field: 2.5, pool: 2.5, stadium: 3, cinema: 1.5, garden: 1, cafe: 0.8 },
   shop: { mall: 3, shop: 2, market: 2.5 },

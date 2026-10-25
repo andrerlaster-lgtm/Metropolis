@@ -3,7 +3,10 @@
 // The balance and a daily ledger are saved in city.systems.economy. Per-building earnings are
 // derived each market refresh into tile.earning and city.derived.economy.
 
-import { STRUCTURES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, WORKER_SHARE } from './config.js';
+import { STRUCTURES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, WORKER_SHARE, SUPPLY_BONUS } from './config.js';
+
+// Shops and the like earn a little more tax when goods are in supply (resources.js).
+const RETAIL = new Set(['shop', 'cafe', 'bakery', 'mall', 'restaurant', 'market']);
 
 const KEEP_DAYS = 7;
 
@@ -51,6 +54,7 @@ export const CATEGORY_LABELS = {
   pool: 'Swimming pools',
   cinema: 'Cinemas',
   stadium: 'Stadiums',
+  farm: 'Farms',
   bonds: 'Town bonds',
   interest: 'Savings bank',
 };
@@ -128,7 +132,7 @@ export class Economy {
         const workers = Math.round(s.residents * WORKER_SHARE) * (t.employment || 0);
         e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
       } else if (BUSINESS_TAX[s.type]) {
-        e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1);
+        e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1) * (RETAIL.has(s.type) ? 1 + SUPPLY_BONUS.retailTax * (city.derived.resources?.goods.need > 0 ? city.derived.resources.goods.ratio : 0) : 1);
       } else if (UPKEEP[s.type]) {
         e = -UPKEEP[s.type] * this.modifiers.upkeep;
       }

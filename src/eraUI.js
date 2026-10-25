@@ -2,14 +2,15 @@
 // and years), how fast the town is growing, and the chronicle of firsts, eras, decisions and family.
 
 import { ERAS } from './eras.js';
-import { REPUTATION } from './config.js';
+import { REPUTATION, RESOURCES } from './config.js';
+import { shortage } from './resources.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const ICON = { first: '★', era: '◆', decision: '⚖', family: '♥', note: '•' };
 
 export function eraKey(eras, growth, city) {
   const p = eras.progress();
-  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100)]);
+  return JSON.stringify([eras.index, eras.year, p && Math.round(p.fraction * 40), growth?.on, growth && Math.round(growth.rate() * 10), (city.systems.chronicle || []).length, Math.round((city.derived.reputation?.value ?? 0.5) * 100), ['food', 'goods', 'power'].map((k) => { const r = city.derived.resources?.[k]; return r ? [r.made, r.need] : 0; })]);
 }
 
 export function eraHTML(eras, growth) {
@@ -25,10 +26,24 @@ export function eraHTML(eras, growth) {
         `<p class="era-need">Next: <b>${esc(p.next.label)}</b> needs ${p.needPop.toLocaleString()} people (now ${p.pop.toLocaleString()}) and ${p.needYears} years since founding (now ${p.years}).</p>`
       : '<p class="era-need">The town has reached its brightest era.</p>') +
     reputationHTML(eras.city.derived.reputation) +
+    suppliesHTML(eras.city.derived.resources) +
     (growth
       ? `<p class="era-need">${growth.on ? `Growing by itself at ${Math.round(rate * 100)}% pace. Happier towns grow faster; decisions can speed it up or slow it down.` : 'Growth is off: the town only changes when you build. Turn it on in ☰ Settings.'}</p>` +
         (boosts ? `<p class="dtags">${boosts}</p>` : '')
       : '')
+  );
+}
+
+// Food, goods and power: what is made against what is needed, and what would help (resources.js).
+function suppliesHTML(res) {
+  if (!res) return '';
+  const rows = ['food', 'goods', 'power'].filter((k) => res[k].need > 0);
+  if (!rows.length) return '';
+  const s = shortage(res);
+  return (
+    `<p class="era-need"><b>Supplies:</b> ${rows.map((k) => `${RESOURCES[k].label} ${res[k].made}/${res[k].need}`).join(' · ')}. ` +
+    (s ? `Short of ${RESOURCES[s.kind].label.toLowerCase()}: ${esc(s.fix)} would help.` : 'Everyone is well supplied.') +
+    ' A fed and powered town is a little happier, and goods help shops earn more.</p>'
   );
 }
 
