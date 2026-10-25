@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Storybook look · Pocket Metropolis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@600;700;800&display=swap" />
+    <link rel="stylesheet" href="src/style.css" />
+    <link rel="stylesheet" href="src/storybook.css" />
+  </head>
+  <body>
+    <!-- app:start -->
+    <main id="sb-app">
+      <div id="sb-stage"></div>
+      <div id="sb-before-hud"></div>
+      <header class="sb-top glass">
+        <div class="sb-title">Storybook look <span class="sb-tag">Visual sample</span></div>
+        <div class="sb-sub"><span id="sb-where">…</span> · <span id="sb-source"></span></div>
+      </header>
+      <div class="sb-toggle glass" role="group" aria-label="Compare the look">
+        <button type="button" data-show="before" aria-pressed="false" title="The game's current 3D view (B)">Before</button>
+        <button type="button" data-show="after" aria-pressed="true" title="The storybook look (B)">After</button>
+      </div>
+      <div class="sb-bottom glass">
+        <span class="sb-hint">Drag to turn · pinch or scroll to zoom · two fingers or right-drag to move</span>
+        <button type="button" class="sb-btn" id="sb-reset">Reset view</button>
+        <a class="sb-btn" href="./">Back to the game</a>
+        <span class="sb-meta"><span id="sb-fps"></span> <span id="sb-stats"></span></span>
+      </div>
+      <div class="sb-loading glass" id="sb-loading" role="status">Loading…</div>
+    </main>
+    <!-- app:end -->
+    <script type="module" src="src/storybook.js"></script>
+  </body>
+</html>
