@@ -62,9 +62,15 @@ test('every building type, facing every way, builds without errors and has a hei
       assert.equal(SB.frontOf(city.getTile(5, 5), city), r, `${type} faces its road`);
       const walk = STRUCTURES[type].walkable || type === 'tree' || type === 'park';
       const top = out.tops.find(([i]) => i === 5 * 12 + 5);
-      if (!walk && SB.STORY_TYPES.includes(type)) assert.ok(top && top[1] > 0.1, `${type} stands up`);
+      if (!walk && type !== 'field' && type !== 'rubble') assert.ok(top && top[1] > 0.1, `${type} stands up`);
     }
   }
+});
+
+test('every building type has its own storybook model, so none falls back to the old look', () => {
+  const needed = Object.keys(STRUCTURES).filter((t) => t !== 'road');
+  const missing = needed.filter((t) => !SB.STORY_TYPES.includes(t));
+  assert.deepEqual(missing, [], `no storybook model for: ${missing.join(', ')}`);
 });
 
 test('streets keep the game layout: sidewalks only on unconnected sides, lamps and crossings where the game has them', () => {
@@ -106,7 +112,10 @@ test('winter lights the chimneys; the map edge gets earthy sides', () => {
   const city = town();
   const warm = SB.buildStorybook(city, all, { growthOf, STRUCTURES });
   const cold = SB.buildStorybook(city, all, { growthOf, STRUCTURES, winter: true, edges: true });
-  assert.equal(warm.smoke.length, 0);
+  // Only factory chimneys smoke all year; in winter every hearth does too.
+  const factories = city.tiles.filter((t) => t.structure?.type === 'factory').length;
+  assert.equal(warm.smoke.length, factories);
+  assert.ok(warm.smoke.every((p) => p.big));
   assert.ok(cold.smoke.length > 10);
   assert.ok(cold.layers.dirt.p.some((v, i) => i % 3 === 1 && v < -0.5), 'sides reach down');
 });

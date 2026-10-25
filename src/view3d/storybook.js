@@ -222,12 +222,12 @@ export class SBMesh {
   }
 
   // A tapered cylinder with smooth sides (trunks, posts, chimneys pots), n sides.
-  cyl(x, z, r0, r1, y0, y1, n, col, { top = col, s = 1 } = {}) {
+  cyl(x, z, r0, r1, y0, y1, n, col, { top = col, s = 1, a0 = 0 } = {}) {
     const lo = mul(col, 0.8);
     const slope = (r0 - r1) / Math.max(1e-6, y1 - y0);
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const b = ((i + 1) / n) * Math.PI * 2;
+      const a = (i / n) * Math.PI * 2 + a0;
+      const b = ((i + 1) / n) * Math.PI * 2 + a0;
       const ca = [Math.cos(a), Math.sin(a)];
       const cb = [Math.cos(b), Math.sin(b)];
       const p0 = [x + ca[0] * r0, y0, z + ca[1] * r0];
@@ -877,11 +877,12 @@ function house(out, ctx) {
   walls(out, b, 0.035, h, lin(v.wall));
   timbering(out, b, h * 0.55, h, ctx);
   gableRoof(out, b, h, 0.27, { col: lin(v.roof), wall: v.wall });
-  doorAt(out, b, 0, 0.09, 0.15, ctx);
-  windowAt(out, b, 0, -0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true });
-  windowAt(out, b, 0, 0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true });
-  windowAt(out, b, 0, -0.14, 0.2, 0.065, 0.06, ctx);
-  windowAt(out, b, 0, 0.14, 0.2, 0.065, 0.06, ctx);
+  const mid = (b.x1 - b.x0) / 2; // positions along a wall count from its left end
+  doorAt(out, b, mid, 0.09, 0.15, ctx);
+  windowAt(out, b, 0, mid - 0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true });
+  windowAt(out, b, 0, mid + 0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true });
+  windowAt(out, b, 0, mid - 0.14, 0.2, 0.065, 0.06, ctx);
+  windowAt(out, b, 0, mid + 0.14, 0.2, 0.065, 0.06, ctx);
   for (const face of [1, 2, 3]) {
     const f = wallFrame(b, face);
     windowAt(out, b, face, f.w * 0.5, 0.09, 0.07, 0.07, ctx, { shutters: face === 2 });
@@ -920,8 +921,8 @@ function cottage(out, ctx) {
   gableRoof(out, b, h, 0.25, { o: 0.07, layer: 'thatch', col: lin('#d2a85c'), wall: '#e8dcc3', ridge: false });
   // A plump thatch ridge.
   out.layers.thatch.box(b.x0 - 0.07, h + 0.22, -0.065, b.x1 + 0.07, h + 0.265, -0.015, lin('#b98d45'), { s: 4 });
-  doorAt(out, b, -0.05, 0.08, 0.13, ctx);
-  windowAt(out, b, 0, 0.12, 0.07, 0.07, 0.065, ctx, { box: true });
+  doorAt(out, b, (b.x1 - b.x0) / 2 - 0.05, 0.08, 0.13, ctx);
+  windowAt(out, b, 0, (b.x1 - b.x0) / 2 + 0.12, 0.07, 0.07, 0.065, ctx, { box: true });
   for (const face of [1, 2, 3]) windowAt(out, b, face, wallFrame(b, face).w / 2, 0.07, 0.06, 0.06, ctx);
   chimney(out, b.x1 - 0.08, -0.04, h + 0.05, h + 0.3);
   garden(out, ctx, b, { fence: (ctx.s.shape || 0) % 2 === 0 });
@@ -935,7 +936,7 @@ function townhouse(out, ctx) {
   let b = block(0.64, 0.5, -0.04);
   const S = out.layers.stone;
   S.box(b.x0, 0, b.z0, b.x1, FLOOR, b.z1, lin('#cdbfa8'), { s: 5 });
-  doorAt(out, b, 0, 0.1, 0.16, ctx);
+  doorAt(out, b, (b.x1 - b.x0) / 2, 0.1, 0.16, ctx);
   for (const u of [0.1, 0.54]) windowAt(out, b, 0, u, 0.07, 0.08, 0.1, ctx, { box: true });
   for (const face of [1, 2, 3]) {
     const f = wallFrame(b, face);
@@ -1143,7 +1144,7 @@ function school(out, ctx) {
   for (const [x, z] of [[-0.045, -0.045], [0.045, -0.045], [-0.045, 0.045], [0.045, 0.045]]) W.box(x - 0.008, cy + 0.02, cz + z - 0.008, x + 0.008, cy + 0.11, cz + z + 0.008, trim, { s: 8 });
   out.layers.paint.cyl(0, cz, 0.012, 0.026, cy + 0.04, cy + 0.085, 8, lin('#c99a3a'));
   W.box(-0.062, cy + 0.11, cz - 0.062, 0.062, cy + 0.125, cz + 0.062, trim, { s: 8 });
-  out.layers.roof.cyl(0, cz, 0.075, 0.001, cy + 0.125, cy + 0.2, 4, lin(v.roof));
+  out.layers.roof.cyl(0, cz, 0.088, 0.001, cy + 0.125, cy + 0.2, 4, lin(v.roof), { a0: Math.PI / 4 });
   T.box(-0.003, cy + 0.2, cz - 0.003, 0.003, cy + 0.26, cz + 0.003, lin('#2f2c30'));
   T.box(-0.03, cy + 0.24, cz - 0.003, 0.03, cy + 0.246, cz + 0.003, lin('#2f2c30'));
   // The yard: gravel in front, a flagpole, a bench, flower beds under the windows, a fence and a tree.
@@ -1274,6 +1275,603 @@ function playground(out, ctx) {
   }
 }
 
+// ---- Civic and working buildings -------------------------------------------------------------------
+
+// A pointed arch (a half disc) of colour on a wall, centred at u with its springing at height y.
+function archAt(out, layer, b, face, u, y, r, col, e = 0.006) {
+  const f = wallFrame(b, face);
+  const m = out.layers[layer];
+  const P = (a) => onWall(f, u + Math.cos(a) * r, y + Math.sin(a) * r, e);
+  const c = onWall(f, u, y, e);
+  for (let i = 0; i < 6; i++) m.tri(c, P((Math.PI * i) / 6), P((Math.PI * (i + 1)) / 6), col);
+}
+
+// A window with a pointed top, for the old stone halls.
+function gothicAt(out, b, face, u, v, w, h, ctx) {
+  windowAt(out, b, face, u, v, w, h, ctx);
+  const f = wallFrame(b, face);
+  const m = out.layers.glass;
+  m.tri(onWall(f, u - w / 2, v + h, 0.004), onWall(f, u + w / 2, v + h, 0.004), onWall(f, u, v + h + w * 0.75, 0.004), lin('#ffd98f'));
+  const T = out.layers.timber;
+  const trim = lin(ctx.v.trim);
+  beam(T, f, u - w / 2, v + h, u, v + h + w * 0.75, 0.013, trim);
+  beam(T, f, u + w / 2, v + h, u, v + h + w * 0.75, 0.013, trim);
+}
+
+// A small gabled roof over a door or portico, standing forward of the front wall: posts, a gable roof.
+function gablePorch(out, cx, w, z0, z1, y, rise, roofCol, postCol, o = 0.02) {
+  const T = out.layers.timber;
+  for (const x of [cx - w / 2 + 0.015, cx + w / 2 - 0.015]) T.box(x - 0.01, 0, z1 - 0.025, x + 0.01, y, z1 - 0.005, postCol, { s: 6 });
+  out.layers.roof.nest(0, 0, 1, () => T.nest(0, 0, 1, () => {
+    gableRoof(out, { x0: -z1, x1: -z0, z0: cx - w / 2, z1: cx + w / 2 }, y, rise, { o, col: roofCol, wall: '#ffffff', ends: false });
+  }));
+}
+
+// Stone steps up to a door, n treads wide w centred on cx.
+function steps(out, cx, w, z, n = 3, col = lin(STONE)) {
+  const S = out.layers.stone;
+  for (let i = 0; i < n; i++) S.box(cx - w / 2 - i * 0.01, 0, z + i * 0.028, cx + w / 2 + i * 0.01, 0.036 - i * 0.012, z + 0.028 + i * 0.028, col, { s: 6 });
+}
+
+// Two or three loose trees and bushes round a lot, in the building's frame.
+function lotGreens(out, ctx, trees, bushes) {
+  const P = out.layers.wood;
+  trees.forEach(([x, z, k, sc], i) => {
+    const [wx, wz] = P.tx(x, z);
+    storyTree(out, wx, wz, k, sc, ctx.x * 19 + ctx.y * 5 + i);
+  });
+  bushes.forEach(([x, z, r], i) => {
+    const [wx, wz] = P.tx(x, z);
+    bushWorld(out, wx, wz, r, ctx.x * 7 + ctx.y * 3 + i * 5);
+  });
+  for (let i = 0; i < 6; i++) {
+    const [wx, wz] = P.tx((rand(ctx.x, ctx.y, 250 + i) - 0.5) * 0.92, (rand(ctx.x, ctx.y, 260 + i) - 0.5) * 0.92);
+    out.tufts.push([wx, wz, 0.7, '#5f9a3e']);
+  }
+}
+
+// A hedge along the front of a lot between x0 and x1, with a gap for the path.
+function hedge(out, ctx, x0, x1, z, r = 0.04) {
+  const P = out.layers.wood;
+  const n = Math.max(2, Math.round(Math.abs(x1 - x0) / (r * 1.7)));
+  for (let i = 0; i < n; i++) {
+    const [wx, wz] = P.tx(x0 + ((x1 - x0) * (i + 0.5)) / n, z);
+    bushWorld(out, wx, wz, r, ctx.x * 5 + ctx.y * 11 + i, 0);
+  }
+}
+
+// The clinic: a whitewashed cottage-hospital with a teal slate roof, a gabled porch, a red-cross board
+// over the door, benches and a hedge.
+const CLINIC = { wall: '#f6f1e6', roof: '#4f8f8c', trim: '#f4ecdc', shutter: '#5d8f86' };
+function clinic(out, ctx) {
+  const v = CLINIC;
+  const cctx = { ...ctx, v: { ...ctx.v, ...v, trim: '#8a7a68' } };
+  const b = block(0.64, 0.46, -0.05);
+  const h = 0.28;
+  const mid = (b.x1 - b.x0) / 2;
+  out.layers.stone.box(b.x0 - 0.015, 0, b.z0 - 0.015, b.x1 + 0.015, 0.035, b.z1 + 0.015, lin(STONE), { s: 6 });
+  walls(out, b, 0.035, h, lin(v.wall));
+  gableRoof(out, b, h, 0.2, { o: 0.05, col: lin(v.roof), wall: v.wall, timbered: false });
+  chimney(out, b.x1 - 0.1, -0.08, h + 0.05, h + 0.28);
+  for (const du of [-0.22, -0.11, 0.11, 0.22]) {
+    windowAt(out, b, 0, mid + du, 0.07, 0.065, 0.085, cctx, { shutters: Math.abs(du) > 0.15 });
+    windowAt(out, b, 0, mid + du, 0.19, 0.06, 0.065, cctx);
+  }
+  for (const face of [1, 3]) for (const u of [0.12, 0.32]) {
+    windowAt(out, b, face, u, 0.07, 0.065, 0.085, cctx);
+    windowAt(out, b, face, u, 0.19, 0.06, 0.065, cctx);
+  }
+  for (const u of [0.14, 0.32, 0.5]) windowAt(out, b, 2, u, 0.09, 0.07, 0.08, cctx);
+  // The door and its gabled porch.
+  doorAt(out, b, mid, 0.1, 0.16, cctx);
+  gablePorch(out, 0, 0.26, b.z1 - 0.01, b.z1 + 0.12, 0.2, 0.09, lin(v.roof), lin('#efe6d6'));
+  steps(out, 0, 0.12, b.z1 + 0.05, 2);
+  // A red-cross board over the porch.
+  const f = wallFrame(b, 0);
+  const P = out.layers.paint;
+  wallRect(P, f, mid - 0.04, mid + 0.04, 0.215, 0.295, 0.008, lin('#fbf7ee'));
+  wallRect(P, f, mid - 0.0135, mid + 0.0135, 0.222, 0.288, 0.0095, lin('#c8392f'));
+  wallRect(P, f, mid - 0.032, mid + 0.032, 0.2475, 0.2625, 0.0095, lin('#c8392f'));
+  // Benches by the door, a hedge along the front and a pair of trees.
+  bench(out, -0.2, b.z1 + 0.1, 0);
+  bench(out, 0.2, b.z1 + 0.1, 0);
+  hedge(out, ctx, -0.4, -0.3, b.z1 + 0.03);
+  hedge(out, ctx, 0.3, 0.4, b.z1 + 0.03);
+  schoolFence(out);
+  lotGreens(out, ctx, [[-0.4, -0.3, 0, 0.55], [0.4, -0.3, 3, 0.5]], [[0.4, 0.3, 0.06]]);
+}
+
+// The library: pale stone under a teal roof, a temple front of four columns and a pediment, tall arched
+// windows, a book-motif plaque, steps, benches and shady trees.
+const LIBRARY = { wall: '#e6dcc8', roof: '#4a7f86', trim: '#f7f1e3', shutter: '#4a7f86' };
+function library(out, ctx) {
+  const v = LIBRARY;
+  const lctx = { ...ctx, v: { ...ctx.v, ...v, trim: '#f7f1e3' } };
+  const b = block(0.7, 0.44, -0.1);
+  const h = 0.3;
+  const mid = (b.x1 - b.x0) / 2;
+  const S = out.layers.stone;
+  const pale = lin('#efe6d2');
+  S.box(b.x0 - 0.015, 0, b.z0 - 0.015, b.x1 + 0.015, 0.04, b.z1 + 0.015, pale, { s: 6 });
+  walls(out, b, 0.04, h, lin(v.wall), 'stone');
+  S.box(b.x0 - 0.008, h - 0.02, b.z0 - 0.008, b.x1 + 0.008, h, b.z1 + 0.008, pale, { s: 6 });
+  gableRoof(out, b, h, 0.16, { o: 0.05, col: lin(v.roof), wall: v.wall, endLayer: 'stone', timbered: false });
+  // Tall windows either side of the portico, on the sides and back.
+  for (const u of [0.08, 0.2, 0.5, 0.62]) windowAt(out, b, 0, u, 0.09, 0.07, 0.15, lctx);
+  for (const face of [1, 3]) for (const u of [0.1, 0.22, 0.34]) windowAt(out, b, face, u, 0.09, 0.07, 0.15, lctx);
+  for (const u of [0.12, 0.26, 0.44, 0.58]) windowAt(out, b, 2, u, 0.09, 0.07, 0.15, lctx);
+  // The portico: four columns, a flat entablature, a pediment and a roof.
+  const zf = b.z1 + 0.13;
+  S.box(-0.2, 0, b.z1 - 0.01, 0.2, 0.03, zf + 0.015, pale, { s: 6 });
+  S.box(-0.19, 0.03, b.z1 - 0.01, 0.19, 0.045, zf + 0.005, pale, { s: 6 });
+  for (const x of [-0.165, -0.055, 0.055, 0.165]) {
+    S.cyl(x, zf - 0.02, 0.022, 0.018, 0.045, 0.235, 8, pale, { s: 3 });
+    S.box(x - 0.03, 0.045, zf - 0.05, x + 0.03, 0.058, zf + 0.01, pale, { s: 6 });
+    S.box(x - 0.03, 0.235, zf - 0.05, x + 0.03, 0.25, zf + 0.01, pale, { s: 6 });
+  }
+  S.box(-0.2, 0.25, b.z1 - 0.01, 0.2, 0.275, zf + 0.015, pale, { s: 6 });
+  const tc = lin(v.roof);
+  out.layers.roof.nest(0, 0, 1, () => out.layers.timber.nest(0, 0, 1, () => {
+    gableRoof(out, { x0: -zf - 0.015, x1: -b.z1 + 0.01, z0: -0.2, z1: 0.2 }, 0.275, 0.085, { o: 0.015, col: tc, wall: v.wall, ends: false });
+  }));
+  S.tri([-0.2, 0.275, zf + 0.015], [0.2, 0.275, zf + 0.015], [0, 0.36, zf + 0.015], pale, pale, pale, [-1, 0], [1, 0], [0, 0.4]);
+  // Double doors behind the columns, a gold plaque with an open book above them.
+  const f = wallFrame(b, 0);
+  const W = out.layers.wood;
+  wallRect(W, f, mid - 0.06, mid - 0.004, 0.045, 0.2, 0.005, lin('#2f5a4a'), 10);
+  wallRect(W, f, mid + 0.004, mid + 0.06, 0.045, 0.2, 0.005, lin('#2f5a4a'), 10);
+  archAt(out, 'wood', b, 0, mid, 0.2, 0.06, lin('#2f5a4a'));
+  const P = out.layers.paint;
+  wallRect(P, f, mid - 0.05, mid + 0.05, 0.262, 0.274, 0.006, lin('#c99a3a'));
+  wallRect(P, f, mid - 0.034, mid - 0.003, 0.212, 0.248, 0.004, lin('#fbf7ee'));
+  wallRect(P, f, mid + 0.003, mid + 0.034, 0.212, 0.248, 0.004, lin('#f1e8d2'));
+  // Wide steps, benches, trees and a hedge.
+  steps(out, 0, 0.36, zf + 0.015, 3, pale);
+  bench(out, -0.3, b.z1 + 0.13, 0);
+  bench(out, 0.3, b.z1 + 0.13, 0);
+  hedge(out, ctx, -0.44, -0.36, b.z1 + 0.06);
+  hedge(out, ctx, 0.36, 0.44, b.z1 + 0.06);
+  schoolFence(out);
+  lotGreens(out, ctx, [[-0.4, -0.38, 1, 0.55], [0.4, -0.38, 0, 0.55], [-0.42, 0.34, 3, 0.45]], [[0.4, 0.38, 0.06]]);
+}
+
+// The fire station: red brick with two arched garage doors, a hose tower with a bell and a pyramid
+// roof, a little red engine out front and a lantern.
+const FIRE = { wall: '#b5543f', roof: '#4b4f5e', trim: '#f4ecdc', shutter: '#3a3f4d' };
+function firestation(out, ctx) {
+  const v = FIRE;
+  const fctx = { ...ctx, v: { ...ctx.v, ...v, trim: '#f4ecdc' } };
+  const b = block(0.7, 0.4, -0.12);
+  const h = 0.28;
+  const S = out.layers.stone;
+  const brick = lin(v.wall);
+  const pale = lin('#e4d8c2');
+  S.box(b.x0 - 0.015, 0, b.z0 - 0.015, b.x1 + 0.015, 0.035, b.z1 + 0.015, pale, { s: 6 });
+  walls(out, b, 0.035, h, brick, 'stone');
+  S.box(b.x0 - 0.008, 0.19, b.z0 - 0.008, b.x1 + 0.008, 0.2, b.z1 + 0.008, pale, { s: 6 });
+  S.box(b.x0 - 0.008, h - 0.015, b.z0 - 0.008, b.x1 + 0.008, h, b.z1 + 0.008, pale, { s: 6 });
+  gableRoof(out, b, h, 0.15, { o: 0.05, col: lin(v.roof), wall: v.wall, endLayer: 'stone', timbered: false });
+  // Two arched engine doors with white frames and a window row above.
+  const f = wallFrame(b, 0);
+  const W = out.layers.wood;
+  const door = lin('#a8362d');
+  for (const u of [0.26, 0.5]) {
+    wallRect(out.layers.paint, f, u - 0.088, u + 0.088, 0.035, 0.16, 0.004, lin('#f4ecdc'));
+    archAt(out, 'paint', b, 0, u, 0.16, 0.088, lin('#f4ecdc'), 0.004);
+    wallRect(W, f, u - 0.075, u + 0.075, 0.035, 0.16, 0.007, door, 10);
+    archAt(out, 'wood', b, 0, u, 0.16, 0.075, door, 0.007);
+    for (const k of [-0.035, 0, 0.035]) beam(out.layers.timber, f, u + k, 0.04, u + k, 0.2, 0.008, lin('#7d2a24'));
+    windowAt(out, b, 0, u, 0.215, 0.07, 0.04, fctx);
+  }
+  doorAt(out, b, 0.12, 0.07, 0.13, fctx);
+  windowAt(out, b, 0, 0.12, 0.2, 0.06, 0.05, fctx);
+  for (const face of [1, 2, 3]) for (const u of face === 2 ? [0.14, 0.35, 0.56] : [0.12, 0.28]) windowAt(out, b, face, u, 0.1, 0.06, 0.08, fctx);
+  // The gold shield over the doors.
+  wallRect(out.layers.paint, f, 0.36, 0.4, 0.232, 0.268, 0.006, lin('#d9a93a'));
+  // The hose tower at the back right: brick, an open belfry, a pyramid roof.
+  const tw = 0.15;
+  const tx0 = b.x1 - tw - 0.03;
+  const tb = { x0: tx0, x1: tx0 + tw, z0: b.z0 + 0.02, z1: b.z0 + 0.02 + tw };
+  walls(out, tb, 0.0, 0.5, brick, 'stone');
+  S.box(tb.x0 - 0.01, 0.46, tb.z0 - 0.01, tb.x1 + 0.01, 0.5, tb.z1 + 0.01, pale, { s: 6 });
+  for (const [x, z] of [[tb.x0, tb.z0], [tb.x1, tb.z0], [tb.x0, tb.z1], [tb.x1, tb.z1]]) S.box(x - 0.01, 0.5, z - 0.01, x + 0.01, 0.6, z + 0.01, pale, { s: 6 });
+  S.box(tb.x0 - 0.01, 0.6, tb.z0 - 0.01, tb.x1 + 0.01, 0.62, tb.z1 + 0.01, pale, { s: 6 });
+  const tcx = (tb.x0 + tb.x1) / 2;
+  const tcz = (tb.z0 + tb.z1) / 2;
+  out.layers.paint.cyl(tcx, tcz, 0.016, 0.028, 0.54, 0.585, 8, lin('#c99a3a'));
+  out.layers.roof.cyl(tcx, tcz, 0.125, 0.002, 0.62, 0.74, 4, lin(v.roof), { a0: Math.PI / 4 });
+  const T = out.layers.timber;
+  T.box(tcx - 0.003, 0.74, tcz - 0.003, tcx + 0.003, 0.79, tcz + 0.003, lin('#2f2c30'));
+  windowAt(out, tb, 0, tw / 2, 0.14, 0.04, 0.15, fctx);
+  windowAt(out, tb, 0, tw / 2, 0.34, 0.04, 0.08, fctx);
+  windowAt(out, tb, 1, tw / 2, 0.14, 0.04, 0.15, fctx);
+  windowAt(out, tb, 3, tw / 2, 0.14, 0.04, 0.15, fctx);
+  chimney(out, b.x0 + 0.1, b.z0 + 0.1, h + 0.04, h + 0.22);
+  // A gravel apron and the engine parked on it.
+  const D = out.layers.dirt;
+  D.quad([-0.3, 0.006, 0.47], [0.44, 0.006, 0.47], [0.44, 0.006, b.z1 + 0.01], [-0.3, 0.006, b.z1 + 0.01], lin('#c9b997'), [[-0.3, -0.47], [0.44, -0.47], [0.44, -b.z1], [-0.3, -b.z1]]);
+  const P = out.layers.paint;
+  const red = lin('#c8392f');
+  const ex = 0.31;
+  const ez = b.z1 + 0.13;
+  P.box(ex - 0.13, 0.03, ez - 0.045, ex + 0.05, 0.1, ez + 0.045, red, { s: 4 });
+  P.box(ex + 0.05, 0.03, ez - 0.045, ex + 0.12, 0.13, ez + 0.045, red, { s: 4 });
+  out.layers.glass.box(ex + 0.1, 0.09, ez - 0.04, ex + 0.121, 0.12, ez + 0.04, lin('#ffd98f'));
+  P.box(ex - 0.13, 0.1, ez - 0.04, ex + 0.05, 0.105, ez + 0.04, lin('#d9d2c0'), { s: 4 });
+  T.rod([ex - 0.12, 0.13, ez - 0.02], [ex + 0.04, 0.13, ez - 0.02], 0.012, lin('#e8e0cf'));
+  T.rod([ex - 0.12, 0.13, ez + 0.02], [ex + 0.04, 0.13, ez + 0.02], 0.012, lin('#e8e0cf'));
+  for (let i = 0; i < 6; i++) T.rod([ex - 0.11 + i * 0.03, 0.13, ez - 0.02], [ex - 0.11 + i * 0.03, 0.13, ez + 0.02], 0.007, lin('#e8e0cf'));
+  for (const wx of [-0.09, 0.08]) for (const wz of [-0.05, 0.05]) T.box(ex + wx - 0.018, 0, ez + wz - 0.008, ex + wx + 0.018, 0.04, ez + wz + 0.008, lin('#2f2c30'));
+  const [lx, lz] = P.tx(-0.44, b.z1 + 0.06);
+  lantern(out, lx, lz);
+  lotGreens(out, ctx, [[-0.4, -0.38, 0, 0.5]], [[-0.42, 0.4, 0.05]]);
+  schoolFence(out);
+}
+
+// The university: a grand stone hall with two wings and a clock tower topped by a spire, pointed
+// windows, a courtyard with a statue, trees and hedges.
+const UNI = { wall: '#d9cdb7', roof: '#5b6a8c', trim: '#f4ecdc', shutter: '#5b6a8c' };
+function university(out, ctx) {
+  const v = UNI;
+  const uctx = { ...ctx, v: { ...ctx.v, ...v, trim: '#f4ecdc' } };
+  const b = block(0.86, 0.38, -0.2);
+  const h = 0.3;
+  const S = out.layers.stone;
+  const wall = lin(v.wall);
+  const pale = lin('#efe6d2');
+  S.box(b.x0 - 0.015, 0, b.z0 - 0.015, b.x1 + 0.015, 0.04, b.z1 + 0.015, pale, { s: 6 });
+  walls(out, b, 0.04, h, wall, 'stone');
+  S.box(b.x0 - 0.008, h - 0.02, b.z0 - 0.008, b.x1 + 0.008, h, b.z1 + 0.008, pale, { s: 6 });
+  S.box(b.x0 - 0.008, 0.16, b.z0 - 0.008, b.x1 + 0.008, 0.172, b.z1 + 0.008, pale, { s: 6 });
+  gableRoof(out, b, h, 0.16, { o: 0.05, col: lin(v.roof), wall: v.wall, endLayer: 'stone', timbered: false });
+  const mid = (b.x1 - b.x0) / 2;
+  for (const du of [-0.32, -0.22, -0.12, 0.12, 0.22, 0.32]) {
+    gothicAt(out, b, 0, mid + du, 0.06, 0.05, 0.075, uctx);
+    gothicAt(out, b, 0, mid + du, 0.19, 0.05, 0.05, uctx);
+  }
+  for (const face of [1, 3]) for (const u of [0.1, 0.22, 0.34]) gothicAt(out, b, face, u, 0.1, 0.05, 0.1, uctx);
+  for (const u of [0.1, 0.25, 0.4, 0.55, 0.7]) gothicAt(out, b, 2, u, 0.1, 0.05, 0.1, uctx);
+  // The central tower: stone, an arched doorway, clock faces, a belfry and a slender spire.
+  const tw = 0.24;
+  const tb = { x0: -tw / 2, x1: tw / 2, z0: b.z1 - 0.06, z1: b.z1 + 0.1 };
+  walls(out, tb, 0.04, 0.52, wall, 'stone');
+  S.box(tb.x0 - 0.01, 0.0, tb.z0 - 0.01, tb.x1 + 0.01, 0.04, tb.z1 + 0.01, pale, { s: 6 });
+  S.box(tb.x0 - 0.01, 0.5, tb.z0 - 0.01, tb.x1 + 0.01, 0.54, tb.z1 + 0.01, pale, { s: 6 });
+  for (const [x, z] of [[tb.x0, tb.z0], [tb.x1, tb.z0], [tb.x0, tb.z1], [tb.x1, tb.z1]]) {
+    for (let y = 0.04; y < 0.5; y += 0.06) S.box(x - 0.015, y, z - 0.015, x + 0.015, Math.min(0.5, y + 0.05), z + 0.015, pale, { s: 8 });
+  }
+  const f = wallFrame(tb, 0);
+  const tmid = tw / 2;
+  const door = lin('#4a3326');
+  wallRect(out.layers.wood, f, tmid - 0.045, tmid + 0.045, 0.04, 0.15, 0.005, door, 10);
+  archAt(out, 'wood', tb, 0, tmid, 0.15, 0.045, door, 0.005);
+  gothicAt(out, tb, 0, tmid, 0.22, 0.05, 0.09, uctx);
+  // Clock faces on all four sides.
+  uniClock(out, tb);
+  const tcx = 0;
+  const tcz = (tb.z0 + tb.z1) / 2;
+  out.layers.roof.cyl(tcx, tcz, 0.17, 0.002, 0.54, 0.84, 4, lin(v.roof), { a0: Math.PI / 4 });
+  out.layers.timber.box(-0.003, 0.84, tcz - 0.003, 0.003, 0.9, tcz + 0.003, lin('#2f2c30'));
+  out.layers.paint.box(-0.012, 0.87, tcz - 0.002, 0.012, 0.876, tcz + 0.002, lin('#c99a3a'));
+  // Little corner turrets.
+  for (const x of [b.x0 + 0.05, b.x1 - 0.05]) {
+    S.cyl(x, b.z1 - 0.05, 0.045, 0.042, 0.04, h + 0.06, 8, wall, { s: 3 });
+    out.layers.roof.cyl(x, b.z1 - 0.05, 0.058, 0.002, h + 0.06, h + 0.18, 8, lin(v.roof));
+  }
+  chimney(out, b.x0 + 0.2, b.z0 + 0.1, h + 0.05, h + 0.24);
+  chimney(out, b.x1 - 0.2, b.z0 + 0.1, h + 0.05, h + 0.24);
+  // Courtyard: flagstones, a statue on a plinth, hedges, benches and trees.
+  const D = out.layers.dirt;
+  D.quad([-0.38, 0.006, 0.47], [0.38, 0.006, 0.47], [0.38, 0.006, tb.z1 + 0.01], [-0.38, 0.006, tb.z1 + 0.01], lin('#d6c4a0'), [[-0.38, -0.47], [0.38, -0.47], [0.38, -tb.z1], [-0.38, -tb.z1]]);
+  S.box(-0.035, 0, 0.3, 0.035, 0.05, 0.36, pale, { s: 6 });
+  S.box(-0.022, 0.05, 0.312, 0.022, 0.11, 0.348, pale, { s: 6 });
+  S.cyl(0, 0.33, 0.018, 0.012, 0.11, 0.17, 6, lin('#b9a98c'), { s: 3 });
+  const [hx, hz] = out.layers.leaf.tx(0, 0.33);
+  out.layers.leaf.blob(hx, 0.18, hz, 0.014, 0.014, 0.014, lin('#a89873'), lin('#c9bb9a'), 3, 0);
+  bench(out, -0.24, 0.34, 0);
+  bench(out, 0.24, 0.34, 0);
+  hedge(out, ctx, -0.45, -0.38, 0.36, 0.035);
+  hedge(out, ctx, 0.38, 0.45, 0.36, 0.035);
+  lotGreens(out, ctx, [[-0.42, 0.18, 1, 0.5], [0.42, 0.18, 0, 0.5]], [[-0.4, 0.42, 0.05], [0.4, 0.42, 0.05]]);
+}
+
+// Clock faces, one on each side of the university tower.
+function uniClock(out, tb) {
+  const P = out.layers.paint;
+  const T = out.layers.timber;
+  for (let face = 0; face < 4; face++) {
+    const f = wallFrame(tb, face);
+    const u = f.w / 2;
+    const cy = 0.4;
+    const r = 0.05;
+    const c = onWall(f, u, cy, 0.008);
+    for (let i = 0; i < 10; i++) {
+      const a0 = (i / 10) * Math.PI * 2;
+      const a1 = ((i + 1) / 10) * Math.PI * 2;
+      P.tri(c, onWall(f, u + Math.cos(a0) * r, cy + Math.sin(a0) * r, 0.008), onWall(f, u + Math.cos(a1) * r, cy + Math.sin(a1) * r, 0.008), lin('#fbf7ee'));
+    }
+    beam(T, f, u, cy, u, cy + r * 0.8, 0.007, lin('#2f2c30'));
+    beam(T, f, u, cy, u + r * 0.55, cy - r * 0.2, 0.007, lin('#2f2c30'));
+  }
+}
+
+// The factory: red brick sheds under a sawtooth roof of north-light glass, a tall banded chimney with
+// smoke, a loading dock with crates, barrels and a water tank.
+const FACTORY = { wall: '#b3624a', roof: '#6b6e7a', trim: '#f4ecdc', shutter: '#3a3f4d' };
+function factory(out, ctx) {
+  const v = FACTORY;
+  const fctx = { ...ctx, v: { ...ctx.v, ...v, trim: '#e8dfce' } };
+  const b = block(0.78, 0.6, -0.04);
+  const h = 0.2;
+  const S = out.layers.stone;
+  const brick = lin(v.wall);
+  const pale = lin('#d9ccb4');
+  S.box(b.x0 - 0.012, 0, b.z0 - 0.012, b.x1 + 0.012, 0.03, b.z1 + 0.012, pale, { s: 6 });
+  walls(out, b, 0.03, h, brick, 'stone');
+  S.box(b.x0 - 0.006, h - 0.015, b.z0 - 0.006, b.x1 + 0.006, h, b.z1 + 0.006, pale, { s: 6 });
+  // Sawtooth roof: four teeth sloping up toward +x with a glass face on the +x side.
+  const n = 4;
+  const tw = (b.x1 - b.x0) / n;
+  const rise = 0.11;
+  const R = out.layers.roof;
+  const G = out.layers.glass;
+  const dark = lin('#4a3326');
+  const slate = lin(v.roof);
+  for (let i = 0; i < n; i++) {
+    const xa = b.x0 + i * tw;
+    const xb = xa + tw;
+    const za = b.z0 - 0.02;
+    const zb = b.z1 + 0.02;
+    const sl = Math.hypot(tw, rise);
+    R.quad([xa, h, zb], [xb, h + rise, zb], [xb, h + rise, za], [xa, h, za], slate, [[za * 5, 0], [za * 5, sl * 5], [zb * 5, sl * 5], [zb * 5, 0]].map(([a, c]) => [c, a]), [mul(slate, 0.9), slate, slate, mul(slate, 0.9)]);
+    G.quad([xb, h + rise, zb], [xb, h, zb], [xb, h, za], [xb, h + rise, za], lin('#86bccd'));
+    // Gable fill on the front and back walls.
+    S.tri([xa, h, b.z1], [xb, h, b.z1], [xb, h + rise, b.z1], brick, brick, brick, [xa * 5, h * 5], [xb * 5, h * 5], [xb * 5, (h + rise) * 5]);
+    S.tri([xb, h, b.z0], [xa, h, b.z0], [xb, h + rise, b.z0], brick, brick, brick, [-xb * 5, h * 5], [-xa * 5, h * 5], [-xb * 5, (h + rise) * 5]);
+    out.layers.timber.box(xb - 0.006, h + rise - 0.004, za, xb + 0.006, h + rise + 0.006, zb, dark, { s: 6 });
+  }
+  // Big roller doors and tall windows on the front, windows along the sides and back.
+  const f = wallFrame(b, 0);
+  for (const u of [0.2, 0.58]) {
+    wallRect(out.layers.wood, f, u - 0.075, u + 0.075, 0.03, 0.15, 0.005, lin('#6a7a6e'), 12);
+    for (let k = 1; k < 6; k++) beam(out.layers.timber, f, u - 0.075, 0.03 + k * 0.02, u + 0.075, 0.03 + k * 0.02, 0.005, lin('#55655a'));
+    beam(out.layers.timber, f, u - 0.08, 0.03, u - 0.08, 0.155, 0.014, pale);
+    beam(out.layers.timber, f, u + 0.08, 0.03, u + 0.08, 0.155, 0.014, pale);
+    beam(out.layers.timber, f, u - 0.085, 0.155, u + 0.085, 0.155, 0.016, pale);
+  }
+  doorAt(out, b, 0.38, 0.06, 0.11, fctx);
+  for (const u of [0.08, 0.68]) windowAt(out, b, 0, u, 0.06, 0.05, 0.09, fctx);
+  for (const face of [1, 3]) for (const u of [0.1, 0.22, 0.34, 0.46]) windowAt(out, b, face, u, 0.06, 0.05, 0.09, fctx);
+  for (const u of [0.1, 0.24, 0.38, 0.52, 0.66]) windowAt(out, b, 2, u, 0.06, 0.05, 0.09, fctx);
+  // The chimney: tall brick with two pale bands, a rim, and smoke that never stops.
+  const cx = b.x0 + 0.1;
+  const cz = b.z0 - 0.07;
+  S.cyl(cx, cz, 0.045, 0.028, 0, 0.58, 10, brick, { s: 3 });
+  S.cyl(cx, cz, 0.046, 0.043, 0.2, 0.215, 10, pale);
+  S.cyl(cx, cz, 0.036, 0.034, 0.4, 0.415, 10, pale);
+  S.cyl(cx, cz, 0.034, 0.03, 0.57, 0.6, 10, pale);
+  const [sx, sz] = S.tx(cx, cz);
+  out.smoke.push({ x: sx, y: 0.64, z: sz, big: true });
+  // The loading dock on the right: a raised platform with a canopy, crates and barrels.
+  const W = out.layers.wood;
+  S.box(b.x1, 0, b.z1 - 0.28, b.x1 + 0.1, 0.05, b.z1 - 0.02, lin('#b8ab94'), { s: 6 });
+  W.box(b.x1 + 0.01, 0.05, b.z1 - 0.12, b.x1 + 0.06, 0.11, b.z1 - 0.06, lin('#b88a55'), { s: 8 });
+  W.box(b.x1 + 0.065, 0.05, b.z1 - 0.2, b.x1 + 0.095, 0.095, b.z1 - 0.15, lin('#a87848'), { s: 8 });
+  for (const [x, z] of [[0.28, b.z1 + 0.08], [0.36, b.z1 + 0.1]]) out.layers.paint.cyl(x, z, 0.028, 0.028, 0, 0.06, 8, lin('#7a5b3c'), { top: lin('#5d4730'), s: 2 });
+  W.box(0.12, 0, b.z1 + 0.04, 0.2, 0.06, b.z1 + 0.11, lin('#b88a55'), { s: 8 });
+  W.box(0.14, 0.06, b.z1 + 0.05, 0.19, 0.1, b.z1 + 0.1, lin('#c79a63'), { s: 8 });
+  // A water tank on stilts at the back left.
+  const T = out.layers.timber;
+  const wx = b.x1 - 0.08;
+  const wz = b.z0 - 0.05;
+  for (const [dx, dz] of [[-0.03, -0.03], [0.03, -0.03], [-0.03, 0.03], [0.03, 0.03]]) T.box(wx + dx - 0.006, 0, wz + dz - 0.006, wx + dx + 0.006, 0.14, wz + dz + 0.006, lin('#4a3326'), { s: 6 });
+  W.cyl(wx, wz, 0.045, 0.045, 0.14, 0.24, 10, lin('#a07a50'), { top: lin('#8a6a46'), s: 3 });
+  out.layers.roof.cyl(wx, wz, 0.055, 0.003, 0.24, 0.3, 10, slate);
+  // A little gravel yard and a tree or two.
+  const D = out.layers.dirt;
+  D.quad([-0.46, 0.006, 0.47], [0.46, 0.006, 0.47], [0.46, 0.006, b.z1 + 0.01], [-0.46, 0.006, b.z1 + 0.01], lin('#c3b08c'), [[-0.46, -0.47], [0.46, -0.47], [0.46, -b.z1], [-0.46, -b.z1]]);
+  lotGreens(out, ctx, [[-0.42, 0.4, 2, 0.5]], [[0.42, 0.42, 0.05]]);
+}
+
+// The mall: a covered market hall — warm plaster, a glass lantern on the ridge, a front arcade under
+// striped awnings, bunting and a few stalls out front.
+const MALL = { wall: '#f1dcc0', roof: '#b9583f', trim: '#6b4630', shutter: '#5d8f86' };
+const AWNING = ['#d94f4f', '#f8f4ec'];
+function mall(out, ctx) {
+  const v = MALL;
+  const mctx = { ...ctx, v: { ...ctx.v, ...v } };
+  const b = block(0.8, 0.52, -0.1);
+  const h = 0.24;
+  const S = out.layers.stone;
+  S.box(b.x0 - 0.012, 0, b.z0 - 0.012, b.x1 + 0.012, 0.035, b.z1 + 0.012, lin(STONE), { s: 6 });
+  walls(out, b, 0.035, h, lin(v.wall));
+  timbering(out, b, 0.035, h, ctx, [1, 2, 3]);
+  gableRoof(out, b, h, 0.16, { o: 0.05, col: lin(v.roof), wall: v.wall });
+  // The glass lantern on the ridge.
+  const zm = (b.z0 + b.z1) / 2;
+  const ly = h + 0.16;
+  out.layers.glass.box(-0.22, ly - 0.01, zm - 0.045, 0.22, ly + 0.05, zm + 0.045, lin('#86bccd'));
+  const T = out.layers.timber;
+  for (let i = 0; i <= 6; i++) T.box(-0.22 + i * 0.0733 - 0.004, ly - 0.01, zm - 0.047, -0.22 + i * 0.0733 + 0.004, ly + 0.05, zm + 0.047, lin(TIMBER));
+  out.layers.roof.nest(0, 0, 1, () => T.nest(0, 0, 1, () => {
+    gableRoof(out, { x0: -zm - 0.05, x1: -zm + 0.05, z0: -0.24, z1: 0.24 }, ly + 0.05, 0.05, { o: 0.015, col: lin(v.roof), wall: v.wall, ends: false });
+  }));
+  chimney(out, b.x0 + 0.1, b.z0 + 0.12, h + 0.04, h + 0.24);
+  // The front arcade: six posts, awnings sloping down from the wall, and shop windows behind.
+  const f = wallFrame(b, 0);
+  const n = 6;
+  const aw = (b.x1 - b.x0) / n;
+  const zf = b.z1 + 0.1;
+  const P = out.layers.paint;
+  for (let i = 0; i < n; i++) {
+    const xa = b.x0 + i * aw;
+    const xb = xa + aw;
+    const col = lin(AWNING[i % 2]);
+    P.quad([xa, 0.16, b.z1], [xb, 0.16, b.z1], [xb, 0.115, zf], [xa, 0.115, zf], col, null, [mul(col, 0.9), mul(col, 0.9), col, col]);
+    P.quad([xa, 0.115, zf], [xb, 0.115, zf], [xb, 0.1, zf], [xa, 0.1, zf], mul(col, 0.8));
+    const u = (i + 0.5) * aw;
+    windowAt(out, b, 0, u, 0.05, aw * 0.6, 0.09, mctx);
+    windowAt(out, b, 0, u, 0.175, 0.05, 0.045, mctx);
+  }
+  for (let i = 0; i <= n; i++) T.box(b.x0 + i * aw - 0.007, 0, zf - 0.012, b.x0 + i * aw + 0.007, 0.115, zf + 0.002, lin('#efe6d6'), { s: 6 });
+  // Entrance doors in the middle, a sign board above.
+  doorAt(out, b, (b.x1 - b.x0) / 2, 0.07, 0.11, mctx);
+  wallRect(out.layers.wood, f, 0.3, 0.5, 0.2, 0.225, 0.008, lin('#e9dfc6'), 10);
+  wallRect(P, f, 0.31, 0.49, 0.205, 0.22, 0.01, lin('#b5483d'));
+  for (const face of [1, 3]) for (const u of [0.1, 0.2, 0.3, 0.4]) windowAt(out, b, face, u, 0.07, 0.05, 0.08, mctx);
+  for (const u of [0.12, 0.28, 0.44, 0.6, 0.72]) windowAt(out, b, 2, u, 0.07, 0.05, 0.08, mctx);
+  // Bunting between the posts, and two market stalls out front.
+  const bunt = ['#e0524d', '#f4c542', '#4f9ac4', '#f8f4ec', '#79b34e'];
+  for (let i = 0; i < 12; i++) {
+    const x = b.x0 + 0.03 + i * 0.062;
+    const sag = Math.sin(((i + 0.5) / 12) * Math.PI) * 0.008;
+    const c = lin(bunt[i % bunt.length]);
+    P.tri([x, 0.125 - sag, zf + 0.012], [x + 0.03, 0.125 - sag, zf + 0.012], [x + 0.015, 0.1 - sag, zf + 0.012], c);
+  }
+  const W = out.layers.wood;
+  for (const [sx, col] of [[-0.24, '#4f9ac4'], [0.1, '#79b34e']]) {
+    const sz = zf + 0.12;
+    W.box(sx - 0.07, 0, sz - 0.03, sx + 0.07, 0.045, sz + 0.03, lin('#a87848'), { s: 8 });
+    for (const dx of [-0.065, 0.065]) T.box(sx + dx - 0.005, 0.045, sz - 0.03, sx + dx + 0.005, 0.12, sz - 0.02, lin('#efe6d6'));
+    const c1 = lin(col);
+    const c2 = lin('#f8f4ec');
+    for (let k = 0; k < 4; k++) {
+      const xa = sx - 0.075 + k * 0.0375;
+      P.quad([xa, 0.12, sz - 0.03], [xa + 0.0375, 0.12, sz - 0.03], [xa + 0.0375, 0.09, sz + 0.045], [xa, 0.09, sz + 0.045], k % 2 ? c2 : c1);
+    }
+    const [fx, fz] = W.tx(sx, sz);
+    for (let k = 0; k < 5; k++) out.flowers.push([fx - 0.05 + k * 0.025, 0.055, fz, 0.7, FLOWERS[(k + Math.round(sx * 10)) % FLOWERS.length]]);
+  }
+  const D = out.layers.dirt;
+  D.quad([-0.46, 0.006, 0.47], [0.46, 0.006, 0.47], [0.46, 0.006, b.z1 + 0.01], [-0.46, 0.006, b.z1 + 0.01], lin('#d6c4a0'), [[-0.46, -0.47], [0.46, -0.47], [0.46, -b.z1], [-0.46, -b.z1]]);
+  const [lx, lz] = P.tx(0.42, zf + 0.02);
+  lantern(out, lx, lz);
+  const [kx, kz] = P.tx(-0.42, zf + 0.02);
+  lantern(out, kx, kz);
+  lotGreens(out, ctx, [[-0.42, -0.4, 0, 0.5], [0.42, -0.4, 3, 0.5]], []);
+}
+
+// The sports field: mown stripes, white lines and a centre circle, goalposts, a small pavilion,
+// bleachers, benches and a low fence.
+function field(out, ctx) {
+  const G = out.layers.grass;
+  const L = 0.4;
+  const A = lin('#8fc468');
+  const B = lin('#7fb85c');
+  const n = 8;
+  for (let i = 0; i < n; i++) {
+    const za = -L + (i * 2 * L) / n;
+    const zb = za + (2 * L) / n;
+    const c = i % 2 ? A : B;
+    G.quad([-L, 0.004, zb], [L, 0.004, zb], [L, 0.004, za], [-L, 0.004, za], c, [[-L + ctx.x, -zb - ctx.y], [L + ctx.x, -zb - ctx.y], [L + ctx.x, -za - ctx.y], [-L + ctx.x, -za - ctx.y]]);
+  }
+  const P = out.layers.paint;
+  const white = lin('#fbf7ee');
+  const lw = 0.008;
+  const y = 0.008;
+  const strip = (x0, z0, x1, z1) => P.quad([x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0], white);
+  strip(-L, -L, L, -L + lw * 2);
+  strip(-L, L - lw * 2, L, L);
+  strip(-L, -L, -L + lw * 2, L);
+  strip(L - lw * 2, -L, L, L);
+  strip(-lw, -L, lw, L);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const a2 = ((i + 1) / 16) * Math.PI * 2;
+    const r0 = 0.085;
+    const r1 = 0.1;
+    P.quad([c * r0, y, s * r0], [Math.cos(a2) * r0, y, Math.sin(a2) * r0], [Math.cos(a2) * r1, y, Math.sin(a2) * r1], [c * r1, y, s * r1], white);
+  }
+  // Goals at both ends: two posts and a crossbar, with a pale net behind.
+  const T = out.layers.timber;
+  for (const zz of [-L, L]) {
+    const d = zz < 0 ? -1 : 1;
+    for (const x of [-0.1, 0.1]) T.box(x - 0.01, 0, zz - 0.01, x + 0.01, 0.1, zz + 0.01, white);
+    T.box(-0.107, 0.093, zz - 0.007, 0.107, 0.107, zz + 0.007, white);
+    T.rod([-0.1, 0.1, zz], [-0.1, 0.004, zz + d * 0.05], 0.006, white);
+    T.rod([0.1, 0.1, zz], [0.1, 0.004, zz + d * 0.05], 0.006, white);
+    T.rod([-0.1, 0.004, zz + d * 0.05], [0.1, 0.004, zz + d * 0.05], 0.006, white);
+  }
+  // A pavilion at the right with a small porch, bleachers on the left.
+  const hb = { x0: 0.19, x1: 0.35, z0: L + 0.02, z1: L + 0.11 };
+  out.layers.plaster.box(hb.x0, 0, hb.z0, hb.x1, 0.07, hb.z1, lin('#f3dcbc'), { s: 3 });
+  gableRoof(out, hb, 0.07, 0.05, { o: 0.015, col: lin('#b9583f'), wall: '#f3dcbc', timbered: false });
+  windowAt(out, hb, 0, 0.04, 0.025, 0.035, 0.03, { ...ctx, v: { ...ctx.v, trim: '#6b4630', shutter: '#5d8f86' } });
+  doorAt(out, hb, 0.12, 0.035, 0.055, { ...ctx, v: { ...ctx.v, trim: '#6b4630', shutter: '#5d8f86' } });
+  const W = out.layers.wood;
+  for (let i = 0; i < 3; i++) W.box(-0.34, i * 0.022, L + 0.03 + i * 0.022, -0.12, i * 0.022 + 0.016, L + 0.05 + i * 0.022, lin('#c79a63'), { s: 8 });
+  for (const x of [-0.34, -0.12]) T.box(x - 0.006, 0, L + 0.03, x + 0.006, 0.06, L + 0.1, lin('#5b3d2b'));
+  bench(out, -0.44, -0.1, 1);
+  bench(out, -0.44, 0.1, 1);
+  // A low fence behind the far goal and round the back.
+  const pc = lin('#efe6d6');
+  for (let i = 0; i <= 14; i++) {
+    const x = -0.45 + (i * 0.9) / 14;
+    W.box(x - 0.007, 0, -0.47, x + 0.007, 0.08, -0.457, pc, { s: 10 });
+  }
+  W.box(-0.46, 0.05, -0.472, 0.46, 0.06, -0.455, pc, { s: 10 });
+  lotGreens(out, ctx, [[0.44, -0.3, 0, 0.5]], [[0.4, 0.3, 0.05]]);
+}
+
+// Rubble: what is left of a building — broken walls, tumbled stone, snapped beams, roof slates, a
+// stump of chimney and weeds already pushing through.
+function rubble(out, ctx) {
+  const { x, y } = ctx;
+  const S = out.layers.stone;
+  const T = out.layers.timber;
+  const R = out.layers.roof;
+  const greys = ['#cfc5b6', '#b9ae9f', '#a89d8f', '#d8cfc0'];
+  // A dusty patch of ground.
+  const D = out.layers.dirt;
+  D.quad([-0.38, 0.005, 0.38], [0.38, 0.005, 0.38], [0.38, 0.005, -0.38], [-0.38, 0.005, -0.38], lin('#a89880'), [[-0.38, -0.38], [0.38, -0.38], [0.38, 0.38], [-0.38, 0.38]]);
+  // A broken stub of wall along the back, jagged on top.
+  for (let i = 0; i < 6; i++) {
+    const x0 = -0.3 + i * 0.1;
+    const hh = 0.04 + rand(x, y, 300 + i) * 0.11;
+    S.box(x0, 0, -0.32, x0 + 0.1, hh, -0.26, lin(greys[i % 4]), { s: 6 });
+  }
+  S.box(-0.3, 0, -0.32, -0.24, 0.12, 0.0, lin('#bdb2a2'), { s: 6 });
+  // A leaning chimney stump.
+  S.box(0.2, 0, -0.18, 0.28, 0.17, -0.1, lin('#b9a58c'), { s: 6 });
+  S.box(0.21, 0.17, -0.17, 0.27, 0.2, -0.11, lin('#a8957d'), { s: 6 });
+  // Tumbled blocks.
+  for (let i = 0; i < 12; i++) {
+    const cx = (rand(x, y, 310 + i) - 0.5) * 0.62;
+    const cz = -0.1 + rand(x, y, 320 + i) * 0.48;
+    const w = 0.03 + rand(x, y, 330 + i) * 0.05;
+    const hh = 0.025 + rand(x, y, 340 + i) * 0.045;
+    S.box(cx - w, 0, cz - w * 0.7, cx + w, hh, cz + w * 0.7, lin(greys[i % 4]), { s: 6 });
+  }
+  // Snapped beams and planks at all angles.
+  for (let i = 0; i < 6; i++) {
+    const cx = (rand(x, y, 350 + i) - 0.5) * 0.5;
+    const cz = -0.05 + rand(x, y, 360 + i) * 0.4;
+    const a = rand(x, y, 370 + i) * Math.PI;
+    const l = 0.08 + rand(x, y, 380 + i) * 0.1;
+    const lift = i % 2 ? 0.05 : 0.02;
+    T.rod([cx - Math.cos(a) * l, 0.015, cz - Math.sin(a) * l], [cx + Math.cos(a) * l, lift + 0.02, cz + Math.sin(a) * l], 0.016, lin(i % 3 ? '#6b4a33' : '#8a6a46'));
+  }
+  // A few fallen roof slates.
+  for (let i = 0; i < 5; i++) {
+    const cx = (rand(x, y, 390 + i) - 0.5) * 0.5;
+    const cz = 0.05 + rand(x, y, 400 + i) * 0.3;
+    const a = rand(x, y, 410 + i) * Math.PI * 2;
+    const w = 0.035;
+    const ca = Math.cos(a) * w;
+    const sa = Math.sin(a) * w;
+    R.quad([cx - ca, 0.03, cz - sa], [cx + sa, 0.04, cz - ca], [cx + ca, 0.03, cz + sa], [cx - sa, 0.02, cz + ca], lin(i % 2 ? '#b9583f' : '#4f7f7a'));
+  }
+  // Weeds and a few brave flowers.
+  for (let i = 0; i < 14; i++) {
+    const [wx, wz] = S.tx((rand(x, y, 420 + i) - 0.5) * 0.8, (rand(x, y, 430 + i) - 0.5) * 0.8);
+    out.tufts.push([wx, wz, 0.9, i % 2 ? '#6b8f3a' : '#8a9a4a']);
+  }
+  const [fx, fz] = S.tx(-0.15, 0.2);
+  out.flowers.push([fx, 0.03, fz, 0.7, '#ffd166'], [fx + 0.04, 0.03, fz + 0.02, 0.7, '#f8f4ec']);
+}
+
 const BUILDERS = {
   house,
   cottage,
@@ -1287,5 +1885,13 @@ const BUILDERS = {
   park,
   school,
   playground,
+  clinic,
+  library,
+  firestation,
+  university,
+  factory,
+  mall,
+  field,
+  rubble,
 };
 export const STORY_TYPES = Object.keys(BUILDERS);
