@@ -1619,6 +1619,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   // ---- Start menu ---------------------------------------------------------------------------------
   // Shown when the game opens: continue, load or start a town, and choose whether rival cities are in it.
+  let menuView = null;
   const startMenu = new StartMenu({
     info: () => (visiting ? null : { name: world.cities[0].entry.name, population: city.stats.population || 0, slot: activeSlot(), fresh }),
     rivals: () => world.rivals,
@@ -1628,6 +1629,27 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     },
     onLoad: () => slotsSheet.toggle(true),
     onNew: () => newTownSheet.toggle(true),
+    // Behind the menu the town is shown close up and sharp, drifting slowly, like a title picture.
+    backdrop: (on) => {
+      if (on) {
+        menuView = { tx: camera.tx, ty: camera.ty, zoom: camera.tzoom };
+        camera.tzoom = Math.min(camera.maxZoom, Math.max(1.4, camera.tzoom * 1.7));
+        let last = performance.now();
+        const drift = (now) => {
+          if (!startMenu.isOpen) return;
+          camera.panBy(-8 * Math.min(0.1, (now - last) / 1000), -3 * Math.min(0.1, (now - last) / 1000));
+          last = now;
+          requestAnimationFrame(drift);
+        };
+        requestAnimationFrame(drift);
+      } else if (menuView) {
+        camera.tx = menuView.tx;
+        camera.ty = menuView.ty;
+        camera.tzoom = menuView.zoom;
+        camera.clampTarget();
+        menuView = null;
+      }
+    },
     setSpeed: (n) => {
       const before = ui.speed;
       ui.setSpeed(n);
