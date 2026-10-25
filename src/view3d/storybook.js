@@ -1,8 +1,9 @@
-// Storybook look (visual sample only, see storybook3d.js): the same town drawn as a painterly
-// village. Cottages with plaster and timber walls, shingled or thatched roofs, chimneys and flower
-// boxes; cobbled lanes with dirt edges; picket fences, lanterns, lush round trees, bushes and flowers.
+// The storybook look of the 3D view: the town drawn as a painterly village. Cottages with plaster and
+// timber walls, shingled or thatched roofs, chimneys and flower boxes; cobbled streets with flagstone
+// sidewalks; picket fences, lanterns, lush round trees, bushes and flowers.
 //
-// Pure geometry like models.js: no Three.js, so it runs in Node tests. Each surface kind goes into its
+// Pure geometry like models.js: no Three.js, so it runs in Node tests (textures and materials are in
+// storybookLook.js, and view3d.js builds each chunk with buildStorybook). Each surface kind goes into its
 // own layer (one mesh and one textured material each). Layers carry texture coordinates in world
 // units, so a texture repeats at the same size on every wall and roof.
 //
@@ -39,15 +40,66 @@ export function rand(x, y, k = 0) {
 
 export class SBMesh {
   constructor() {
-    this.p = [];
-    this.n = [];
-    this.c = [];
-    this.uv = [];
+    // Growable typed arrays: 3 floats per vertex for positions, normals and colours, 2 for texture
+    // coordinates; `k` vertices in use.
+    this._p = new Float32Array(3 * 1024);
+    this._n = new Float32Array(3 * 1024);
+    this._c = new Float32Array(3 * 1024);
+    this._u = new Float32Array(2 * 1024);
+    this.k = 0;
     this.frames = [{ cx: 0, cz: 0, r: 0 }];
   }
 
   get vertices() {
-    return this.p.length / 3;
+    return this.k;
+  }
+
+  // Views of what has been built so far (valid until more is added).
+  get p() {
+    return this._p.subarray(0, this.k * 3);
+  }
+
+  // Room for `n` more vertices.
+  room(n) {
+    if ((this.k + n) * 3 <= this._p.length) return;
+    let size = this._p.length / 3;
+    while (size < this.k + n) size *= 2;
+    for (const [key, w] of [['_p', 3], ['_n', 3], ['_c', 3], ['_u', 2]]) {
+      const a = new Float32Array(size * w);
+      a.set(this[key]);
+      this[key] = a;
+    }
+  }
+
+  // One vertex, already in world space.
+  vert(x, y, z, nx, ny, nz, c, u, v) {
+    const i = this.k * 3;
+    const P = this._p;
+    const N = this._n;
+    const C = this._c;
+    P[i] = x;
+    P[i + 1] = y;
+    P[i + 2] = z;
+    N[i] = nx;
+    N[i + 1] = ny;
+    N[i + 2] = nz;
+    C[i] = c[0];
+    C[i + 1] = c[1];
+    C[i + 2] = c[2];
+    this._u[this.k * 2] = u;
+    this._u[this.k * 2 + 1] = v;
+    this.k++;
+  }
+
+  // Whole vertices from another builder (world space, no texture coordinates).
+  raw(pos, nor, col) {
+    const n = pos.length / 3;
+    this.room(n);
+    this._p.set(pos, this.k * 3);
+    this._n.set(nor, this.k * 3);
+    this._c.set(col, this.k * 3);
+    this._u.fill(0, this.k * 2, (this.k + n) * 2);
+    this.k += n;
   }
 
   // Put the next shapes at (cx, cz), turned r quarter turns, inside whatever frame is current.
@@ -68,6 +120,8 @@ export class SBMesh {
 
   // A point from the innermost frame to the world.
   tx(x, z) {
+    const top = this.frames.length === 1 ? this.frames[0] : null;
+    if (top && top.r === 0) return [top.cx + x, top.cz + z];
     for (let i = this.frames.length - 1; i >= 0; i--) {
       const f = this.frames[i];
       let nx = x;
@@ -107,10 +161,10 @@ export class SBMesh {
     nx /= l;
     ny /= l;
     nz /= l;
-    this.p.push(ax, a[1], az, bx, b[1], bz, qx, c[1], qz);
-    this.n.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
-    this.c.push(...ca, ...cb, ...cc);
-    this.uv.push(...ua, ...ub, ...uc);
+    this.room(3);
+    this.vert(ax, a[1], az, nx, ny, nz, ca, ua[0], ua[1]);
+    this.vert(bx, b[1], bz, nx, ny, nz, cb, ub[0], ub[1]);
+    this.vert(qx, c[1], qz, nx, ny, nz, cc, uc[0], uc[1]);
   }
 
   // A quad a-b-c-d (counter-clockwise from the front) with texture coordinates for each corner.
@@ -123,14 +177,12 @@ export class SBMesh {
 
   // A vertex with its own normal (for smooth shapes), all in the current frame.
   smooth(pts, nors, cols, uvs) {
+    this.room(pts.length);
     for (let i = 0; i < pts.length; i++) {
       const [x, z] = this.tx(pts[i][0], pts[i][2]);
       const [nx, nz] = this.dir(nors[i][0], nors[i][2]);
-      this.p.push(x, pts[i][1], z);
       const l = Math.hypot(nx, nors[i][1], nz) || 1;
-      this.n.push(nx / l, nors[i][1] / l, nz / l);
-      this.c.push(...cols[i]);
-      this.uv.push(...uvs[i]);
+      this.vert(x, pts[i][1], z, nx / l, nors[i][1] / l, nz / l, cols[i], uvs[i][0], uvs[i][1]);
     }
   }
 
@@ -196,10 +248,10 @@ export class SBMesh {
 
   arrays() {
     return {
-      position: Float32Array.from(this.p),
-      normal: Float32Array.from(this.n),
-      color: Float32Array.from(this.c),
-      uv: Float32Array.from(this.uv),
+      position: this._p.slice(0, this.k * 3),
+      normal: this._n.slice(0, this.k * 3),
+      color: this._c.slice(0, this.k * 3),
+      uv: this._u.slice(0, this.k * 2),
     };
   }
 }
@@ -266,29 +318,43 @@ const FLOOR = 0.24;
 
 // ---- Building the scene ----------------------------------------------------------------------
 
-// Everything for the tiles x0 ≤ x < x1, y0 ≤ y < y1 of a town. `fallback(out, t, rot)` draws a
-// structure this module has no storybook model for (factories, schools, …) and returns true if it did;
-// `growthOf(t)` gives a building's growth stage and floors (renderer.js), as in the game.
-// Returns { layers, flowers, tufts, lanterns, roads, counts }:
+// Everything for the tiles x0 ≤ x < x1, y0 ≤ y < y1 of a town. Options:
+//   fallback(out, t, rot)  draws a structure with no storybook model yet (factories, schools, …) with
+//                          the game's own model; returns true if it did
+//   growthOf(t)            a building's growth stage and floors (renderer.js), as in the game
+//   lamp(t)                where a road tile's street lamp stands ({ gx, gy }) or null
+//   crossMask(x, y)        which sides of a road tile have a crossing
+//   STRUCTURES             the game's structure list (walkable ones get no height or footprint)
+// Streets follow the game's layout (whole-tile cobbles, sidewalks on the same edges and widths as the
+// overhead view, crossings and lamps where the game has them), so the 3D view's people and cars stay
+// on them.
+//   edges                  the earthy sides of the diorama where the map ends
+//   winter                 chimneys smoke
+// Returns { layers, flowers, tufts, lamps, smoke, roads, tops, feet, counts }:
 //   layers   { name: SBMesh }                       one mesh per surface kind
 //   flowers  [[x, y, z, scale, colour]]            little flower heads (drawn as instances)
 //   tufts    [[x, z, scale, colour]]                grass tufts (instances)
-//   lanterns [[x, y, z]]                           lantern glass, where warm lights can sit
-//   roads    [[x, y]]                               road tiles, for the villagers' walks
-export function buildStorybook(city, area, { fallback = null, growthOf = null } = {}) {
-  const out = { layers: {}, flowers: [], tufts: [], lanterns: [], roads: [], counts: {} };
+//   lamps    [{ x, y, z }]                          lantern glass, where warm lights can sit
+//   smoke    [{ x, y, z, big }]                     chimney tops that smoke
+//   roads    [[x, y]]                               road tiles
+//   tops     [[tile index, height]]                 how tall each building is (for the cameras)
+//   feet     [[cx, cz, w, d]]                        building footprints (for soft contact shadows)
+export function buildStorybook(city, area, { fallback = null, growthOf = null, lamp = null, crossMask = null, edges = false, winter = false, STRUCTURES = null } = {}) {
+  const out = { layers: {}, flowers: [], tufts: [], lamps: [], smoke: [], roads: [], tops: [], feet: [], counts: {}, winter };
   for (const k of LAYERS) out.layers[k] = new SBMesh();
   const L = out.layers;
+  const all = Object.values(L);
   const { x0, y0, x1, y1 } = area;
   const tile = (x, y) => (x >= 0 && y >= 0 && x < city.width && y < city.height ? city.getTile(x, y) : null);
-  const isRoad = (x, y) => tile(x, y)?.structure?.type === 'road';
   const isWater = (x, y) => tile(x, y)?.terrain === 'water';
+  const solidLayers = all.filter((m) => m !== L.grass && m !== L.path && m !== L.dirt && m !== L.water && m !== L.leaf && m !== L.bark && m !== L.glow);
 
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
       const t = tile(x, y);
       if (!t) continue;
-      for (const m of Object.values(L)) m.place(x + 0.5, y + 0.5, 0);
+      for (const m of all) m.place(x + 0.5, y + 0.5, 0);
+      if (edges) mapEdge(out, city, x, y);
       if (t.terrain === 'water') {
         water(out, x, y, isWater);
         continue;
@@ -298,16 +364,39 @@ export function buildStorybook(city, area, { fallback = null, growthOf = null } 
       const type = s?.type || 'empty';
       out.counts[type] = (out.counts[type] || 0) + 1;
       if (type === 'road') {
-        road(out, x, y, isRoad);
+        street(out, t, lamp ? lamp(t) : null, crossMask ? crossMask(x, y) : 0);
         out.roads.push([x, y]);
         continue;
       }
       const rot = frontOf(t, city);
-      for (const m of Object.values(L)) m.place(x + 0.5, y + 0.5, rot);
+      for (const m of all) m.place(x + 0.5, y + 0.5, rot);
       const make = BUILDERS[type];
       const ctx = { x, y, rot, t, s, v: STORY_VARIANTS[s?.variant] || STORY_VARIANTS[DEFAULT_VARIANT[type]] || STORY_VARIANTS.peach, floors: s?.floors, growth: s && growthOf ? growthOf(t) : null };
+      const from = solidLayers.map((m) => m.p.length);
       if (make) make(out, ctx);
       else if (!(s && fallback && fallback(out, t, rot))) meadow(out, ctx);
+      // How tall it stands and where its walls meet the ground.
+      if (s && !(STRUCTURES?.[type]?.walkable) && type !== 'tree' && type !== 'park') {
+        let top = 0;
+        let ax = Infinity;
+        let az = Infinity;
+        let bx = -Infinity;
+        let bz = -Infinity;
+        solidLayers.forEach((m, i) => {
+          const P = m.p;
+          for (let k = from[i]; k < P.length; k += 3) {
+            if (P[k + 1] > top) top = P[k + 1];
+            if (P[k + 1] > 0.12) continue;
+            if (P[k] < ax) ax = P[k];
+            if (P[k] > bx) bx = P[k];
+            if (P[k + 2] < az) az = P[k + 2];
+            if (P[k + 2] > bz) bz = P[k + 2];
+          }
+        });
+        if (top > 0) out.tops.push([y * city.width + x, top]);
+        // Fences and gardens spread wide; the footprint is the building, about the middle of the lot.
+        if (ax < bx) out.feet.push([x + 0.5, y + 0.5, Math.min(0.75, bx - ax + 0.1), Math.min(0.7, bz - az + 0.1)]);
+      }
     }
   }
   return out;
@@ -343,6 +432,87 @@ function ground(out, x, y) {
   g.place(x + 0.5, y + 0.5, 0);
 }
 
+// The game's street on one road tile: cobbles across the whole tile, raised flagstone sidewalks on
+// the sides with no road (the same edges and widths as ground.js, so walkers stay on them), pale stone
+// crossings where people cross, and a lantern where the game has a street lamp.
+const WALK = 0.15;
+const KERB = 0.022;
+const SIDES = [
+  { a: [0, 0], b: [1, 0], n: [0, 1] }, // north
+  { a: [1, 0], b: [1, 1], n: [-1, 0] }, // east
+  { a: [1, 1], b: [0, 1], n: [0, -1] }, // south
+  { a: [0, 1], b: [0, 0], n: [1, 0] }, // west
+];
+const sideAt = (x, y, s, u, v) => {
+  const e = SIDES[s];
+  return [x + e.a[0] + (e.b[0] - e.a[0]) * u + e.n[0] * v, y + e.a[1] + (e.b[1] - e.a[1]) * u + e.n[1] * v];
+};
+function street(out, t, lampSpot, cross) {
+  const { x, y } = t;
+  const m = t.roadMask || 0;
+  const P = out.layers.path;
+  const S = out.layers.stone;
+  for (const l of [P, S]) l.frames = [{ cx: 0, cz: 0, r: 0 }];
+  const k = 1.7;
+  const c = mul(lin(COBBLE), 0.9 + rand(x, y, 3) * 0.14);
+  P.quad([x, 0.006, y + 1], [x + 1, 0.006, y + 1], [x + 1, 0.006, y], [x, 0.006, y], c, [[x * k, -(y + 1) * k], [(x + 1) * k, -(y + 1) * k], [(x + 1) * k, -y * k], [x * k, -y * k]]);
+  const flag = lin('#d9cdb6');
+  const box = (ax, az, bx, bz) => S.box(Math.min(ax, bx), 0, Math.min(az, bz), Math.max(ax, bx), KERB, Math.max(az, bz), mul(flag, 0.95 + rand(Math.round(ax * 7), Math.round(az * 7), 5) * 0.1), { s: 3.5, ao: 0.8 });
+  for (let sd = 0; sd < 4; sd++) {
+    if (m & (1 << sd)) continue;
+    const [ax, az] = sideAt(x, y, sd, 0, 0);
+    const [bx, bz] = sideAt(x, y, sd, 1, WALK);
+    box(ax, az, bx, bz);
+  }
+  // Where two arms meet, the sidewalks join in a square at the corner.
+  for (let cn = 0; cn < 4; cn++) {
+    const a = 1 << cn;
+    const b = 1 << ((cn + 3) % 4);
+    if (!(m & a) || !(m & b)) continue;
+    const cx = cn === 1 || cn === 2 ? x + 1 - WALK : x;
+    const cz = cn >= 2 ? y + 1 - WALK : y;
+    box(cx, cz, cx + WALK, cz + WALK);
+  }
+  // Crossings: bands of pale stone across the lane.
+  const pale = lin('#f1e8d6');
+  for (let sd = 0; sd < 4; sd++) {
+    if (!(cross & m & (1 << sd))) continue;
+    for (let i = 0; i < 6; i++) {
+      const u0 = 0.19 + i * 0.11;
+      const q = [sideAt(x, y, sd, u0, 0.02), sideAt(x, y, sd, u0 + 0.06, 0.02), sideAt(x, y, sd, u0 + 0.06, 0.14), sideAt(x, y, sd, u0, 0.14)];
+      const ax = Math.min(...q.map((p) => p[0]));
+      const az = Math.min(...q.map((p) => p[1]));
+      const bx = Math.max(...q.map((p) => p[0]));
+      const bz = Math.max(...q.map((p) => p[1]));
+      S.quad([ax, 0.009, bz], [bx, 0.009, bz], [bx, 0.009, az], [ax, 0.009, az], pale, [[ax * 4, -bz * 4], [bx * 4, -bz * 4], [bx * 4, -az * 4], [ax * 4, -az * 4]]);
+    }
+  }
+  if (t.structure.broken) {
+    // Washed out: a muddy hole with water in it.
+    const D = out.layers.dirt;
+    const W = out.layers.water;
+    for (const l of [D, W]) l.frames = [{ cx: 0, cz: 0, r: 0 }];
+    D.quad([x + 0.25, 0.011, y + 0.7], [x + 0.75, 0.011, y + 0.7], [x + 0.75, 0.011, y + 0.3], [x + 0.25, 0.011, y + 0.3], lin('#8f7a5c'));
+    W.quad([x + 0.32, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.36], [x + 0.32, 0.014, y + 0.36], lin('#5fa7c4'));
+  }
+  if (lampSpot) lantern(out, lampSpot.gx, lampSpot.gy);
+  else if (rand(x, y, 52) < 0.25) out.tufts.push([x + 0.06 + rand(x, y, 53) * 0.88, y + 0.04, 0.6, '#6a9a45']);
+}
+
+// The diorama's earthy sides where the map ends, with a lip of grass.
+function mapEdge(out, city, x, y) {
+  const D = out.layers.dirt;
+  D.frames = [{ cx: 0, cz: 0, r: 0 }];
+  const top = city.getTile(x, y).terrain === 'water' ? -0.09 : 0;
+  const soil = lin('#9c7f5e');
+  const lo = lin('#7a6248');
+  const face = (a, b) => D.quad([a[0], -0.55, a[1]], [b[0], -0.55, b[1]], [b[0], top, b[1]], [a[0], top, a[1]], soil, [[0, 0], [1, 0], [1, 0.5], [0, 0.5]], [lo, lo, soil, soil]);
+  if (y === 0) face([x + 1, y], [x, y]);
+  if (y === city.height - 1) face([x, y + 1], [x + 1, y + 1]);
+  if (x === 0) face([x, y], [x, y + 1]);
+  if (x === city.width - 1) face([x + 1, y + 1], [x + 1, y]);
+}
+
 function water(out, x, y, isWater) {
   const w = out.layers.water;
   const d = out.layers.dirt;
@@ -358,41 +528,6 @@ function water(out, x, y, isWater) {
   if (!isWater(x - 1, y)) d.quad([x, -0.09, y + 1], [x, -0.09, y], [x, 0, y], [x, 0, y + 1], bank);
 }
 
-// A cobbled lane with soft dirt edges, joined to the road tiles around it.
-function road(out, x, y, isRoad) {
-  const P = out.layers.path;
-  const D = out.layers.dirt;
-  const arms = [isRoad(x, y + 1), isRoad(x + 1, y), isRoad(x, y - 1), isRoad(x - 1, y)];
-  const lane = (m, half, h, col) => {
-    m.frames = [{ cx: 0, cz: 0, r: 0 }];
-    const k = 1.7; // cobbles per unit of texture
-    const q = (ax, az, bx, bz) => m.quad([ax, h, bz], [bx, h, bz], [bx, h, az], [ax, h, az], col, [[ax * k, -bz * k], [bx * k, -bz * k], [bx * k, -az * k], [ax * k, -az * k]]);
-    const cx = x + 0.5;
-    const cz = y + 0.5;
-    q(cx - half, cz - half, cx + half, cz + half);
-    if (arms[0]) q(cx - half, cz + half, cx + half, y + 1);
-    if (arms[1]) q(cx + half, cz - half, x + 1, cz + half);
-    if (arms[2]) q(cx - half, y, cx + half, cz - half);
-    if (arms[3]) q(x, cz - half, cx - half, cz + half);
-  };
-  lane(D, 0.35, 0.004, mul(lin(DIRT), 0.95 + rand(x, y, 2) * 0.1));
-  lane(P, 0.25, 0.01, mul(lin(COBBLE), 0.92 + rand(x, y, 3) * 0.14));
-  // A few tufts and pebbles along the edge, a lantern on some corners.
-  for (let i = 0; i < 5; i++) {
-    const a = rand(x, y, 20 + i) * Math.PI * 2;
-    const r = 0.4 + rand(x, y, 30 + i) * 0.08;
-    const px = x + 0.5 + Math.cos(a) * r;
-    const pz = y + 0.5 + Math.sin(a) * r;
-    if (px > x && px < x + 1 && pz > y && pz < y + 1) out.tufts.push([px, pz, 0.7 + rand(x, y, 40 + i) * 0.6, '#5f9a3e']);
-  }
-  if (rand(x, y, 50) < 0.32) {
-    // On the tile's corner away from the lanes.
-    const corners = [[0.43, 0.43], [-0.43, 0.43], [0.43, -0.43], [-0.43, -0.43]];
-    const [ox, oz] = corners[Math.floor(rand(x, y, 51) * 4)];
-    lantern(out, x + 0.5 + ox, y + 0.5 + oz);
-  }
-}
-
 // A lamp post with a little glass lantern on top.
 function lantern(out, wx, wz) {
   const T = out.layers.timber;
@@ -403,7 +538,7 @@ function lantern(out, wx, wz) {
   G.box(wx - 0.022, 0.31, wz - 0.022, wx + 0.022, 0.37, wz + 0.022, lin('#ffd27a'));
   T.box(wx - 0.032, 0.37, wz - 0.032, wx + 0.032, 0.382, wz + 0.032, lin('#3d3a3f'));
   T.cyl(wx, wz, 0.026, 0.002, 0.382, 0.41, 4, lin('#3d3a3f'));
-  out.lanterns.push([wx, 0.34, wz]);
+  out.lamps.push({ x: wx, y: 0.36, z: wz });
 }
 
 // An open lawn: tufts, the odd flower patch and bush.
@@ -412,7 +547,7 @@ function meadow(out, ctx) {
   for (let i = 0; i < 7; i++) out.tufts.push([x + 0.1 + rand(x, y, 60 + i) * 0.8, y + 0.1 + rand(x, y, 70 + i) * 0.8, 0.6 + rand(x, y, 80 + i) * 0.7, rand(x, y, 85 + i) < 0.5 ? '#5f9a3e' : '#7aae45']);
   if (rand(x, y, 98) < 0.4) flowerPatch(out, x + 0.2 + rand(x, y, 99) * 0.6, y + 0.2 + rand(x, y, 89) * 0.6, 0.1, 7, rand(x, y, 88));
   if (rand(x, y, 90) < 0.6) flowerPatch(out, x + 0.2 + rand(x, y, 91) * 0.6, y + 0.2 + rand(x, y, 92) * 0.6, 0.12, 9, rand(x, y, 93));
-  if (rand(x, y, 94) < 0.3) bushWorld(out, x + 0.2 + rand(x, y, 95) * 0.6, y + 0.2 + rand(x, y, 96) * 0.6, 0.07 + rand(x, y, 97) * 0.04, x * 31 + y);
+  if (rand(x, y, 94) < 0.3) bushWorld(out, x + 0.2 + rand(x, y, 95) * 0.6, y + 0.2 + rand(x, y, 96) * 0.6, 0.07 + rand(x, y, 97) * 0.04, x * 31 + y, 0);
 }
 
 function flowerPatch(out, wx, wz, r, n, seed) {
@@ -644,6 +779,10 @@ function timbering(out, b, y0, y1, ctx, faces = [0, 1, 2, 3]) {
 // A stone chimney with a cap and a clay pot.
 function chimney(out, x, z, yb, yt) {
   const S = out.layers.stone;
+  if (out.winter) {
+    const [wx, wz] = S.tx(x, z);
+    out.smoke.push({ x: wx, y: yt + 0.06, z: wz, big: false });
+  }
   S.box(x - 0.04, yb, z - 0.035, x + 0.04, yt, z + 0.035, lin('#b9a58c'), { s: 6 });
   S.box(x - 0.05, yt, z - 0.045, x + 0.05, yt + 0.02, z + 0.045, lin('#a8957d'), { s: 6 });
   out.layers.paint.cyl(x, z, 0.018, 0.015, yt + 0.02, yt + 0.05, 7, lin('#b06a45'));
@@ -890,7 +1029,7 @@ function treeTile(out, ctx) {
     const oz = n === 1 ? 0 : (rand(x, y, 220 + i) - 0.5) * 0.5;
     storyTree(out, x + 0.5 + ox, y + 0.5 + oz, i === 0 ? kind : Math.floor(rand(x, y, 230 + i) * 3), (n === 1 ? 1.15 : 0.85) + rand(x, y, 240 + i) * 0.3, x * 101 + y * 7 + i);
   }
-  for (let i = 0; i < 2; i++) bushWorld(out, x + 0.15 + rand(x, y, 250 + i) * 0.7, y + 0.15 + rand(x, y, 260 + i) * 0.7, 0.05 + rand(x, y, 270 + i) * 0.04, x * 3 + y * 5 + i);
+  for (let i = 0; i < 2; i++) bushWorld(out, x + 0.15 + rand(x, y, 250 + i) * 0.7, y + 0.15 + rand(x, y, 260 + i) * 0.7, 0.05 + rand(x, y, 270 + i) * 0.04, x * 3 + y * 5 + i, 0);
   meadow(out, ctx);
 }
 
@@ -929,57 +1068,3 @@ const BUILDERS = {
   park,
 };
 export const STORY_TYPES = Object.keys(BUILDERS);
-
-// ---- Choosing the area ------------------------------------------------------------------------------
-
-// Where to centre the sample: the street called `street` (Poppy Row) if the town has one, else your
-// family's home, else the middle of the town. Returns { x, y, why }.
-export function pickCentre(city, street = 'Poppy Row') {
-  let sx = 0;
-  let sy = 0;
-  let n = 0;
-  for (const t of city.tiles) {
-    if (t.street === street) {
-      sx += t.x;
-      sy += t.y;
-      n++;
-    }
-  }
-  if (n) return { x: sx / n + 0.5, y: sy / n + 0.5, why: street };
-  const home = city.systems?.life?.char?.home;
-  if (home && Number.isFinite(home.x)) return { x: home.x + 0.5, y: home.y + 0.5, why: 'home' };
-  // The busiest spot: the centre of all buildings.
-  for (const t of city.tiles) {
-    if (t.structure && t.structure.type !== 'road' && t.structure.type !== 'tree') {
-      sx += t.x;
-      sy += t.y;
-      n++;
-    }
-  }
-  if (n) return { x: sx / n + 0.5, y: sy / n + 0.5, why: 'centre' };
-  return { x: city.width / 2, y: city.height / 2, why: 'centre' };
-}
-
-// The square of tiles around a centre, kept inside the map.
-export function areaAround(city, cx, cy, radius = 8) {
-  const clampI = (v, a, b) => Math.max(a, Math.min(b, v));
-  const x0 = clampI(Math.round(cx - radius), 0, Math.max(0, city.width - 2 * radius));
-  const y0 = clampI(Math.round(cy - radius), 0, Math.max(0, city.height - 2 * radius));
-  return { x0, y0, x1: Math.min(city.width, x0 + 2 * radius), y1: Math.min(city.height, y0 + 2 * radius) };
-}
-
-// Scattered trees in the meadow around the sample, so it doesn't end at a hard edge.
-export function surroundings(out, area, ring = 6) {
-  const { x0, y0, x1, y1 } = area;
-  for (let y = y0 - ring; y < y1 + ring; y++) {
-    for (let x = x0 - ring; x < x1 + ring; x++) {
-      if (x >= x0 && x < x1 && y >= y0 && y < y1) continue;
-      const r = rand(x, y, 400);
-      const edge = Math.max(x0 - x, x - x1 + 1, y0 - y, y - y1 + 1);
-      if (r < 0.14 + edge * 0.03) storyTree(out, x + 0.2 + rand(x, y, 401) * 0.6, y + 0.2 + rand(x, y, 402) * 0.6, rand(x, y, 403) < 0.3 ? 2 : rand(x, y, 404) < 0.15 ? 3 : 0, 0.9 + rand(x, y, 405) * 0.5, x * 7 + y * 3, edge > 2 ? 0 : 1);
-      else if (r < 0.5) bushWorld(out, x + rand(x, y, 406), y + rand(x, y, 407), 0.06 + rand(x, y, 408) * 0.05, x + y * 9, 0);
-      if (rand(x, y, 409) < 0.3) flowerPatch(out, x + rand(x, y, 410), y + rand(x, y, 411), 0.15, 8, rand(x, y, 412));
-      for (let i = 0; i < 3; i++) out.tufts.push([x + rand(x, y, 420 + i), y + rand(x, y, 430 + i), 0.8, '#6aa343']);
-    }
-  }
-}
