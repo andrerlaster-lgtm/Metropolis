@@ -400,6 +400,30 @@ body {
 .tint-mall { --tint: #dccbef; }
 .tint-factory { --tint: #d7d2e3; }
 .tint-field { --tint: #bfe3b4; }
+.tint-bungalow { --tint: #fde0c8; }
+.tint-rowhouse { --tint: #f5cdc2; }
+.tint-villa { --tint: #f8cfe0; }
+.tint-restaurant { --tint: #ffc9a4; }
+.tint-market { --tint: #fbe3a2; }
+.tint-bank { --tint: #c4d6ee; }
+.tint-hotel { --tint: #d8c8ee; }
+.tint-warehouse { --tint: #cfc8dc; }
+.tint-workshop { --tint: #ddcfb6; }
+.tint-powerplant { --tint: #bfb8cc; }
+.tint-kindergarten { --tint: #ffd5bd; }
+.tint-museum { --tint: #e4cbd8; }
+.tint-pharmacy { --tint: #bfe8d8; }
+.tint-hospital { --tint: #aee3cc; }
+.tint-firehut { --tint: #ffc2b8; }
+.tint-fountain { --tint: #bde6f2; }
+.tint-garden { --tint: #b4e2a0; }
+.tint-pool { --tint: #a8dcf4; }
+.tint-cinema { --tint: #d4bce8; }
+.tint-stadium { --tint: #aedea4; }
+.tint-library { --tint: #d8c6ea; }
+.tint-firestation { --tint: #ffc0b6; }
+.tint-university { --tint: #efcdbb; }
+.tint-bakery { --tint: #f6d7ae; }
 .tint-tree { --tint: var(--tint-tree); }
 .tint-park { --tint: var(--tint-park); }
 .tint-road { --tint: var(--tint-road); }
@@ -4677,3 +4701,33 @@ button.mil-sq {
 .event-tag.tag-family { background: #f9e0e8; color: #8a2f52; }
 .event-tag.tag-social { background: #dff2e6; color: #2f6f4a; }
 .event-tag.tag-echo { background: #fff3cf; color: #6b4e00; }
+
+/* Wide screens (Mac, iPad on its side): the build menu sits at the top, under the buttons, and its
+   panel drops down below it. Phones and narrower windows keep it along the bottom. */
+@media (min-width: 900px) and (min-height: 600px) {
+  .toolbar {
+    top: calc(env(safe-area-inset-top, 0px) + 72px);
+    bottom: auto;
+    left: auto;
+    right: calc(env(safe-area-inset-right, 0px) + 16px);
+    transform: none;
+  }
+  .tool[aria-pressed='true'] {
+    transform: translateY(2px);
+  }
+  .tray {
+    top: calc(env(safe-area-inset-top, 0px) + 150px);
+    bottom: auto;
+    flex-wrap: wrap;
+    max-width: 392px;
+  }
+  .toast {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  }
+}
+/* A long panel never runs off a narrow screen: it wraps into rows. */
+.tray {
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100vw - 24px);
+}

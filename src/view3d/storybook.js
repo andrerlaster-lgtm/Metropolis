@@ -9,6 +9,8 @@
 //
 // Axes as everywhere in the 3D view: x is the map's x, z is the map's y, y is up, one tile is one unit.
 
+import { buildersMore } from './storybookMore.js';
+
 export const LAYERS = ['grass', 'path', 'dirt', 'plaster', 'timber', 'roof', 'thatch', 'stone', 'wood', 'leaf', 'bark', 'paint', 'glass', 'glow', 'water'];
 
 // '#rrggbb' → linear-light [r, g, b], the same conversion as mesh.js.
@@ -423,7 +425,7 @@ export function buildStorybook(city, area, { fallback = null, growthOf = null, l
   return out;
 }
 
-const DEFAULT_VARIANT = { house: 'peach', cottage: 'mint', apartments: 'blush', tower: 'lavender', shop: 'mint', cafe: 'peach', bakery: 'blush', office: 'mint' };
+const DEFAULT_VARIANT = { bungalow: 'mint', villa: 'blush', house: 'peach', cottage: 'mint', apartments: 'blush', tower: 'lavender', shop: 'mint', cafe: 'peach', bakery: 'blush', office: 'mint' };
 
 // Buildings face their street, the same rule as the game's 3D view.
 export function frontOf(t, city) {
@@ -1872,6 +1874,8 @@ function rubble(out, ctx) {
   out.flowers.push([fx, 0.03, fz, 0.7, '#ffd166'], [fx + 0.04, 0.03, fz + 0.02, 0.7, '#f8f4ec']);
 }
 
+const MORE = buildersMore({ lin, mul, rand, block, walls, windowAt, doorAt, gableRoof, chimney, garden, bench, storyTree, bushWorld, flowerPatch, wallFrame, wallRect, beam, onWall, archAt, gablePorch, steps, lotGreens, hedge, schoolFence, lantern, timbering, STONE, TIMBER, FLOWERS });
+
 const BUILDERS = {
   house,
   cottage,
@@ -1893,5 +1897,6 @@ const BUILDERS = {
   mall,
   field,
   rubble,
+  ...MORE,
 };
 export const STORY_TYPES = Object.keys(BUILDERS);

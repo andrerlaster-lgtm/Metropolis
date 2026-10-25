@@ -42,6 +42,22 @@ export const CAREERS = {
   library: { titles: ['Library assistant', 'Librarian', 'Head librarian'], pay: [17000, 27000, 38000], smarts: 35 },
   firestation: { titles: ['Volunteer firefighter', 'Firefighter', 'Fire chief'], pay: [20000, 32000, 50000], smarts: 10 },
   university: { titles: ['Lab technician', 'Lecturer', 'Professor', 'Dean'], pay: [24000, 40000, 62000, 90000], smarts: 70 },
+  restaurant: { titles: ['Kitchen hand', 'Cook', 'Head chef'], pay: [16000, 25000, 40000], smarts: 5 },
+  market: { titles: ['Stall helper', 'Stallholder', 'Market master'], pay: [14000, 21000, 30000], smarts: 0 },
+  bank: { titles: ['Bank clerk', 'Loans officer', 'Branch manager'], pay: [25000, 40000, 70000], smarts: 50 },
+  hotel: { titles: ['Porter', 'Receptionist', 'Hotel manager'], pay: [16000, 24000, 45000], smarts: 10 },
+  warehouse: { titles: ['Loader', 'Forklift driver', 'Warehouse manager'], pay: [19000, 28000, 46000], smarts: 5 },
+  workshop: { titles: ['Apprentice', 'Craftsperson', 'Master craftsperson'], pay: [16000, 28000, 44000], smarts: 15 },
+  powerplant: { titles: ['Stoker', 'Engineer', 'Chief engineer'], pay: [26000, 42000, 68000], smarts: 40 },
+  kindergarten: { titles: ['Helper', 'Kindergarten teacher', 'Head of kindergarten'], pay: [15000, 24000, 36000], smarts: 30 },
+  museum: { titles: ['Attendant', 'Guide', 'Curator'], pay: [17000, 28000, 46000], smarts: 45 },
+  pharmacy: { titles: ['Counter assistant', 'Pharmacist', 'Head pharmacist'], pay: [18000, 38000, 56000], smarts: 55 },
+  hospital: { titles: ['Orderly', 'Nurse', 'Surgeon', 'Chief of medicine'], pay: [22000, 38000, 85000, 120000], smarts: 65 },
+  firehut: { titles: ['Volunteer', 'Firefighter'], pay: [18000, 28000], smarts: 5 },
+  garden: { titles: ['Gardener', 'Head gardener'], pay: [15000, 24000], smarts: 0 },
+  pool: { titles: ['Lifeguard', 'Swimming coach', 'Pool manager'], pay: [16000, 26000, 38000], smarts: 10 },
+  cinema: { titles: ['Ticket seller', 'Projectionist', 'Cinema manager'], pay: [15000, 24000, 40000], smarts: 10 },
+  stadium: { titles: ['Groundskeeper', 'Steward', 'Stadium manager'], pay: [17000, 25000, 48000], smarts: 10 },
 };
 
 export const STAGES = [

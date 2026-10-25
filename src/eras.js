@@ -17,7 +17,7 @@ export const ERAS = [
     years: 0,
     nominal: 1850,
     blurb: 'Dirt lanes, timber cottages and horse carts.',
-    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground'],
+    builds: ['cottage', 'house', 'shop', 'cafe', 'bakery', 'school', 'clinic', 'park', 'playground', 'bungalow', 'market', 'pharmacy', 'firehut', 'garden'],
   },
   {
     id: 'railway',
@@ -26,7 +26,7 @@ export const ERAS = [
     years: 15,
     nominal: 1865,
     blurb: 'Cobbled streets, brick houses and gas lamps. The first motor cars rattle by.',
-    builds: ['apartments', 'factory', 'library', 'firestation'],
+    builds: ['apartments', 'factory', 'library', 'firestation', 'rowhouse', 'restaurant', 'kindergarten', 'warehouse', 'workshop', 'fountain'],
   },
   {
     id: 'motor',
@@ -35,7 +35,7 @@ export const ERAS = [
     years: 35,
     nominal: 1885,
     blurb: 'Paved roads, electric street lights and cars for everyone.',
-    builds: ['office', 'mall', 'field'],
+    builds: ['office', 'mall', 'field', 'villa', 'bank', 'hotel', 'cinema', 'museum', 'pool', 'powerplant'],
   },
   {
     id: 'modern',
@@ -44,7 +44,7 @@ export const ERAS = [
     years: 60,
     nominal: 1910,
     blurb: 'Towers rise downtown and the streets hum with traffic.',
-    builds: ['tower', 'university'],
+    builds: ['tower', 'university', 'hospital', 'stadium'],
   },
   {
     id: 'future',

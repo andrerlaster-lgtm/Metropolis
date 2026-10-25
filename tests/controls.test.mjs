@@ -7,7 +7,7 @@ import { TOOLS } from '../src/config.js';
 import { typingTarget } from '../src/input.js';
 
 test('tool shortcuts are unique and leave WASD free for moving the camera', () => {
-  const keys = TOOLS.map((t) => t.key);
+  const keys = TOOLS.map((t) => t.key).filter(Boolean); // newer kinds have no key: only a few letters are free
   assert.equal(new Set(keys).size, keys.length, 'no two tools share a key');
   for (const k of ['w', 'a', 's', 'd']) assert.ok(!keys.includes(k), `${k} is a camera key`);
   assert.equal(TOOLS.find((t) => t.id === 'apartments').key, 'o');

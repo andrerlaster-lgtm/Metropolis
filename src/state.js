@@ -3,7 +3,7 @@
 import { STRUCTURES, VARIANT_KEYS, DEFAULT_MAP_SIZE } from './config.js';
 
 // Structures that come in the four pastel colourways.
-export const VARIANT_TYPES = new Set(['house', 'cottage', 'apartments', 'tower', 'shop', 'cafe', 'office', 'mall']);
+export const VARIANT_TYPES = new Set(['house', 'cottage', 'apartments', 'tower', 'shop', 'cafe', 'office', 'mall', 'bungalow', 'villa']);
 
 // Neighbour directions with the road-connection bit each one sets: N, E, S, W.
 export const DIRS = [

@@ -72,6 +72,27 @@ export const STRUCTURES = {
   library: { label: 'Library', capacity: 0, jobs: 3, greenery: 0, height: 26, service: 'school', radius: 5, serves: 100 },
   firestation: { label: 'Fire station', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'fire', radius: 7, serves: 280 },
   university: { label: 'University', capacity: 0, jobs: 30, greenery: 0, height: 40, service: 'school', radius: 9, serves: 450 },
+  // Phase 4: the wider catalog. Still appended in this order (share links count by position).
+  bungalow: { label: 'Bungalow', capacity: 3, jobs: 0, greenery: 0.3, height: 17 },
+  rowhouse: { label: 'Row houses', capacity: 7, jobs: 0, greenery: 0, height: 30 },
+  villa: { label: 'Villa', capacity: 3, jobs: 0, greenery: 1, height: 26 },
+  restaurant: { label: 'Restaurant', capacity: 0, jobs: 8, greenery: 0, height: 22, service: 'fun', radius: 4 },
+  market: { label: 'Market', capacity: 0, jobs: 6, greenery: 0.3, height: 16 },
+  bank: { label: 'Bank', capacity: 0, jobs: 12, greenery: 0, height: 40 },
+  hotel: { label: 'Hotel', capacity: 0, jobs: 14, greenery: 0, height: 46, service: 'fun', radius: 3 },
+  warehouse: { label: 'Warehouse', capacity: 0, jobs: 14, greenery: 0, height: 24 },
+  workshop: { label: 'Workshop', capacity: 0, jobs: 9, greenery: 0, height: 22 },
+  powerplant: { label: 'Power plant', capacity: 0, jobs: 18, greenery: 0, height: 52, pollution: 1 },
+  kindergarten: { label: 'Kindergarten', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'school', radius: 4, serves: 90 },
+  museum: { label: 'Museum', capacity: 0, jobs: 6, greenery: 0, height: 30, service: 'school', radius: 6, serves: 140 },
+  pharmacy: { label: 'Pharmacy', capacity: 0, jobs: 3, greenery: 0, height: 18, service: 'health', radius: 4, serves: 110 },
+  hospital: { label: 'Hospital', capacity: 0, jobs: 30, greenery: 0, height: 44, service: 'health', radius: 10, serves: 900 },
+  firehut: { label: 'Fire hut', capacity: 0, jobs: 2, greenery: 0, height: 18, service: 'fire', radius: 4, serves: 90 },
+  fountain: { label: 'Fountain', capacity: 0, jobs: 0, greenery: 1, walkable: true, height: 14, service: 'fun', radius: 3 },
+  garden: { label: 'Community garden', capacity: 0, jobs: 1, greenery: 2, walkable: true, height: 8 },
+  pool: { label: 'Swimming pool', capacity: 0, jobs: 4, greenery: 0.3, height: 16, service: 'fun', radius: 5 },
+  cinema: { label: 'Cinema', capacity: 0, jobs: 8, greenery: 0, height: 30, service: 'fun', radius: 6 },
+  stadium: { label: 'Stadium', capacity: 0, jobs: 14, greenery: 0, height: 34, service: 'fun', radius: 10 },
 };
 
 // Share of residents who go out to work.
@@ -105,9 +126,9 @@ export const REPUTATION = {
 // Unlocks are permanent. Tools not listed here are always available.
 export const MILESTONES = [
   { id: 'hamlet', label: 'Hamlet', pop: 0, unlocks: [] },
-  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory', 'library', 'firestation'] },
-  { id: 'town', label: 'Town', pop: 200, unlocks: ['tower', 'office', 'clinic', 'mall'] },
-  { id: 'city', label: 'City', pop: 450, unlocks: ['field', 'university'] },
+  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory', 'library', 'firestation', 'rowhouse', 'restaurant', 'kindergarten', 'warehouse', 'workshop', 'fountain'] },
+  { id: 'town', label: 'Town', pop: 200, unlocks: ['tower', 'office', 'clinic', 'mall', 'villa', 'bank', 'hotel', 'cinema', 'museum', 'pool'] },
+  { id: 'city', label: 'City', pop: 450, unlocks: ['field', 'university', 'hospital', 'stadium', 'powerplant'] },
   { id: 'metropolis', label: 'Metropolis', pop: 900, unlocks: [] },
 ];
 
@@ -130,6 +151,26 @@ export const COSTS = {
   library: 900,
   firestation: 1800,
   university: 6000,
+  bungalow: 100,
+  rowhouse: 450,
+  villa: 800,
+  restaurant: 350,
+  market: 250,
+  bank: 1800,
+  hotel: 3000,
+  warehouse: 900,
+  workshop: 600,
+  powerplant: 4000,
+  kindergarten: 900,
+  museum: 2200,
+  pharmacy: 450,
+  hospital: 8000,
+  firehut: 600,
+  fountain: 300,
+  garden: 120,
+  pool: 1600,
+  cinema: 2000,
+  stadium: 7000,
   playground: 400,
   field: 1500,
   tree: 10,
@@ -138,17 +179,18 @@ export const COSTS = {
   bulldoze: 0,
 };
 // Upkeep per in-game day.
-export const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestation: 25, university: 60, park: 2, playground: 5, field: 12 };
+export const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestation: 25, university: 60, park: 2, playground: 5, field: 12, kindergarten: 12, museum: 20, pharmacy: 8, hospital: 120, firehut: 8, fountain: 3, garden: 2, pool: 15, stadium: 45 };
 // Taxes per in-game day: every resident pays a little, every worker a little more, and each business
 // pays per filled job.
 export const TAX = { resident: 0.8, worker: 1.2 };
-export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2 };
+export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8 };
 export const START_MONEY = { land: 10000, town: 25000 };
 
 // Resident thoughts: red needs fixing, yellow is worth a look, green is going well.
 export const SEVERITY_COLORS = { bad: '#ef6461', caution: '#f2b230', good: '#5cbf88' };
 
-// Toolbar: each group is one button; groups with several tools open a small tray.
+// Build menu: each group is one category button; groups with several tools open a panel of them.
+// A tool's `key` is optional (only a few letters are free); new kinds go in the group that fits them.
 export const TOOL_GROUPS = [
   { id: 'inspect', label: 'Inspect', tools: [{ id: 'inspect', label: 'Inspect', key: 'i' }] },
   {
@@ -157,20 +199,36 @@ export const TOOL_GROUPS = [
     tools: [
       { id: 'house', label: 'House', key: '1' },
       { id: 'cottage', label: 'Cottage', key: 'k' },
+      { id: 'bungalow', label: 'Bungalow' },
+      { id: 'rowhouse', label: 'Row houses' },
       { id: 'apartments', label: 'Apartments', key: 'o' }, // A moves the camera (WASD)
+      { id: 'villa', label: 'Villa' },
       { id: 'tower', label: 'Tower', key: '2' },
+    ],
+  },
+  {
+    id: 'shops',
+    label: 'Shops',
+    tools: [
+      { id: 'shop', label: 'Shop', key: '3' },
+      { id: 'cafe', label: 'Café', key: 'e' },
+      { id: 'bakery', label: 'Bakery', key: 'n' },
+      { id: 'restaurant', label: 'Restaurant' },
+      { id: 'market', label: 'Market' },
+      { id: 'mall', label: 'Mall', key: 'l' },
     ],
   },
   {
     id: 'work',
     label: 'Work',
     tools: [
-      { id: 'shop', label: 'Shop', key: '3' },
-      { id: 'cafe', label: 'Café', key: 'e' },
-      { id: 'bakery', label: 'Bakery', key: 'n' },
       { id: 'office', label: 'Office', key: '4' },
-      { id: 'mall', label: 'Mall', key: 'l' },
+      { id: 'bank', label: 'Bank' },
+      { id: 'hotel', label: 'Hotel' },
+      { id: 'workshop', label: 'Workshop' },
+      { id: 'warehouse', label: 'Warehouse' },
       { id: 'factory', label: 'Factory', key: 'y' },
+      { id: 'powerplant', label: 'Power plant' },
     ],
   },
   {
@@ -178,20 +236,30 @@ export const TOOL_GROUPS = [
     label: 'Services',
     tools: [
       { id: 'school', label: 'School', key: '5' },
-      { id: 'clinic', label: 'Clinic', key: '6' },
+      { id: 'kindergarten', label: 'Kindergarten' },
       { id: 'library', label: 'Library', key: 'j' },
-      { id: 'firestation', label: 'Fire station', key: 'h' },
+      { id: 'museum', label: 'Museum' },
       { id: 'university', label: 'University', key: 'u' },
+      { id: 'clinic', label: 'Clinic', key: '6' },
+      { id: 'pharmacy', label: 'Pharmacy' },
+      { id: 'hospital', label: 'Hospital' },
+      { id: 'firestation', label: 'Fire station', key: 'h' },
+      { id: 'firehut', label: 'Fire hut' },
     ],
   },
   {
-    id: 'nature',
-    label: 'Nature',
+    id: 'leisure',
+    label: 'Leisure',
     tools: [
       { id: 'tree', label: 'Tree', key: '7' },
       { id: 'park', label: 'Park', key: '8' },
+      { id: 'garden', label: 'Community garden' },
+      { id: 'fountain', label: 'Fountain' },
       { id: 'playground', label: 'Playground', key: 'p' },
+      { id: 'pool', label: 'Swimming pool' },
+      { id: 'cinema', label: 'Cinema' },
       { id: 'field', label: 'Sports field', key: 'f' },
+      { id: 'stadium', label: 'Stadium' },
       { id: 'water', label: 'Water', key: '0' },
     ],
   },
