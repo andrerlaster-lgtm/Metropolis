@@ -9,6 +9,7 @@ import { STRUCTURES } from './config.js';
 import { CAREERS } from './lifeData.js';
 import { addressOf } from './streets.js';
 import { MORE_EVENTS } from './lifeEventsMore.js';
+import { LEGACY_EVENTS } from './legacyEvents.js';
 
 const o = (text, effects = {}, extra = {}) => ({ text, effects, ...extra });
 
@@ -675,4 +676,4 @@ export const LIFE_EVENTS = [
 ];
 
 // City-linked events, buying a home, siblings and more live in lifeEventsMore.js.
-LIFE_EVENTS.push(...MORE_EVENTS);
+LIFE_EVENTS.push(...MORE_EVENTS, ...LEGACY_EVENTS);

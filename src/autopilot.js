@@ -30,6 +30,14 @@ export const MAYOR_FOCUS = [
 ];
 const BALANCED_ORDER = ['speech', 'fundraiser', 'inspect', 'envoy'];
 
+// What the child does when a life event asks a question while auto mode is on.
+export const EVENT_POLICIES = [
+  { id: 'ask', label: 'Ask me', hint: 'Life events wait for you' },
+  { id: 'safe', label: 'Play it safe', hint: 'Avoid the worst that could happen' },
+  { id: 'bold', label: 'Be bold', hint: 'Go for the best that could happen' },
+  { id: 'focus', label: 'Follow the focus', hint: 'What helps the focus most on average' },
+];
+
 // Roughly what each activity gives (the real outcome is rolled when it's done). Activities that
 // open an event card (job hunting, buying a home) are left to you.
 export const ACTIVITY_GAINS = {
@@ -86,6 +94,7 @@ export class Autopilot {
       if (!st[who]) st[who] = { on: false, focus: list[0].id };
       if (!list.some((f) => f.id === st[who].focus)) st[who].focus = list[0].id;
     }
+    if (!EVENT_POLICIES.some((p) => p.id === st.kid.events)) st.kid.events = 'ask'; // older saves: events wait for you
     return st;
   }
 
@@ -94,6 +103,7 @@ export class Autopilot {
     if (!st) return;
     if (patch.on != null) st.on = !!patch.on;
     if (patch.focus) st.focus = patch.focus;
+    if (patch.events) st.events = patch.events;
     this.state; // re-checks the focus
   }
 
@@ -114,6 +124,14 @@ export class Autopilot {
       }
     }
     return best;
+  }
+
+  // How the child values stats when answering events: the focus's weights (Balanced: the lowest stats).
+  eventWeights() {
+    const c = this.d.life?.()?.char;
+    const f = KID_FOCUS.find((x) => x.id === this.state.kid.focus) || KID_FOCUS[0];
+    if (f.weights) return { happiness: 0.2, health: 0.2, smarts: 0.2, looks: 0.1, ...f.weights };
+    return Object.fromEntries(STATS.map((k) => [k, (100 - (c?.stats?.[k] ?? 50)) / 100]));
   }
 
   // The duty the mayor would pick now, or null.
@@ -148,6 +166,15 @@ export class Autopilot {
     }
     const life = this.d.life?.();
     const c = life?.char;
+    // A life event waiting: answered by the chosen policy, unless it's left to you.
+    if (st.kid.on && c?.alive && c.pending && st.kid.events !== 'ask') {
+      const id = c.pending.id;
+      const i = life.autoChoice(st.kid.events, this.eventWeights());
+      if (i != null) {
+        const r = life.choose(i);
+        if (r?.text) done.push({ who: 'kid', event: id, text: r.text });
+      }
+    }
     if (st.kid.on && c?.alive && !c.pending) {
       const total = energyFor(c.age);
       const left = Math.max(0, c.energy ?? total);

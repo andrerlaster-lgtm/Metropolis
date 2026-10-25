@@ -1248,6 +1248,8 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   // Your permanent base and army, and the raids the computer's towns send against it. While a raid
   // is at the gates or a battle is being fought, the whole world waits.
   const warRoom = new WarRoom(world);
+  // Life events can reach the town: its money and spirit, the mayor, the base and the neighbours.
+  sim.life.hooks = { mayor: () => mayor, economy: () => sim.economy, decisions: () => sim.decisions, war: () => warRoom };
   const baseBtn = document.getElementById('btn-base');
   const SOUND_FOR = { alert: 'warning', build: 'popBig', cheer: 'fanfare', nope: 'nope', click: 'click' };
   const militaryScreen = new MilitaryScreen({

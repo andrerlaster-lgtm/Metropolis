@@ -139,6 +139,6 @@ test('auto settings survive saving and loading', () => {
   assert.ok(P.saveCity(env.city, 1));
   const back = P.loadCity(1);
   const a2 = new Autopilot(back, {});
-  assert.deepEqual(a2.state.kid, { on: true, focus: 'health' });
+  assert.deepEqual(a2.state.kid, { on: true, focus: 'health', events: 'ask' }); // life events wait for you unless set
   assert.deepEqual(a2.state.mayor, { on: true, focus: 'diplomacy' });
 });
