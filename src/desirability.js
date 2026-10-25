@@ -171,7 +171,7 @@ export const FACTORS = [
 
 const ACTIVE = FACTORS.filter((f) => f.enabled);
 // Factors the town's upgrades make count for more or less (skills.js), by the same name.
-const SCALED = new Set(['greenery', 'traffic', 'pollution', 'entertainment']);
+const SCALED = new Set(['greenery', 'traffic', 'pollution', 'entertainment', 'waterfront', 'services', 'employment']);
 const LAYOUT = ACTIVE.filter((f) => f.layout);
 const REACH = Math.max(...LAYOUT.map((f) => f.reach));
 const TYPE_CODE = Object.fromEntries(Object.keys(STRUCTURES).map((type, i) => [type, i + 1]));

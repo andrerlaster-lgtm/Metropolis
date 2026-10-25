@@ -36,7 +36,8 @@ export function computeCoverage(city, days = 0) {
   for (const src of city.tiles) {
     const def = src.structure && STRUCTURES[src.structure.type];
     if (!def?.service) continue;
-    const r = def.radius + (city.derived.notableEffects?.radius?.[def.service] || 0) + (city.derived.skills?.radius?.[def.service] || 0); // notable people and upgrades widen it
+    const r = Math.max(1, def.radius + (city.derived.notableEffects?.radius?.[def.service] || 0) + (city.derived.skills?.radius?.[def.service] || 0)); // notable people and upgrades widen it
+    const serves = def.serves ? def.serves * (city.derived.skills?.serves?.[def.service] ?? 1) : 0; // and upgrades let it look after more
     const cells = [];
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -48,31 +49,31 @@ export function computeCoverage(city, days = 0) {
         cells.push(t, v);
         if (def.serves && t.structure?.residents > 0) {
           const sums = reach.get(t) || reach.set(t, {}).get(t);
-          sums[def.service] = (sums[def.service] || 0) + v * def.serves;
+          sums[def.service] = (sums[def.service] || 0) + v * serves;
         }
       }
     }
-    sources.push({ src, def, cells });
+    sources.push({ src, def, cells, serves });
   }
 
   // Pass 2: each building's demand, then its quality, then the coverage it gives.
-  for (const { src, def, cells } of sources) {
+  for (const { src, def, cells, serves } of sources) {
     let demand = 0;
     if (def.serves) {
       for (let i = 0; i < cells.length; i += 2) {
         const t = cells[i];
-        if (t.structure?.residents > 0) demand += (t.structure.residents * cells[i + 1] * def.serves) / reach.get(t)[def.service];
+        if (t.structure?.residents > 0) demand += (t.structure.residents * cells[i + 1] * serves) / reach.get(t)[def.service];
       }
     }
     const id = src.structure.id;
     let rating = 1;
     if (def.serves) {
-      const target = targetRating(demand, def.serves);
+      const target = targetRating(demand, serves);
       rating = old[id] ?? target;
       const step = SERVICE_RATING.perDay * days;
       rating += Math.max(-step, Math.min(step, target - rating));
       ratings[id] = rating;
-      stats.push({ tile: src, id, type: src.structure.type, service: def.service, demand, serves: def.serves, load: demand / def.serves, target, rating });
+      stats.push({ tile: src, id, type: src.structure.type, service: def.service, demand, serves, load: demand / serves, target, rating });
     }
     for (let i = 0; i < cells.length; i += 2) {
       const v = cells[i + 1] * rating;

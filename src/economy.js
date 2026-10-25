@@ -35,6 +35,7 @@ export const CATEGORY_LABELS = {
   playground: 'Playgrounds',
   field: 'Sports fields',
   bonds: 'Town bonds',
+  interest: 'Savings bank',
 };
 
 export class Economy {
@@ -110,7 +111,7 @@ export class Economy {
         const workers = Math.round(s.residents * WORKER_SHARE) * (t.employment || 0);
         e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
       } else if (BUSINESS_TAX[s.type]) {
-        e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax;
+        e = (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1);
       } else if (UPKEEP[s.type]) {
         e = -UPKEEP[s.type] * this.modifiers.upkeep;
       }
@@ -121,9 +122,14 @@ export class Economy {
       else expenses[cat] = (expenses[cat] || 0) - e;
       if (s.type !== 'road') earners.push(t);
     }
-    // Town bonds (an upgrade, skills.js): a steady income that grows with the town.
+    // Town bonds (an upgrade, skills.js): a steady income that grows with the town; the Town mint adds to it.
     const sk = city.derived.skills;
-    if (sk?.grantBase || sk?.grantPerResident) income.bonds = sk.grantBase + sk.grantPerResident * (city.stats?.population || 0);
+    if (sk?.grantBase || sk?.grantPerResident) income.bonds = (sk.grantBase + sk.grantPerResident * (city.stats?.population || 0)) * (sk.bondsMult ?? 1);
+    // A Savings bank (skills.js) pays interest on the money the town holds, up to a daily limit.
+    if (sk?.interest > 0) {
+      const n = Math.min(sk.interestCap || 0, Math.max(0, this.state.money) * sk.interest);
+      if (n > 0) income.interest = n;
+    }
     const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
     const totalIn = sum(income);
     const totalOut = sum(expenses);

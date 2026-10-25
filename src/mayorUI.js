@@ -2,17 +2,17 @@
 // they did lately and who takes over next. Also keeps the mayor chip on the town card up to date
 // and gives the City panel its Mayor line. Changes go through Mayor.perform.
 
-import { DUTIES, SKILL_LABELS, ACTIONS_PER_DAY } from './mayor.js';
+import { DUTIES, SKILL_LABELS } from './mayor.js';
 import { MAYOR_FOCUS } from './autopilot.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-const actionsText = (n) => `${n} of ${ACTIONS_PER_DAY} action${ACTIONS_PER_DAY === 1 ? '' : 's'} left today`;
+const actionsText = (n, of) => `${n} of ${of} action${of === 1 ? '' : 's'} left today`;
 
 // The City panel's line about the mayor, with a button that opens the town hall.
 export function mayorLineHTML(m) {
   const st = m.state;
-  return `<p class="sk-line"><b>${esc(m.title())} ${esc(st.name)}</b>, ${esc(m.relation())}. ${actionsText(st.actions)}.</p><button type="button" class="ghost-btn small" data-townhall>Town hall</button>`;
+  return `<p class="sk-line"><b>${esc(m.title())} ${esc(st.name)}</b>, ${esc(m.relation())}. ${actionsText(st.actions, m.actionsPerDay())}.</p><button type="button" class="ghost-btn small" data-townhall>Town hall</button>`;
 }
 export const mayorLineKey = (m) => JSON.stringify([m.state.name, m.state.who, m.state.actions, m.relation()]);
 
@@ -86,7 +86,7 @@ export class TownHall {
       <header><h2>Town hall</h2><button type="button" class="insp-close" data-close aria-label="Close">${CLOSE}</button></header>
       <div class="th-who">
         <div><span class="insp-kicker">${esc(m.title())}</span><h3>${esc(st.name)}</h3><p class="sk-line">${esc(m.relation())} · age ${Math.round(st.age)}</p></div>
-        <p class="th-actions" aria-label="${actionsText(st.actions)}">${Array.from({ length: ACTIONS_PER_DAY }, (_, i) => `<span class="th-pip${i < st.actions ? ' on' : ''}"></span>`).join('')}<small>${actionsText(st.actions)}</small></p>
+        <p class="th-actions" aria-label="${actionsText(st.actions, m.actionsPerDay())}">${Array.from({ length: m.actionsPerDay() }, (_, i) => `<span class="th-pip${i < st.actions ? ' on' : ''}"></span>`).join('')}<small>${actionsText(st.actions, m.actionsPerDay())}</small></p>
       </div>
       <dl class="th-skills">${Object.entries(SKILL_LABELS)
         .map(([k, label]) => `<div><dt>${label}</dt><dd><span class="sbar"><span style="width:${st.skills[k]}%"></span></span><b>${st.skills[k]}</b></dd></div>`)

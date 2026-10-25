@@ -116,11 +116,13 @@ export function computeLaborMarket(city, { extraRoads = null, dryRun = false } =
   const nextAtRoad = new Int32Array(nw).fill(-1);
   const firstAtRoad = new Int32Array(size).fill(-1);
   const lastAtRoad = new Int32Array(size).fill(-1);
+  const roadCap = ROAD_CAPACITY * (city.derived.skills?.roadCapacity ?? 1); // Road menders, Tramways (skills.js)
   const capacity = new Int32Array(size);
   let jobs = 0;
   for (let w = 0; w < nw; w++) {
     const t = workplaces[w];
-    const cap = Math.round(STRUCTURES[t.structure.type].jobs * soundness(t.structure) * (city.derived.skills?.jobs ?? 1)); // damaged workplaces employ fewer; Business hubs more
+    const sk = city.derived.skills;
+    const cap = Math.round(STRUCTURES[t.structure.type].jobs * soundness(t.structure) * (sk?.jobs ?? 1) * (sk?.typeJobs?.[t.structure.type] ?? 1)); // damaged workplaces employ fewer; Business hubs more
     jobsAt[w] = cap;
     jobs += cap;
     const r = city.accessRoad(t.x, t.y);
@@ -190,7 +192,7 @@ export function computeLaborMarket(city, { extraRoads = null, dryRun = false } =
         if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
         const n = ny * W + nx;
         if (road[n] !== 1) continue;
-        const busy = load[n] / ROAD_CAPACITY;
+        const busy = load[n] / roadCap;
         const nc = c + (1 + JAM_PENALTY * busy * busy);
         if (seen[n] === stamp && nc >= cost[n]) continue;
         seen[n] = stamp;
@@ -206,7 +208,7 @@ export function computeLaborMarket(city, { extraRoads = null, dryRun = false } =
 
   if (!dryRun) {
     for (let w = 0; w < nw; w++) workplaces[w].workersFilled = filled[w];
-    for (let i = 0; i < size; i++) city.tiles[i].congestion = Math.min(1, load[i] / ROAD_CAPACITY);
+    for (let i = 0; i < size; i++) city.tiles[i].congestion = Math.min(1, load[i] / roadCap);
   }
   return { flows, employed, unemployed, jobs, load };
 }

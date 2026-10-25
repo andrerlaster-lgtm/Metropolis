@@ -149,7 +149,7 @@ export class Military {
     return this.hq?.level || 1;
   }
   get armyCap() {
-    return ARMY_CAP[this.level];
+    return ARMY_CAP[this.level] + (this.skills.armyCap || 0); // Standing army, Citadel (skills.js)
   }
   get garrisonCap() {
     return GARRISON_CAP[this.level];
@@ -346,7 +346,7 @@ export class Military {
 
   recruitCost(type, { emergency = false } = {}) {
     const u = UNITS[type];
-    return Math.round(u.cost * (emergency && u.train ? EMERGENCY : 1));
+    return Math.round(u.cost * (emergency && u.train ? EMERGENCY : 1) * (this.skills.recruitCost ?? 1)); // Citizen militia (skills.js)
   }
 
   // Regular training takes time (one recruit after another); emergency recruits and specialists are ready now.
