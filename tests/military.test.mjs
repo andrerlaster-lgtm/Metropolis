@@ -278,6 +278,12 @@ test('the computer raids with troops it paid for, warns ahead, and both towns li
   let arrived = null;
   war.onWarn = (r) => (warned = r);
   war.onArrive = (r) => (arrived = r);
+  // Raids need a declared war. The neighbour's mayor declares it here, rather than leaving it to
+  // chance (a mayor deciding to go to war is tested in diplomacy.test.mjs).
+  war.diplomacy.declareWar(cpu.id, 'them');
+  // A war chest, so a lean year for the computer town can't leave it unable to afford raiders
+  // (it still pays for every soldier it sends).
+  cpu.military.state.funds += 1500;
   // Let the world run until the first raid arrives (gentle: not before day 3 of your base).
   sim.speed = 3;
   for (let i = 0; i < 40000 && !arrived; i++) {
