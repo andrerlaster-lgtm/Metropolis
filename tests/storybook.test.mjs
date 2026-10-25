@@ -129,3 +129,18 @@ test('building the look leaves the town untouched and comes out the same every t
   assert.deepEqual(a.layers.roof.p, b.layers.roof.p);
   assert.deepEqual(a.flowers, b.flowers);
 });
+
+test('every flower and tuft the models scatter has a colour, so winter and snow never fail', () => {
+  const city = new CityState(12, 12);
+  for (const type of Object.keys(STRUCTURES).filter((t) => t !== 'road')) {
+    for (const r of [0, 1, 2, 3]) {
+      for (const t of city.tiles) t.structure = null;
+      const [dx, dy] = [[0, 1], [1, 0], [0, -1], [-1, 0]][r];
+      city.getTile(5 + dx, 5 + dy).structure = { type: 'road' };
+      city.getTile(5, 5).structure = { type, variant: 'mint', floors: 3, shape: r, residents: 2, id: 1 };
+      const out = SB.buildStorybook(city, { x0: 3, y0: 3, x1: 8, y1: 8 }, { growthOf, STRUCTURES, winter: true });
+      for (const f of out.flowers) assert.ok(typeof f[4] === 'string' && f.slice(0, 4).every(Number.isFinite), `${type}: a flower is missing its colour`);
+      for (const t of out.tufts) assert.ok(typeof t[3] === 'string' && t.slice(0, 3).every(Number.isFinite), `${type}: a tuft is missing its colour`);
+    }
+  }
+});

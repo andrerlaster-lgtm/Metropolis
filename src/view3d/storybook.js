@@ -1742,7 +1742,7 @@ function mall(out, ctx) {
       P.quad([xa, 0.12, sz - 0.03], [xa + 0.0375, 0.12, sz - 0.03], [xa + 0.0375, 0.09, sz + 0.045], [xa, 0.09, sz + 0.045], k % 2 ? c2 : c1);
     }
     const [fx, fz] = W.tx(sx, sz);
-    for (let k = 0; k < 5; k++) out.flowers.push([fx - 0.05 + k * 0.025, 0.055, fz, 0.7, FLOWERS[(k + Math.round(sx * 10)) % FLOWERS.length]]);
+    for (let k = 0; k < 5; k++) out.flowers.push([fx - 0.05 + k * 0.025, 0.055, fz, 0.7, FLOWERS[(k + Math.round(sx * 10) + 20) % FLOWERS.length]]);
   }
   const D = out.layers.dirt;
   D.quad([-0.46, 0.006, 0.47], [0.46, 0.006, 0.47], [0.46, 0.006, b.z1 + 0.01], [-0.46, 0.006, b.z1 + 0.01], lin('#d6c4a0'), [[-0.46, -0.47], [0.46, -0.47], [0.46, -b.z1], [-0.46, -b.z1]]);
