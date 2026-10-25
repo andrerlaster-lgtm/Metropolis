@@ -157,14 +157,14 @@ Events are plain data in `src/lifeEvents.js` and `src/lifeEventsMore.js` (78 in 
 
 | Action | Desktop | Touch |
 | --- | --- | --- |
-| Build selected item | Click | Tap |
-| Build many at once | Drag (roads draw as an L) | Drag with one finger |
+| Build selected item | Click | Double-tap (a single tap shows a preview) |
+| Build many at once | Drag (roads draw as an L) | Double-tap and drag on the second tap |
 | Undo / redo | Ctrl+Z / Ctrl+Shift+Z (⌘ on a Mac), or the buttons by the toolbar. In a text field these undo your typing instead | Buttons by the toolbar |
 | Sound on / off | M, or the speaker button | ☰ City controls |
 | Bulldoze | Right-click (or Bulldoze tool, B) | Long-press (or Bulldoze tool) |
 | Inspect a tile | Inspect tool (I), then click | Inspect tool, then tap |
 | See what a building reaches | Pick a school, clinic, playground, park, tree, factory… and hover the map: its reach is tinted (green helps, coral bothers) with a ring and a label of the homes it reaches and how many still need it. Homes still missing what it gives are marked in yellow. Inspect a building to see its reach | Pick it: homes still missing what it gives are marked in yellow. After you place it, its reach shows for a few seconds. Inspect a building to see its reach |
-| Pan | Arrow keys or WASD (hold to glide), two-finger scroll on a trackpad, right-drag or middle-drag (or drag with Inspect) | Two fingers (or one finger with Inspect) |
+| Pan | Arrow keys or WASD (hold to glide), two-finger scroll on a trackpad, right-drag or middle-drag (or drag with Inspect) | One finger (always), or two fingers |
 | Zoom | Mouse wheel, or pinch on a trackpad | Pinch |
 | Scroll wheel / trackpad | ☰ Settings: **Auto** (trackpad scrolling pans, mouse wheels zoom), **Always zoom** or **Always pan** | – |
 | Pick a tool | 1 House · K Cottage · O Apartments · 2 Tower · 3 Shop · E Café · N Bakery · 4 Office · L Mall · Y Factory · 5 School · 6 Clinic · J Library · H Fire station · U University · 7 Tree · 8 Park · P Playground · F Sports field · 9 Road · 0 Water. Keys do nothing while you type in a text field. A town opens with Inspect picked, so clicks and drags look around until you pick something to build | Toolbar; buttons with a dot open more choices. A town opens with Inspect picked, so taps and drags look around until you pick something to build |

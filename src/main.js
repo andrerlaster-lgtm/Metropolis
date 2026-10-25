@@ -1174,7 +1174,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     askForMainPerson();
     const touch = window.matchMedia?.('(pointer: coarse)').matches;
     ui.toast(
-      touch ? 'Tap or drag to build · two fingers to move · long-press to bulldoze' : 'Click or drag to build · right-drag, arrow keys or two-finger scroll to move · right-click to bulldoze',
+      touch ? 'Drag to move · double-tap to build · pinch to zoom · long-press to bulldoze' : 'Click or drag to build · right-drag, arrow keys or two-finger scroll to move · right-click to bulldoze',
       6000
     );
   } else {
