@@ -121,3 +121,74 @@ test('the advisor mentions a food shortage in a big enough town', () => {
   const thoughts = computeThoughts(city, null);
   assert.ok(thoughts.some((t) => /Food is running short/.test(t.text)), JSON.stringify(thoughts.map((t) => t.text)));
 });
+
+// ---- Farm → mill (the mill buys the harvest and turns it into money) ----
+
+import { MILL } from '../src/config.js';
+import { computeChain } from '../src/resources.js';
+
+test('a mill is a workplace that pays tax and buys the harvest of farms near it', () => {
+  assert.ok(STRUCTURES.mill.mills && STRUCTURES.mill.jobs > 0);
+  const { city } = town([['farm', 14, 4], ['mill', 17, 4]]);
+  const c = city.derived.resources.chain;
+  assert.equal(c.links.length, 1);
+  assert.equal(c.links[0].farm, city.getTile(14, 4));
+  assert.ok(c.income > 0);
+  const mill = city.getTile(17, 4);
+  assert.ok(mill.earning > c.income - 1, 'the mill’s earnings include the harvest money');
+});
+
+test('unmilled farms still feed the town but earn nothing, and the link shortens with distance', () => {
+  const lone = town([['farm', 14, 4]]).city;
+  assert.equal(lone.derived.resources.chain.links.length, 0);
+  assert.equal(lone.derived.resources.chain.unmilled.length, 1);
+  assert.ok(lone.derived.resources.food.made > 0, 'still feeds the town');
+  const near = town([['farm', 14, 4], ['mill', 15, 4]]).city.derived.resources.chain.income;
+  const far = town([['farm', 14, 4], ['mill', 22, 4]]).city.derived.resources.chain.income;
+  assert.ok(near > far && far > 0, `${near} > ${far}`);
+  const tooFar = new CityState(40, 10);
+  tooFar.getTile(1, 5).structure = { type: 'farm', id: 1 };
+  tooFar.getTile(30, 5).structure = { type: 'mill', id: 2 };
+  assert.equal(computeChain(tooFar).links.length, 0, 'beyond the range there is no link');
+});
+
+test('each farm sells to its nearest mill, and a mill takes only so many farms', () => {
+  const city = new CityState(40, 12);
+  for (let i = 0; i < MILL.farms + 2; i++) city.getTile(5 + i, 3).structure = { type: 'farm', id: i + 1 };
+  city.getTile(7, 6).structure = { type: 'mill', id: 50 };
+  const c = computeChain(city);
+  assert.equal(c.links.length, MILL.farms);
+  assert.equal(c.unmilled.length, 2);
+  // A second mill takes the rest.
+  city.getTile(9, 6).structure = { type: 'mill', id: 51 };
+  const c2 = computeChain(city);
+  assert.equal(c2.unmilled.length, 0);
+  assert.equal(c2.links.length, MILL.farms + 2);
+  // The same answer whatever order the tiles are in.
+  assert.deepEqual(computeChain(city).links.map((l) => [l.farm.x, l.mill.x]), c2.links.map((l) => [l.farm.x, l.mill.x]));
+});
+
+test('an unstaffed mill or farm earns less', () => {
+  const { city } = town([['farm', 14, 4], ['mill', 17, 4]]);
+  const full = computeChain(city).income;
+  city.getTile(17, 4).workersFilled = 0;
+  assert.ok(computeChain(city).income < full);
+});
+
+test('growth builds a mill when farms have none, and the advisor says so', () => {
+  const city = new CityState(24, 24);
+  for (let x = 2; x < 22; x++) city.getTile(x, 10).structure = { type: 'road' };
+  for (let i = 0; i < 16; i++) city.getTile(2 + i, 9).structure = { id: i + 1, type: 'house', residents: 4 };
+  city.getTile(14, 4).structure = { type: 'farm', id: 90 };
+  city.systems.mode = 'sandbox';
+  const sim = new Simulation(city);
+  sim.refresh();
+  assert.equal(sim.growth.unmilledFarms(), 1);
+  assert.ok(computeThoughts(city, null).some((t) => /nowhere to sell/.test(t.text)));
+  sim.eras.state.index = 2;
+  sim.economy.state.money = 1e7;
+  sim.growth.payAll = true;
+  let built = null;
+  for (let i = 0; i < 300 && !built; i++) built = sim.growth.act('work')?.type === 'mill';
+  assert.ok(built, 'a mill was built');
+});

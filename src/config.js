@@ -95,6 +95,8 @@ export const STRUCTURES = {
   stadium: { label: 'Stadium', capacity: 0, jobs: 14, greenery: 0, height: 34, service: 'fun', radius: 10 },
   // Phase 8: the first producer that needs open land rather than a road.
   farm: { label: 'Farm', capacity: 0, jobs: 4, greenery: 0.5, walkable: true, height: 16, produces: { food: 70 } },
+  // The mill buys the harvest of farms near it and turns it into money (resources.js).
+  mill: { label: 'Mill', capacity: 0, jobs: 8, greenery: 0, height: 34, mills: true },
 };
 
 // Resources (resources.js): what the town makes and uses each day.
@@ -104,6 +106,9 @@ export const RESOURCES = {
   power: { label: 'Power', note: 'Power plants light the town from the Motor age' },
 };
 export const RESOURCE_NEED = { foodPerResident: 0.5, goodsPerWorker: 0.25, powerFromEra: 2, powerPerResident: 0.5, powerPerWorker: 0.3 };
+// Farm → mill chain: each farm sells to the nearest mill within `range` tiles that has room (a mill takes
+// `farms` of them); a mill with its farms staffed earns up to `income` a day per farm, less the longer the haul.
+export const MILL = { range: 10, farms: 3, income: 60 };
 // What a fully supplied town gets: homes a little happier, and a little more tax from shops and the like.
 export const SUPPLY_BONUS = { food: 0.04, power: 0.03, retailTax: 0.08 };
 
@@ -138,7 +143,7 @@ export const REPUTATION = {
 // Unlocks are permanent. Tools not listed here are always available.
 export const MILESTONES = [
   { id: 'hamlet', label: 'Hamlet', pop: 0, unlocks: [] },
-  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory', 'library', 'firestation', 'rowhouse', 'restaurant', 'kindergarten', 'warehouse', 'workshop', 'fountain'] },
+  { id: 'village', label: 'Village', pop: 60, unlocks: ['school', 'playground', 'apartments', 'factory', 'library', 'firestation', 'rowhouse', 'restaurant', 'kindergarten', 'warehouse', 'workshop', 'fountain', 'mill'] },
   { id: 'town', label: 'Town', pop: 200, unlocks: ['tower', 'office', 'clinic', 'mall', 'villa', 'bank', 'hotel', 'cinema', 'museum', 'pool'] },
   { id: 'city', label: 'City', pop: 450, unlocks: ['field', 'university', 'hospital', 'stadium', 'powerplant'] },
   { id: 'metropolis', label: 'Metropolis', pop: 900, unlocks: [] },
@@ -184,6 +189,7 @@ export const COSTS = {
   cinema: 2000,
   stadium: 7000,
   farm: 250,
+  mill: 1200,
   playground: 400,
   field: 1500,
   tree: 10,
@@ -196,7 +202,7 @@ export const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestat
 // Taxes per in-game day: every resident pays a little, every worker a little more, and each business
 // pays per filled job.
 export const TAX = { resident: 0.8, worker: 1.2 };
-export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8, farm: 1.4 };
+export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8, farm: 1.4, mill: 1.6 };
 export const START_MONEY = { land: 10000, town: 25000 };
 
 // Resident thoughts: red needs fixing, yellow is worth a look, green is going well.
@@ -240,6 +246,7 @@ export const TOOL_GROUPS = [
       { id: 'hotel', label: 'Hotel' },
       { id: 'workshop', label: 'Workshop' },
       { id: 'farm', label: 'Farm' },
+      { id: 'mill', label: 'Mill' },
       { id: 'warehouse', label: 'Warehouse' },
       { id: 'factory', label: 'Factory', key: 'y' },
       { id: 'powerplant', label: 'Power plant' },

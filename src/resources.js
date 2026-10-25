@@ -7,7 +7,7 @@
 // A shortage just means missing the bonus, and the City panel says what would help. Producers are the
 // `produces` numbers in config.js (per day, scaled by how many of the jobs are filled).
 
-import { STRUCTURES, RESOURCES, RESOURCE_NEED } from './config.js';
+import { STRUCTURES, RESOURCES, RESOURCE_NEED, MILL } from './config.js';
 
 // → { food: { made, need, ratio }, goods: {…}, power: {…, active} } with ratio 0..1 (1 when nothing is needed).
 export function computeResources(city, eraIndex = 0) {
@@ -37,7 +37,48 @@ export function computeResources(city, eraIndex = 0) {
     out[k] = { made: Math.round(made[k]), need: Math.round(need[k]), ratio: need[k] > 0 ? Math.min(1, made[k] / need[k]) : 1 };
   }
   out.power.active = need.power > 0;
+  out.chain = computeChain(city);
   return out;
+}
+
+// Farm → mill: each farm sells its harvest to the nearest mill within MILL.range tiles that still has room
+// (a mill takes MILL.farms farms). Nearest pairs are matched first, so the answer doesn't depend on map
+// order. A link earns MILL.income a day, less the longer the haul (down to 20%), scaled by how well
+// the farm and the mill are staffed. Farms with no mill still feed the town; they just earn nothing.
+// → { links: [{ farm, mill, dist, eff, income }], unmilled: [farm tiles], byMill: Map(mill tile → income), income }
+export function computeChain(city) {
+  const farms = [];
+  const mills = [];
+  for (const t of city.tiles) {
+    const type = t.structure?.type;
+    if (type === 'farm') farms.push(t);
+    else if (STRUCTURES[type]?.mills) mills.push(t);
+  }
+  const pairs = [];
+  for (const f of farms) {
+    for (const m of mills) {
+      const dist = Math.hypot(f.x - m.x, f.y - m.y);
+      if (dist <= MILL.range) pairs.push({ f, m, dist });
+    }
+  }
+  pairs.sort((a, b) => a.dist - b.dist || a.f.y * city.width + a.f.x - (b.f.y * city.width + b.f.x) || a.m.y * city.width + a.m.x - (b.m.y * city.width + b.m.x));
+  const taken = new Set();
+  const load = new Map();
+  const links = [];
+  const byMill = new Map();
+  let income = 0;
+  const staff = (t) => Math.min(1, (t.workersFilled || 0) / Math.max(1, STRUCTURES[t.structure.type].jobs));
+  for (const { f, m, dist } of pairs) {
+    if (taken.has(f) || (load.get(m) || 0) >= MILL.farms) continue;
+    taken.add(f);
+    load.set(m, (load.get(m) || 0) + 1);
+    const eff = Math.max(0.2, 1 - dist / (MILL.range + 2));
+    const pay = Math.round(MILL.income * eff * staff(f) * staff(m) * (city.derived.skills?.millIncome ?? 1));
+    links.push({ farm: f, mill: m, dist, eff, income: pay });
+    byMill.set(m, (byMill.get(m) || 0) + pay);
+    income += pay;
+  }
+  return { links, unmilled: farms.filter((f) => !taken.has(f)), mills, byMill, income };
 }
 
 // What would fix the weakest supply, in words (for the City panel and the advisor).

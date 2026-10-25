@@ -425,6 +425,7 @@ body {
 .tint-university { --tint: #efcdbb; }
 .tint-bakery { --tint: #f6d7ae; }
 .tint-farm { --tint: #e6dd9a; }
+.tint-mill { --tint: #e8d6b0; }
 .tint-tree { --tint: var(--tint-tree); }
 .tint-park { --tint: var(--tint-park); }
 .tint-road { --tint: var(--tint-road); }

@@ -104,6 +104,7 @@ const TOOL_SOUNDS = {
   cinema: 'popBig',
   stadium: 'popBig',
   farm: 'plant',
+  mill: 'popBig',
   playground: 'pop',
   field: 'plant',
   tree: 'plant',
