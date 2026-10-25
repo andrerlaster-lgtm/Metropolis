@@ -7,7 +7,7 @@ import { hasEntrance } from './labor.js';
 import { FIRST_NAMES, LAST_NAMES, PRONOUNS, CAREERS, stageFor } from './lifeData.js';
 import { pickEvent, isEligible, fill, choicesFor, rollOutcome, applyEffects, chooseByPolicy, STAT_KEYS } from './lifeEngine.js';
 import { LIFE_EVENTS } from './lifeEvents.js';
-import { ACTIVITIES, energyFor } from './lifeActivities.js';
+import { ACTIVITIES, energyFor, pickRotation, ROTATION_SIZE } from './lifeActivities.js';
 import { ACHIEVEMENTS, ribbonFor } from './lifeAchievements.js';
 import { pick, hash2 } from './utils.js';
 import { addressOf } from './streets.js';
@@ -187,6 +187,7 @@ export class LifeSystem {
     c.yearProgress = 0;
     c.energy = energyFor(c.age);
     c.yearActs = {};
+    this.rotate(true);
     this.yearly();
     if (c.alive) {
       this.planYear();
@@ -393,14 +394,28 @@ export class LifeSystem {
 
   // ---- Activities ----------------------------------------------------------------
 
+  // This year's rotating activities, saved on the character (c.offered = { age, ids }). Chosen from
+  // the ones that suit their age and town now, favouring any they weren't offered last year. A save
+  // from before this existed gets its first rotation the first time it's asked.
+  rotate(force = false) {
+    const c = this.char;
+    if (!c?.alive) return [];
+    if (!force && c.offered?.age === c.age && Array.isArray(c.offered.ids)) return c.offered.ids;
+    const ctx = this.ctx();
+    const fits = ACTIVITIES.filter((a) => !a.essential && c.age >= (a.minAge ?? 0) && c.age <= (a.maxAge ?? 200) && (!a.when || a.when(ctx)));
+    c.offered = { age: c.age, ids: pickRotation(fits, c.offered?.ids || [], ROTATION_SIZE, this.rng) };
+    return c.offered.ids;
+  }
+
   // What the character could do right now, with labels filled in and a reason when blocked.
   activities() {
     const c = this.char;
     if (!c?.alive) return [];
     const ctx = this.ctx();
+    const offered = this.rotate();
     const vars = this.vars();
     const energy = c.energy ?? energyFor(c.age);
-    return ACTIVITIES.filter((a) => c.age >= (a.minAge ?? 0) && c.age <= (a.maxAge ?? 200) && (!a.when || a.when(ctx))).map((a) => {
+    return ACTIVITIES.filter((a) => c.age >= (a.minAge ?? 0) && c.age <= (a.maxAge ?? 200) && (a.essential || offered.includes(a.id)) && (!a.when || a.when(ctx))).map((a) => {
       const cost = a.cost ? a.cost(ctx) : 0;
       let blocked = null;
       if (c.pending) blocked = 'An event is waiting';

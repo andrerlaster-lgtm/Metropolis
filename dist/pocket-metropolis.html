@@ -10241,6 +10241,7 @@ const ACTIVITY_GROUPS = [
   { id: 'body', label: 'Mind & body' },
   { id: 'people', label: 'People' },
   { id: 'out', label: 'Out in the city' },
+  { id: 'create', label: 'Creative' },
   { id: 'money', label: 'Work & home' },
 ];
 
@@ -10251,10 +10252,29 @@ function energyFor(age) {
   return 3;
 }
 
+// Essentials (essential: true) are always on offer. Everything else rotates: each birthday the
+// character is offered ROTATION_SIZE of the activities that suit their age and town, favouring ones
+// they weren't offered last year. The choice is saved on the character (char.offered).
+const ROTATION_SIZE = 9;
+
+function pickRotation(candidates, previous = [], size = ROTATION_SIZE, rng = Math.random) {
+  const pool = candidates.map((a) => ({ id: a.id, w: previous.includes(a.id) ? 0.25 : 1 }));
+  const out = [];
+  while (out.length < size && pool.length) {
+    const total = pool.reduce((n, p) => n + p.w, 0);
+    let r = rng() * total;
+    let k = 0;
+    while (k < pool.length - 1 && (r -= pool[k].w) > 0) k++;
+    out.push(pool.splice(k, 1)[0].id);
+  }
+  return out;
+}
+
 const ACTIVITIES = [
   // ---- Mind & body -------------------------------------------------------------
   {
     id: 'study',
+    essential: true,
     group: 'body',
     minAge: 5,
     label: (ctx) => (ctx.char.age >= 22 ? 'Take an evening class' : 'Study hard'),
@@ -10271,6 +10291,7 @@ const ACTIVITIES = [
   },
   {
     id: 'exercise',
+    essential: true,
     group: 'body',
     minAge: 6,
     label: (ctx) => {
@@ -10293,6 +10314,7 @@ const ACTIVITIES = [
   },
   {
     id: 'doctor',
+    essential: true,
     group: 'body',
     minAge: 10,
     label: () => 'See a doctor',
@@ -10305,6 +10327,7 @@ const ACTIVITIES = [
   },
   {
     id: 'rest',
+    essential: true,
     group: 'body',
     minAge: 3,
     label: (ctx) => (ctx.char.age < 13 ? 'Build a blanket fort' : 'Have a lazy day'),
@@ -10327,6 +10350,7 @@ const ACTIVITIES = [
   // ---- People ---------------------------------------------------------------------
   {
     id: 'family',
+    essential: true,
     group: 'people',
     minAge: 3,
     when: (ctx) => ctx.person('mother') || ctx.person('father'),
@@ -10336,6 +10360,7 @@ const ACTIVITIES = [
   },
   {
     id: 'sibling',
+    essential: true,
     group: 'people',
     minAge: 3,
     when: (ctx) => ctx.person('sibling'),
@@ -10348,6 +10373,7 @@ const ACTIVITIES = [
   },
   {
     id: 'friend',
+    essential: true,
     group: 'people',
     minAge: 4,
     when: (ctx) => ctx.person('friend'),
@@ -10362,6 +10388,7 @@ const ACTIVITIES = [
   },
   {
     id: 'meet',
+    essential: true,
     group: 'people',
     minAge: 4,
     label: () => 'Make a new friend',
@@ -10376,6 +10403,7 @@ const ACTIVITIES = [
   },
   {
     id: 'date',
+    essential: true,
     group: 'people',
     minAge: 16,
     maxAge: 75,
@@ -10396,6 +10424,7 @@ const ACTIVITIES = [
   },
   {
     id: 'kids',
+    essential: true,
     group: 'people',
     minAge: 18,
     when: (ctx) => ctx.char.children.some((k) => k.alive !== false && k.age < 18),
@@ -10412,6 +10441,7 @@ const ACTIVITIES = [
   // ---- Out in the city ------------------------------------------------------------
   {
     id: 'playground',
+    essential: true,
     group: 'out',
     minAge: 3,
     maxAge: 12,
@@ -10431,6 +10461,7 @@ const ACTIVITIES = [
   },
   {
     id: 'park',
+    essential: true,
     group: 'out',
     minAge: 3,
     label: () => 'Walk in the park',
@@ -10496,6 +10527,7 @@ const ACTIVITIES = [
   },
   {
     id: 'job_hunt',
+    essential: true,
     group: 'money',
     minAge: 18,
     maxAge: 62,
@@ -10506,6 +10538,7 @@ const ACTIVITIES = [
   },
   {
     id: 'overtime',
+    essential: true,
     group: 'money',
     minAge: 16,
     when: (ctx) => ctx.char.job,
@@ -10524,6 +10557,7 @@ const ACTIVITIES = [
   },
   {
     id: 'buy_home',
+    essential: true,
     group: 'money',
     minAge: 18,
     when: (ctx) => !ctx.char.flags.ownsHome || ctx.homesForSale().length,
@@ -10534,9 +10568,354 @@ const ACTIVITIES = [
     },
     run: () => ({ launch: 'buy_home' }),
   },
+
+  // ---- More to do (these rotate: see ROTATION_SIZE) ------------------------------------------
+
+  // Mind & body
+  {
+    id: 'swim',
+    group: 'body',
+    minAge: 5,
+    label: () => 'Go for a swim',
+    hint: (ctx) => `Pool at ${addressOf(ctx.nearest('pool', 12))}: +Health`,
+    when: (ctx) => ctx.nearest('pool', 12),
+    cost: () => 20,
+    run: (ctx, rng) => {
+      const pool = ctx.nearest('pool', 12);
+      return chance(rng, 0.2)
+        ? o(`{name} swam lengths at ${where(pool)} and made a splash at the deep end.`, { health: 6, happiness: 4 })
+        : o(`{name} did thirty lengths at ${where(pool)}.`, { health: 6 + (ctx.has('sporty') ? 2 : 0), happiness: 2 });
+    },
+  },
+  {
+    id: 'yoga',
+    group: 'body',
+    minAge: 14,
+    label: () => 'Try a yoga class',
+    hint: () => '+Health, calmer',
+    cost: () => 40,
+    run: (ctx, rng) => (chance(rng, 0.15) ? o('{name} fell over in tree pose. Everyone laughed, kindly.', { happiness: 3, health: 2 }) : o('{name} breathed deeply, stretched and left feeling ten years younger.', { health: 4, happiness: 4 })),
+  },
+  {
+    id: 'library_visit',
+    group: 'body',
+    minAge: 6,
+    label: () => 'Spend an afternoon at the library',
+    hint: (ctx) => `Library at ${addressOf(ctx.nearest('library', 14))}: +Smarts`,
+    when: (ctx) => ctx.nearest('library', 14),
+    run: (ctx, rng) => {
+      const lib = ctx.nearest('library', 14);
+      return chance(rng, 0.2)
+        ? o(`{name} found a forgotten old atlas at ${where(lib)} and read it cover to cover.`, { smarts: 6, happiness: 2 })
+        : o(`{name} borrowed a pile of books from ${where(lib)}.`, { smarts: 4, happiness: 2 });
+    },
+  },
+  {
+    id: 'museum_trip',
+    group: 'body',
+    minAge: 6,
+    label: () => 'Visit the museum',
+    hint: (ctx) => `Museum at ${addressOf(ctx.nearest('museum', 14))}: +Smarts`,
+    when: (ctx) => ctx.nearest('museum', 14),
+    cost: () => 15,
+    run: (ctx) => o(`{name} wandered the halls of ${where(ctx.nearest('museum', 14))} and learned something surprising about the town's past.`, { smarts: 5, happiness: 3 }),
+  },
+  {
+    id: 'journal',
+    group: 'body',
+    minAge: 12,
+    label: () => 'Keep a journal',
+    hint: () => '+Happiness, +Smarts',
+    run: (ctx, rng) => (chance(rng, 0.2) ? o('{name} re-read an old entry and cringed, then laughed.', { happiness: 3, smarts: 1 }) : o('{name} wrote a page every night for a month and felt lighter.', { happiness: 4, smarts: 2 })),
+  },
+  {
+    id: 'cook',
+    group: 'body',
+    minAge: 10,
+    label: () => 'Learn a new recipe',
+    hint: () => '+Health, +Happiness',
+    cost: () => 25,
+    run: (ctx, rng) => (chance(rng, 0.25) ? o('{name} set off the smoke alarm, but the second attempt was delicious.', { health: 2, happiness: 3 }) : o('{name} mastered a proper stew and fed the whole street.', { health: 3, happiness: 5 })),
+  },
+
+  // People
+  {
+    id: 'dinner_out',
+    group: 'people',
+    minAge: 16,
+    label: (ctx) => (ctx.char.partner ? 'Dinner out with {partner}' : 'Dinner out with {friend}'),
+    hint: (ctx) => {
+      const r = ctx.nearest(['restaurant', 'cafe'], 16);
+      return r ? `At ${addressOf(r)}` : '';
+    },
+    when: (ctx) => ctx.nearest(['restaurant', 'cafe'], 16) && (ctx.char.partner || ctx.person('friend')),
+    cost: () => 80,
+    run: (ctx) => {
+      const r = ctx.nearest(['restaurant', 'cafe'], 16);
+      return ctx.char.partner
+        ? o(`{name} and {partner} shared dessert at ${where(r)}.`, { happiness: 5, rel: { partner: 8 } })
+        : o(`{name} and {friend} talked for hours over dinner at ${where(r)}.`, { happiness: 5, rel: { friend: 8 } });
+    },
+  },
+  {
+    id: 'cinema_night',
+    group: 'people',
+    minAge: 8,
+    label: () => 'Go to the cinema',
+    hint: (ctx) => `Cinema at ${addressOf(ctx.nearest('cinema', 16))}`,
+    when: (ctx) => ctx.nearest('cinema', 16),
+    cost: () => 40,
+    run: (ctx, rng) => {
+      const t = ctx.nearest('cinema', 16);
+      const rel = ctx.char.partner ? { partner: 5 } : ctx.person('friend') ? { friend: 5 } : {};
+      return chance(rng, 0.2) ? o(`The film at ${where(t)} was dreadful, but the popcorn was excellent.`, { happiness: 3, rel }) : o(`{name} cried at the ending of the picture at ${where(t)}.`, { happiness: 6, rel });
+    },
+  },
+  {
+    id: 'dinner_party',
+    group: 'people',
+    minAge: 18,
+    label: () => 'Host a dinner party',
+    hint: () => 'Friends and maybe a new one',
+    cost: () => 120,
+    run: (ctx, rng) => o('{name} cooked for a full table and the evening ran late.', { happiness: 6, rel: { friend: 5 } }, chance(rng, 0.35) ? { do: (c) => c.addFriend(50) } : {}),
+  },
+  {
+    id: 'mentor',
+    group: 'people',
+    minAge: 13,
+    label: (ctx) => `Learn from ${ctx.neighbour().person}`,
+    hint: () => '+Smarts, maybe a friend',
+    when: (ctx) => ctx.neighbour(),
+    run: (ctx, rng) => {
+      const n = ctx.neighbour();
+      return o(`${n.person} at ${n.address} taught {name} a trick or two over a cup of tea.`, { smarts: 4, happiness: 3 }, chance(rng, 0.3) ? { do: (c) => c.addFriend(50, n.person) } : {});
+    },
+  },
+  {
+    id: 'street_bbq',
+    group: 'people',
+    minAge: 8,
+    label: () => 'Join a street barbecue',
+    hint: () => '+Happiness, new faces',
+    run: (ctx, rng) => o('The whole street came out with plates and folding chairs, and {name} chatted until dark.', { happiness: 5 }, chance(rng, 0.4) ? { do: (c) => c.addFriend(50) } : {}),
+  },
+
+  // Out in the city
+  {
+    id: 'fountain_wish',
+    group: 'out',
+    minAge: 3,
+    label: () => 'Make a wish at the fountain',
+    hint: (ctx) => `Fountain at ${addressOf(ctx.nearest('fountain', 12))}`,
+    when: (ctx) => ctx.nearest('fountain', 12),
+    run: (ctx) => o(`{name} tossed a coin into the fountain at ${where(ctx.nearest('fountain', 12))} and wished quietly.`, { happiness: 5 }),
+  },
+  {
+    id: 'garden_plot',
+    group: 'out',
+    minAge: 8,
+    label: () => 'Tend a garden plot',
+    hint: (ctx) => `Garden at ${addressOf(ctx.nearest('garden', 14))}: +Health`,
+    when: (ctx) => ctx.nearest('garden', 14),
+    run: (ctx, rng) => {
+      const g = ctx.nearest('garden', 14);
+      return chance(rng, 0.3) ? o(`{name} grew a pumpkin the size of a wheelbarrow at ${where(g)} and sold the seeds.`, { health: 3, happiness: 4, money: 40 }) : o(`{name} weeded and watered the beds at ${where(g)}.`, { health: 4, happiness: 3 });
+    },
+  },
+  {
+    id: 'market_stroll',
+    group: 'out',
+    minAge: 8,
+    label: () => 'Stroll round the market',
+    hint: (ctx) => `Market at ${addressOf(ctx.nearest('market', 16))}`,
+    when: (ctx) => ctx.nearest('market', 16),
+    cost: () => 30,
+    run: (ctx, rng) => {
+      const m = ctx.nearest('market', 16);
+      return chance(rng, 0.25) ? o(`{name} haggled a bargain at ${where(m)}.`, { happiness: 4, money: 20 }) : o(`{name} came home from ${where(m)} with fresh bread and flowers.`, { happiness: 5, health: 1 });
+    },
+  },
+  {
+    id: 'match_day',
+    group: 'out',
+    minAge: 8,
+    label: () => 'Watch a match',
+    hint: (ctx) => `Stadium at ${addressOf(ctx.nearest('stadium', 18))}`,
+    when: (ctx) => ctx.nearest('stadium', 18),
+    cost: () => 60,
+    run: (ctx, rng) => {
+      const s = ctx.nearest('stadium', 18);
+      const rel = ctx.person('friend') ? { friend: 5 } : {};
+      return chance(rng, 0.5) ? o(`The home side won at ${where(s)} and {name} sang all the way home.`, { happiness: 7, rel }) : o(`A tense draw at ${where(s)}. {name} lost their voice cheering.`, { happiness: 4, rel });
+    },
+  },
+  {
+    id: 'picnic',
+    group: 'out',
+    minAge: 5,
+    label: () => 'Have a picnic',
+    hint: (ctx) => `Park at ${addressOf(ctx.nearest('park', 12))}`,
+    when: (ctx) => ctx.nearest('park', 12) && ctx.city.derived.weather?.season !== 'winter',
+    cost: () => 20,
+    run: (ctx) => {
+      const p = ctx.nearest('park', 12);
+      const rel = ctx.char.partner ? { partner: 6 } : ctx.person('friend') ? { friend: 6 } : {};
+      return o(`{name} spread a blanket on the lawn at ${where(p)}.`, { happiness: 6, health: 1, rel });
+    },
+  },
+  {
+    id: 'bike_ride',
+    group: 'out',
+    minAge: 7,
+    label: () => 'Go on a long bike ride',
+    hint: (ctx) => (ctx.nearestWater(8) ? 'By the water: +Health' : '+Health'),
+    run: (ctx, rng) => {
+      const water = ctx.nearestWater(8);
+      if (chance(rng, 0.12)) return o('{name} got a puncture miles from home and pushed the bike back.', { health: 3, happiness: -1 });
+      return water ? o('{name} cycled along the water and watched the boats.', { health: 5, happiness: 4 }) : o('{name} pedalled all afternoon through the quiet streets.', { health: 5, happiness: 2 });
+    },
+  },
+  {
+    id: 'festival',
+    group: 'out',
+    minAge: 4,
+    label: () => 'Go to the town fair',
+    hint: () => 'Music, food and games',
+    cost: () => 30,
+    run: (ctx, rng) => o('{name} ate too many sweets, won a stuffed bear and danced in the square.', { happiness: 7 }, chance(rng, 0.3) ? { do: (c) => c.addFriend(50) } : {}),
+  },
+
+  // Creative
+  {
+    id: 'paint',
+    group: 'create',
+    minAge: 5,
+    label: () => 'Paint a picture',
+    hint: (ctx) => (ctx.has('creative') ? 'Creative: +more' : '+Happiness'),
+    run: (ctx, rng) => {
+      const gift = ctx.has('creative') ? 2 : 0;
+      return chance(rng, 0.15) ? o('{name} spilled the water jar, and the mess became the best picture yet.', { happiness: 4 + gift, looks: 1 }) : o('{name} painted the view from the window and pinned it on the wall.', { happiness: 4 + gift, smarts: 1 });
+    },
+  },
+  {
+    id: 'instrument',
+    group: 'create',
+    minAge: 6,
+    label: () => 'Practise an instrument',
+    hint: (ctx) => (ctx.has('creative') ? 'Creative: +more' : '+Smarts, +Happiness'),
+    run: (ctx, rng) => {
+      const gift = ctx.has('creative') ? 2 : 0;
+      return chance(rng, 0.2) ? o('The neighbours banged on the wall, but {name} finally nailed the tune.', { smarts: 3 + gift, happiness: 2 }) : o('{name} practised scales every day until a simple song came out clean.', { smarts: 3 + gift, happiness: 3 });
+    },
+  },
+  {
+    id: 'write_story',
+    group: 'create',
+    minAge: 8,
+    label: () => 'Write a short story',
+    hint: () => '+Smarts, +Happiness',
+    run: (ctx, rng) => (chance(rng, 0.2) ? o('{name} read the story aloud and the whole room went quiet.', { smarts: 4, happiness: 5 }) : o('{name} filled a notebook with a tale of dragons and bakers.', { smarts: 3, happiness: 3 })),
+  },
+  {
+    id: 'craft',
+    group: 'create',
+    minAge: 10,
+    label: () => 'Make something in a workshop',
+    hint: (ctx) => (ctx.nearest('workshop', 16) ? `Workshop at ${addressOf(ctx.nearest('workshop', 16))}` : '+Smarts'),
+    cost: () => 35,
+    run: (ctx, rng) => {
+      const w = ctx.nearest('workshop', 16);
+      const at = w ? ` at ${where(w)}` : ' in the shed';
+      return chance(rng, 0.2) ? o(`{name} built a wobbly stool${at}. It held, just.`, { smarts: 3, happiness: 3 }) : o(`{name} spent the weekend${at} making a fine little shelf.`, { smarts: 3, happiness: 4, looks: 1 });
+    },
+  },
+  {
+    id: 'photo_walk',
+    group: 'create',
+    minAge: 9,
+    label: () => 'Take a photography walk',
+    hint: (ctx) => (ctx.facts.greenery > 0.1 ? 'Green streets: nice light' : '+Happiness'),
+    run: (ctx, rng) => (chance(rng, 0.25) ? o('{name} caught a perfect sunset over the rooftops.', { happiness: 6, looks: 1 }) : o('{name} wandered the lanes with a camera and found corners nobody notices.', { happiness: 4, smarts: 1 })),
+  },
+  {
+    id: 'choir',
+    group: 'create',
+    minAge: 7,
+    label: () => 'Join the choir',
+    hint: () => '+Happiness, new friends',
+    run: (ctx, rng) => o('{name} sang in four-part harmony and made friends in the back row.', { happiness: 6 }, chance(rng, 0.3) ? { do: (c) => c.addFriend(50) } : {}),
+  },
+
+  // Work & home
+  {
+    id: 'side_hustle',
+    group: 'money',
+    minAge: 16,
+    maxAge: 70,
+    label: () => 'Start a side hustle',
+    hint: () => 'Some money, some stress',
+    run: (ctx, rng) => (chance(rng, 0.25) ? o('{name} sold out of handmade candles in a weekend.', { money: 420, happiness: 3, health: -1 }) : o('{name} took odd jobs for neighbours in the evenings.', { money: 220, health: -2, happiness: -1 })),
+  },
+  {
+    id: 'savings',
+    group: 'money',
+    minAge: 18,
+    label: () => 'Open a savings account',
+    hint: (ctx) => `Bank at ${addressOf(ctx.nearest('bank', 18))}`,
+    when: (ctx) => ctx.nearest('bank', 18),
+    run: (ctx) => o(`{name} met the clerk at ${where(ctx.nearest('bank', 18))} and set up a plan to save a little every month.`, { money: 150, smarts: 1 }),
+  },
+  {
+    id: 'hospital_volunteer',
+    group: 'money',
+    minAge: 16,
+    label: () => 'Volunteer at the hospital',
+    hint: (ctx) => `Hospital at ${addressOf(ctx.nearest('hospital', 20))}`,
+    when: (ctx) => ctx.nearest('hospital', 20),
+    run: (ctx, rng) => o(`{name} pushed tea trolleys round the wards at ${where(ctx.nearest('hospital', 20))}.`, { happiness: 5, smarts: 2 }, chance(rng, 0.35) ? { do: (c) => c.addFriend(50) } : {}),
+  },
+  {
+    id: 'network',
+    group: 'money',
+    minAge: 20,
+    maxAge: 62,
+    when: (ctx) => ctx.char.job,
+    label: () => 'Go to a networking evening',
+    hint: () => 'A shot at promotion',
+    cost: () => 50,
+    run: (ctx, rng) => {
+      const c = ctx.char;
+      const career = CAREERS[c.job.type];
+      const top = c.job.level >= career.titles.length - 1;
+      if (!top && c.job.years >= 1 && chance(rng, 0.15 + c.stats.smarts / 500)) {
+        return o(`A chat over canapés led to an offer: {name} is now ${career.titles[c.job.level + 1].toLowerCase()}.`, { happiness: 6 }, { do: (x) => ((x.char.job.level += 1), (x.char.job.years = 0)) });
+      }
+      return o('{name} shook many hands and collected a stack of business cards.', { happiness: 2, smarts: 1 });
+    },
+  },
+  {
+    id: 'diy',
+    group: 'money',
+    minAge: 18,
+    when: (ctx) => ctx.char.home,
+    label: () => 'Fix up the house',
+    hint: () => '+Happiness',
+    cost: () => 90,
+    run: (ctx, rng) => (chance(rng, 0.2) ? o('{name} painted the hall twice, the second time on purpose.', { happiness: 3 }) : o('{name} mended the fence, oiled the hinges and repainted the door.', { happiness: 5, looks: 1 })),
+  },
+  {
+    id: 'read_kinder',
+    group: 'money',
+    minAge: 15,
+    label: () => 'Read to the little ones',
+    hint: (ctx) => `Kindergarten at ${addressOf(ctx.nearest('kindergarten', 16))}`,
+    when: (ctx) => ctx.nearest('kindergarten', 16),
+    run: (ctx, rng) => o(`{name} read picture books to the children at ${where(ctx.nearest('kindergarten', 16))}, doing all the voices.`, { happiness: 6, smarts: 1 }, chance(rng, 0.3) ? { do: (c) => c.addFriend(50) } : {}),
+  },
 ];
 
-return { ACTIVITY_GROUPS, energyFor, ACTIVITIES };
+return { ACTIVITY_GROUPS, energyFor, ROTATION_SIZE, pickRotation, ACTIVITIES };
 })();
 
 // ---- lifeAchievements.js ----
@@ -10725,7 +11104,7 @@ const { hasEntrance } = __mod_labor;
 const { FIRST_NAMES, LAST_NAMES, PRONOUNS, CAREERS, stageFor } = __mod_lifeData;
 const { pickEvent, isEligible, fill, choicesFor, rollOutcome, applyEffects, chooseByPolicy, STAT_KEYS } = __mod_lifeEngine;
 const { LIFE_EVENTS } = __mod_lifeEvents;
-const { ACTIVITIES, energyFor } = __mod_lifeActivities;
+const { ACTIVITIES, energyFor, pickRotation, ROTATION_SIZE } = __mod_lifeActivities;
 const { ACHIEVEMENTS, ribbonFor } = __mod_lifeAchievements;
 const { pick, hash2 } = __mod_utils;
 const { addressOf } = __mod_streets;
@@ -10904,6 +11283,7 @@ class LifeSystem {
     c.yearProgress = 0;
     c.energy = energyFor(c.age);
     c.yearActs = {};
+    this.rotate(true);
     this.yearly();
     if (c.alive) {
       this.planYear();
@@ -11110,14 +11490,28 @@ class LifeSystem {
 
   // ---- Activities ----------------------------------------------------------------
 
+  // This year's rotating activities, saved on the character (c.offered = { age, ids }). Chosen from
+  // the ones that suit their age and town now, favouring any they weren't offered last year. A save
+  // from before this existed gets its first rotation the first time it's asked.
+  rotate(force = false) {
+    const c = this.char;
+    if (!c?.alive) return [];
+    if (!force && c.offered?.age === c.age && Array.isArray(c.offered.ids)) return c.offered.ids;
+    const ctx = this.ctx();
+    const fits = ACTIVITIES.filter((a) => !a.essential && c.age >= (a.minAge ?? 0) && c.age <= (a.maxAge ?? 200) && (!a.when || a.when(ctx)));
+    c.offered = { age: c.age, ids: pickRotation(fits, c.offered?.ids || [], ROTATION_SIZE, this.rng) };
+    return c.offered.ids;
+  }
+
   // What the character could do right now, with labels filled in and a reason when blocked.
   activities() {
     const c = this.char;
     if (!c?.alive) return [];
     const ctx = this.ctx();
+    const offered = this.rotate();
     const vars = this.vars();
     const energy = c.energy ?? energyFor(c.age);
-    return ACTIVITIES.filter((a) => c.age >= (a.minAge ?? 0) && c.age <= (a.maxAge ?? 200) && (!a.when || a.when(ctx))).map((a) => {
+    return ACTIVITIES.filter((a) => c.age >= (a.minAge ?? 0) && c.age <= (a.maxAge ?? 200) && (a.essential || offered.includes(a.id)) && (!a.when || a.when(ctx))).map((a) => {
       const cost = a.cost ? a.cost(ctx) : 0;
       let blocked = null;
       if (c.pending) blocked = 'An event is waiting';
@@ -21385,6 +21779,36 @@ const ACTIVITY_GAINS = {
   volunteer: { happiness: 5, smarts: 1, social: 0.5 },
   babysit: { money: 150 },
   overtime: { money: 400, happiness: -1, health: -3 },
+  network: { happiness: 3, smarts: 1 },
+  swim: { health: 6, happiness: 2 },
+  yoga: { health: 4, happiness: 4 },
+  library_visit: { smarts: 4, happiness: 2 },
+  museum_trip: { smarts: 5, happiness: 3 },
+  journal: { happiness: 4, smarts: 2 },
+  cook: { health: 3, happiness: 5 },
+  dinner_out: { happiness: 5, social: 1 },
+  cinema_night: { happiness: 5, social: 0.5 },
+  dinner_party: { happiness: 6, social: 1 },
+  mentor: { smarts: 4, happiness: 3, social: 0.5 },
+  street_bbq: { happiness: 5, social: 0.8 },
+  fountain_wish: { happiness: 5 },
+  garden_plot: { health: 4, happiness: 3 },
+  market_stroll: { happiness: 5, health: 1 },
+  match_day: { happiness: 6, social: 0.5 },
+  picnic: { happiness: 6, health: 1, social: 0.5 },
+  bike_ride: { health: 5, happiness: 3 },
+  festival: { happiness: 7, social: 0.5 },
+  paint: { happiness: 5, smarts: 1 },
+  instrument: { smarts: 3, happiness: 3 },
+  write_story: { smarts: 3, happiness: 4 },
+  craft: { smarts: 3, happiness: 4, looks: 1 },
+  photo_walk: { happiness: 5, smarts: 1 },
+  choir: { happiness: 6, social: 0.5 },
+  side_hustle: { money: 300, health: -1 },
+  savings: { money: 150, smarts: 1 },
+  hospital_volunteer: { happiness: 5, smarts: 2, social: 0.5 },
+  diy: { happiness: 5, looks: 1 },
+  read_kinder: { happiness: 6, smarts: 1 },
 };
 const STATS = ['happiness', 'health', 'smarts', 'looks'];
 
