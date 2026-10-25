@@ -6,7 +6,6 @@
 // no screen: the Life panel and the Town hall show the switches.
 
 import { energyFor } from './lifeActivities.js';
-import { ACTIONS_PER_DAY } from './mayor.js';
 
 export const AUTOPILOT_VERSION = 1;
 
@@ -155,8 +154,9 @@ export class Autopilot {
     const m = this.d.mayor?.();
     if (st.mayor.on && m) {
       m.update();
-      const used = ACTIONS_PER_DAY - m.state.actions;
-      if (used < ACTIONS_PER_DAY && this.city.clock >= (used + 1) / (ACTIONS_PER_DAY + 1)) {
+      const per = m.actionsPerDay(); // 3, or 4 with a Town council (skills.js)
+      const used = per - m.state.actions;
+      if (used < per && this.city.clock >= (used + 1) / (per + 1)) {
         const id = this.pickDuty();
         if (id) {
           const r = m.perform(id);

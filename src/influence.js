@@ -17,7 +17,7 @@ export function influenceOf(type, city) {
   const out = [];
   if (def.service) {
     const extra = (city?.derived?.notableEffects?.radius?.[def.service] || 0) + (city?.derived?.skills?.radius?.[def.service] || 0);
-    const r = def.radius + extra;
+    const r = Math.max(1, def.radius + extra); // the same as coverage.js
     out.push({
       id: def.service,
       label: SERVICE_LABEL[def.service] || def.service,

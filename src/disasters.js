@@ -93,6 +93,11 @@ export class Disasters {
     return this.state.active;
   }
 
+  // The town's upgrades (skills.js), as the simulation last worked them out.
+  get skills() {
+    return this.city.derived?.skills || {};
+  }
+
   // ---- Deciding what comes ---------------------------------------------------------------
 
   // Called every simulation tick with the game seconds that passed.
@@ -110,7 +115,7 @@ export class Disasters {
     }
     this._repairTimer -= dt / 300; // dt is game seconds; a day is 300
     if (this._repairTimer <= 0) {
-      this._repairTimer = REPAIR_EVERY_DAYS;
+      this._repairTimer = REPAIR_EVERY_DAYS / (this.skills.repairSpeed || 1); // Public works (skills.js)
       this.repairOne();
     }
     if (st.pending || t < st.next) return;
@@ -144,7 +149,7 @@ export class Disasters {
   // A warning a few hours ahead, with the choice to prepare.
   warn(kind) {
     const st = this.state;
-    st.pending = { kind, at: now(this.city) + WARNING_DAYS };
+    st.pending = { kind, at: now(this.city) + WARNING_DAYS * (this.skills.warning || 1) }; // Weather watchers (skills.js)
     st.prepared = false;
     this.city.emit('weatherWarning', { kind, info: KINDS[kind] });
     if (this.decisions && !this.decisions.state.pending) this.decisions.ask(`prepare-${kind}`);
@@ -340,6 +345,11 @@ export class Disasters {
       }
       return;
     }
+    // Upgrades (skills.js): Storm shutters, Flood banks, Firebreaks, Resilient town.
+    const sk = this.skills;
+    const flood = cause === 'flood' || cause === 'washed';
+    const burn = cause === 'fire' || cause === 'lightning';
+    amount *= flood ? sk.flood ?? 1 : burn ? sk.fire ?? 1 : sk.damage ?? 1;
     if (s.type === 'road') {
       s.damage = clamp((s.damage || 0) + amount, 0, 1);
       if (s.damage >= 0.5 && !s.broken) {
@@ -420,6 +430,8 @@ export class Disasters {
       else if (s.type === 'rubble') out.push({ t, cost: 40, order: 3 });
       else if ((s.damage || 0) >= 0.15) out.push({ t, cost: Math.max(20, Math.round((COSTS[s.type] || 200) * 0.3 * s.damage)), order: STRUCTURES[s.type].capacity ? 1 : 2 });
     }
+    const k = this.skills.repairCost ?? 1; // Public works (skills.js)
+    if (k !== 1) for (const x of out) x.cost = Math.max(1, Math.round(x.cost * k));
     return out.sort((a, b) => a.order - b.order);
   }
 

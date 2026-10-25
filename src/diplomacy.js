@@ -476,7 +476,7 @@ export class Diplomacy {
       // Trust drifts with how things stand; grievances fade.
       const drift = { war: -0.5, neutral: r.trust > 0 ? -0.5 : 0.5, peace: 0.8, pact: 0.8, alliance: 1.2 }[stance];
       r.trust = clamp(r.trust + drift * dayFraction, stance === 'war' ? -80 : -100, stance === 'neutral' && r.trust <= 0 ? 0 : 100);
-      r.grievance = Math.max(0, r.grievance - 3 * dayFraction);
+      r.grievance = Math.max(0, r.grievance - 3 * dayFraction * (this.home?.city?.derived?.skills?.grievanceFade ?? 1)); // Envoy service (skills.js)
       r.weariness = stance === 'war' ? clamp(r.weariness + 8 * dayFraction, 0, 100) : Math.max(0, r.weariness - 10 * dayFraction);
       // Long wars make leaders harder; long peace softens them.
       L.aggression = clamp(L.aggression + (stance === 'war' ? 0.006 : -0.004) * dayFraction, 0.05, 0.95);

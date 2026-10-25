@@ -24,7 +24,7 @@ export const SKILL_LABELS = { charisma: 'Charisma', business: 'Business', comman
 
 // What each duty does; `skill` is the one that makes it work better and grows when it's used.
 export const DUTIES = [
-  { id: 'speech', skill: 'charisma', name: 'Give a speech', text: 'Homes all over town are happier for two days.' },
+  { id: 'speech', skill: 'charisma', name: 'Give a speech', text: 'Homes all over town are happier for a few days.' },
   { id: 'fundraiser', skill: 'business', name: 'Hold a fundraiser', text: 'Money for the town, more as it grows.' },
   { id: 'inspect', skill: 'command', name: 'Inspect the base', text: 'Soldiers gain experience and damaged defences get patched up.' },
   { id: 'envoy', skill: 'diplomacy', name: 'Meet a neighbour’s mayor', text: 'They trust you more and hold fewer grudges.' },
@@ -60,6 +60,24 @@ export class Mayor {
     return { charisma: r(), business: r(), command: r(), diplomacy: r() };
   }
 
+  // The town's Leadership & Legacy upgrades (skills.js), as the simulation last worked them out.
+  get up() {
+    return this.city.derived?.skills || {};
+  }
+
+  // Duties a day: 3, or 4 with a Town council.
+  actionsPerDay() {
+    return ACTIONS_PER_DAY + (this.up.actions || 0);
+  }
+
+  // Lift every skill to at least `floor`.
+  floored(skills, floor) {
+    if (!floor) return skills;
+    const out = { ...skills };
+    for (const k of Object.keys(out)) out[k] = Math.max(out[k], floor);
+    return out;
+  }
+
   // Your main person's skills as mayor come from how they grew up: looks, happiness and friends make
   // charisma; smarts, their career and savings make business sense; health makes command; smarts,
   // a settled mood and a partner make a diplomat. Their traits add a little. From 10 to 100.
@@ -87,7 +105,7 @@ export class Mayor {
   fresh() {
     const c = this.char;
     const f = c?.family?.father;
-    const base = { v: MAYOR_VERSION, day: Math.floor(day(this.city)), actions: ACTIONS_PER_DAY, done: {}, log: [] };
+    const base = { v: MAYOR_VERSION, day: Math.floor(day(this.city)), actions: this.actionsPerDay(), done: {}, log: [] };
     if (c && f?.alive) return { ...base, who: 'father', name: f.name, age: f.age, gen: c.generation || 1, skills: this.randomSkills() };
     if (c) return { ...base, ...this.successor(c) };
     return { ...base, who: 'founder', name: `${pick(FIRST_NAMES, this.rand)} Hale`, age: 45, gen: 0, skills: this.randomSkills() };
@@ -95,7 +113,13 @@ export class Mayor {
 
   // Who leads next: your main person if they're an adult, or a relative standing in until they are.
   successor(c) {
-    if (c?.alive && c.age >= ADULT) return { who: 'you', name: fullName(c), age: c.age, gen: c.generation || 1, skills: this.skillsOf(c) };
+    if (c?.alive && c.age >= ADULT) {
+      // Family tutors (skills.js): your heir comes to office better prepared.
+      const bonus = this.up.heirBonus || 0;
+      const skills = this.skillsOf(c);
+      if (bonus) for (const k of Object.keys(skills)) skills[k] = clamp(skills[k] + bonus, 10, 100);
+      return { who: 'you', name: fullName(c), age: c.age, gen: c.generation || 1, skills };
+    }
     const pronoun = this.rand() < 0.5 ? 'she' : 'he';
     return {
       who: 'regent',
@@ -103,7 +127,7 @@ export class Mayor {
       relation: pronoun === 'she' ? 'aunt' : 'uncle',
       age: 40 + Math.floor(this.rand() * 15),
       gen: c?.generation || 1,
-      skills: this.randomSkills(),
+      skills: this.floored(this.randomSkills(), this.up.regentFloor || 0), // Trusted regents (skills.js)
     };
   }
 
@@ -112,7 +136,9 @@ export class Mayor {
     const st = this.state;
     const before = st.name;
     const quiet = st.who === 'founder'; // a new town's first family taking office isn't news
-    Object.assign(st, { relation: undefined, ...next, actions: ACTIONS_PER_DAY, done: {} });
+    // Dynasty (skills.js): no new leader starts weak.
+    if (next.skills) next = { ...next, skills: this.floored(next.skills, this.up.leaderFloor || 0) };
+    Object.assign(st, { relation: undefined, ...next, actions: this.actionsPerDay(), done: {} });
     this.note(why ? `${why} ${this.title()} ${st.name} took office.` : `${st.name} took office as ${this.title().toLowerCase()}.`);
     this.city.emit('mayorChanged', { before, after: st.name, who: st.who, quiet });
   }
@@ -125,7 +151,7 @@ export class Mayor {
     if (today > st.day) {
       if (st.who === 'regent' || st.who === 'founder') st.age += today - st.day;
       st.day = today;
-      st.actions = ACTIONS_PER_DAY;
+      st.actions = this.actionsPerDay();
       st.done = {};
     }
     if (!c) return;
@@ -217,18 +243,22 @@ export class Mayor {
     return '';
   }
 
+  // Upgrades (skills.js) make each duty stronger: Oratory lessons, Town mint, Citadel, Envoy service…
   speechAmount(f) {
-    return 0.02 * f;
+    return 0.02 * f * (this.up.speech ?? 1);
+  }
+  speechDays() {
+    return 2 * (this.up.speechDays ?? 1);
   }
   fundsAmount(f, pop) {
-    return Math.round(((100 + 1.5 * pop) * f) / 10) * 10;
+    return Math.round(((100 + 1.5 * pop) * f * (this.up.fundraiser ?? 1)) / 10) * 10;
   }
   drillXp(f) {
-    return Math.round(8 * f);
+    return Math.round(8 * f * (this.up.inspect ?? 1));
   }
   trustGain(f, n) {
     const atWar = this.d.war?.()?.diplomacy?.atWar(n.id);
-    return 6 * f * (atWar ? 0.5 : 1);
+    return 6 * f * (atWar ? 0.5 : 1) * (this.up.envoy ?? 1);
   }
 
   // Do a duty. Returns { text } or { error }.
@@ -243,8 +273,9 @@ export class Mayor {
     if (id === 'speech') {
       const amount = this.speechAmount(f);
       const dec = this.d.decisions?.();
-      if (dec) dec.state.effects.push({ amount, until: now + 2, id: 'speech' });
-      text = `${st.name} gave a rousing speech in the square. Homes are ${Math.round(amount * 100)}% happier for two days.`;
+      const days = this.speechDays();
+      if (dec) dec.state.effects.push({ amount, until: now + days, id: 'speech' });
+      text = `${st.name} gave a rousing speech in the square. Homes are ${Math.round(amount * 100)}% happier for ${days === 2 ? 'two' : days === 4 ? 'four' : days} days.`;
     } else if (id === 'fundraiser') {
       const n = this.fundsAmount(f, this.city.stats?.population || 0);
       const eco = this.d.economy?.();
@@ -259,7 +290,7 @@ export class Mayor {
       const fit = m.fit();
       for (const s of fit) s.xp += xp;
       let patched = 0;
-      let hp = Math.round(150 * f);
+      let hp = Math.round(150 * f * (this.up.inspect ?? 1));
       for (const s of m.damaged()) {
         if (hp <= 0) break;
         const max = maxHpOf(s.type, s.level);
@@ -281,7 +312,7 @@ export class Mayor {
     }
     st.actions -= 1;
     st.done[id] = true;
-    st.skills[d.skill] = Math.min(100, st.skills[d.skill] + SKILL_GAIN);
+    st.skills[d.skill] = Math.min(100, st.skills[d.skill] + SKILL_GAIN * (this.up.mayorGain ?? 1)); // Town clerks (skills.js)
     this.note(text);
     return { text };
   }

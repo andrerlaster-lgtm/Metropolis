@@ -124,7 +124,7 @@ export class Notables {
     const need = threshold(st.people.length);
     let ready = null;
     for (const t of NOTABLE_TYPES) {
-      st.points[t.id] = (st.points[t.id] || 0) + (rates[t.id] || 0) * dayFraction;
+      st.points[t.id] = (st.points[t.id] || 0) + (rates[t.id] || 0) * dayFraction * (this.city.derived.skills?.inspire ?? 1); // Fine townhouses (skills.js)
       if (st.points[t.id] >= need && (!ready || st.points[t.id] > st.points[ready.id])) ready = t;
     }
     if (!ready || !this.city.homes().length) return null;

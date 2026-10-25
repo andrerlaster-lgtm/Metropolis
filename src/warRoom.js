@@ -323,7 +323,7 @@ export class WarRoom {
       const units = party.slice(i * per, (i + 1) * per).map((s) => ({ id: s.id, type: s.type, xp: s.xp }));
       if (units.length) waves.push({ at: i * WAVE_GAP, units });
     }
-    const raid = { id: `raid-${this.state.count + 1}`, from: c.id, fromName: c.entry.name, seed: Math.floor(this.rand() * 2 ** 31), warnedAt: t, at: t + WARN_DAYS, status: 'coming', waves, size: n };
+    const raid = { id: `raid-${this.state.count + 1}`, from: c.id, fromName: c.entry.name, seed: Math.floor(this.rand() * 2 ** 31), warnedAt: t, at: t + WARN_DAYS * (this.home?.city?.derived?.skills?.raidWarning ?? 1), status: 'coming', waves, size: n };
     this.state.raids.push(raid);
     this.state.count++;
     c.military.state.nextRaidAt = t + R.cooldown[0] + this.rand() * (R.cooldown[1] - R.cooldown[0]);
