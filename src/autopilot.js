@@ -22,12 +22,12 @@ export const KID_FOCUS = [
 // What the mayor does first; later duties fill the rest of the day.
 export const MAYOR_FOCUS = [
   { id: 'balanced', label: 'Balanced', hint: 'A bit of everything, in turn' },
-  { id: 'money', label: 'Money', hint: 'Fundraisers first', order: ['fundraiser', 'speech', 'inspect', 'envoy'] },
-  { id: 'happiness', label: 'Happiness', hint: 'Speeches first', order: ['speech', 'envoy', 'fundraiser', 'inspect'] },
-  { id: 'military', label: 'Military', hint: 'The base first', order: ['inspect', 'fundraiser', 'speech', 'envoy'] },
-  { id: 'diplomacy', label: 'Diplomacy', hint: 'Neighbours first', order: ['envoy', 'speech', 'fundraiser', 'inspect'] },
+  { id: 'money', label: 'Money', hint: 'Fundraisers, grants and trade first', tag: 'money' },
+  { id: 'happiness', label: 'Happiness', hint: 'Speeches and festivals first', tag: 'happiness' },
+  { id: 'growth', label: 'Growth', hint: 'Ribbons, trees and scholars first', tag: 'growth' },
+  { id: 'military', label: 'Military', hint: 'The base first', tag: 'military' },
+  { id: 'diplomacy', label: 'Diplomacy', hint: 'Neighbours first', tag: 'diplomacy' },
 ];
-const BALANCED_ORDER = ['speech', 'fundraiser', 'inspect', 'envoy'];
 
 // What the child does when a life event asks a question while auto mode is on.
 export const EVENT_POLICIES = [
@@ -168,12 +168,17 @@ export class Autopilot {
     const m = this.d.mayor?.();
     if (!m) return null;
     const f = MAYOR_FOCUS.find((x) => x.id === this.state.mayor.focus) || MAYOR_FOCUS[0];
-    let order = f.order;
-    if (!order) {
-      const k = Math.floor(this.city.day) % BALANCED_ORDER.length; // a different start each day
-      order = BALANCED_ORDER.slice(k).concat(BALANCED_ORDER.slice(0, k));
+    // What can be done now: the everyday duties and today's opportunities. The focus's own come first
+    // (the everyday ones before the opportunities); Balanced takes them in turn, a different start each day.
+    let list = m.offered().filter((d) => !m.dutyError(d.id));
+    if (!list.length) return null;
+    if (f.tag) {
+      const mine = list.filter((d) => d.tags.includes(f.tag));
+      list = mine.concat(list.filter((d) => !mine.includes(d)));
+      return list[0].id;
     }
-    return order.find((id) => !m.dutyError(id)) || null;
+    const k = Math.floor(this.city.day) % list.length;
+    return list[(k + (m.actionsPerDay() - m.state.actions)) % list.length].id;
   }
 
   // Call a few times a second. Actions are spread out: the mayor's through the day, the child's

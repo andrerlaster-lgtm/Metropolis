@@ -344,7 +344,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     },
   });
   // The mayor (mayor.js, mayorUI.js): your main person's father leads the town, then the family does.
-  const mayor = new Mayor(city, { life: () => sim.life, economy: () => sim.economy, decisions: () => sim.decisions, war: () => warRoom });
+  const mayor = new Mayor(city, { life: () => sim.life, economy: () => sim.economy, decisions: () => sim.decisions, growth: () => sim.growth, eras: () => sim.eras, war: () => warRoom });
   const autopilot = new Autopilot(city, { life: () => sim.life, mayor: () => mayor });
   const townHall = new TownHall({
     mayor: () => mayor,
