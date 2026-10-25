@@ -8,7 +8,7 @@ import { ERAS, yearOf } from './eras.js';
 import { notableType } from './notables.js';
 import { FACTORS } from './desirability.js';
 import { formatClock } from './time.js';
-import { workersIn } from './labor.js';
+import { workersIn, WALK_COMFORT } from './labor.js';
 import { seasonFor, WEATHER_LABELS } from './weather.js';
 import { typingTarget } from './input.js';
 
@@ -470,7 +470,8 @@ export class Interface {
     else if ((s?.damage || 0) >= 0.15) facts.push(['Condition', `${s.damage >= 0.34 ? 'Badly damaged' : 'Damaged'} (${Math.round(s.damage * 100)}%)${s.damage >= 0.34 ? ': half its space is unusable' : ''}`]);
     if (t.earning) facts.push([t.earning > 0 ? 'Pays in taxes' : 'Upkeep', `${money(Math.abs(t.earning))}/day`]);
     if (s?.type === 'road') facts.push(['Traffic', t.congestion < 0.02 ? 'Clear' : `${pct(t.congestion)} busy`]);
-    if (!city.accessRoad(t.x, t.y) && def && !def.walkable) facts.push(['Road access', 'None nearby']);
+    if (!city.accessRoad(t.x, t.y) && def && !def.walkable) facts.push(['Road access', def.capacity ? 'None nearby. Homes need a road' : 'None nearby. People walk here']);
+    if (def?.capacity && t.commuteWalk > 0) facts.push(['Walk to work', t.commuteWalk <= WALK_COMFORT ? `about ${Math.round(t.commuteWalk)} tiles` : `about ${Math.round(t.commuteWalk)} tiles. A long way`]);
     const showFactors = t.terrain !== 'water' && s?.type !== 'road';
     const factors = showFactors
       ? FACTORS.filter((f) => f.enabled).map((f) => ({ label: f.label, v: t.factors[f.id] || 0 }))

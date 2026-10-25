@@ -104,12 +104,27 @@ export class CityState {
     return null;
   }
 
+  // Why a building can't go here, or null when it can. Homes (anything that holds residents) need a
+  // road beside them; everything else (shops, offices, services, parks…) can stand anywhere and is
+  // reached on foot. A home that is already there can be replaced or rebuilt without a road, so towns
+  // saved before this rule keep their roadless homes (advisor.js flags them).
+  placeError(tool, x, y) {
+    const t = this.getTile(x, y);
+    if (!t) return 'Off the map';
+    if (!STRUCTURES[tool]?.capacity) return null;
+    const s = t.structure;
+    const holdsPeople = (type) => !!STRUCTURES[type]?.capacity;
+    if (s && (holdsPeople(s.type) || (s.type === 'rubble' && holdsPeople(s.was)))) return null;
+    return this.accessRoad(x, y) ? null : 'Homes need a road beside them';
+  }
+
   canApply(tool, x, y) {
     const t = this.getTile(x, y);
     if (!t) return false;
     if (tool === 'bulldoze') return !!t.structure || t.terrain === 'water';
     if (tool === 'water') return t.terrain !== 'water' || !!t.structure;
     if (!STRUCTURES[tool]) return false;
+    if (this.placeError(tool, x, y)) return false;
     // Building the same thing again over storm damage rebuilds it.
     const s = t.structure;
     return s?.type !== tool || !!s.broken || !!s.snowed || (s.damage || 0) >= 0.34;

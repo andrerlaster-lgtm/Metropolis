@@ -83,7 +83,8 @@ export class Growth {
     const sprout = this.city.homes().length < 12 ? 2 : 1; // a seed sprouts quickly at first
     // A well-thought-of town draws newcomers too: up to 15% faster or slower (see reputation.js).
     const name = 1 + ((this.city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.growth;
-    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout * name;
+    const plan = this.city.derived.skills?.growth ?? 1; // Land office, Boom town (skills.js)
+    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout * name * plan;
   }
 
   boost(mult, days, label) {

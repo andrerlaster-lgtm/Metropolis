@@ -70,7 +70,8 @@ export function assessReputation(city, unlocked = () => true) {
     sum += w.services;
     target += w.services * services;
   }
-  return { target: target / sum, parts, neglected };
+  // A good name (an upgrade, skills.js) lifts the score a little.
+  return { target: clamp(target / sum + (city.derived.skills?.reputation || 0), 0, 1), parts, neglected };
 }
 
 export class Reputation {

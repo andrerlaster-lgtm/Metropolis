@@ -254,15 +254,18 @@ export class AgentSystem {
 
   // Someone who lives close to work walks there in the morning and home again in the evening.
   spawnCommuteWalk() {
-    const flows = this.city.derived.labor?.flows;
-    if (!flows?.length) return false;
-    const flow = pickWeighted(flows, (f) => (f.path.length <= 10 ? f.count : 0));
+    const labor = this.city.derived.labor;
+    // Short road commutes, and the walks of everyone the roads left out (labor.js `walks`: from a home to
+    // a workplace, over sidewalks, parks and open grass).
+    const options = [...(labor?.flows || []).filter((f) => f.path.length <= 10).map((f) => ({ ...f, reach: 14 })), ...(labor?.walks || []).map((f) => ({ ...f, reach: 34 }))];
+    if (!options.length) return false;
+    const flow = pickWeighted(options, (f) => f.count);
     if (!flow) return false;
     const W = this.city.width;
     const home = { x: flow.from % W, y: Math.floor(flow.from / W) };
     const job = { x: flow.to % W, y: Math.floor(flow.to / W) };
     const homeward = this.city.clock > 0.55;
-    const route = homeward ? this.paths.route(job, home, 14) : this.paths.route(home, job, 14);
+    const route = homeward ? this.paths.route(job, home, flow.reach) : this.paths.route(home, job, flow.reach);
     if (!route) return false;
     this.walkers.push(this.walker(route, { home: homeward ? job : home, look: makeLook(false), oneWay: true }));
     return true;

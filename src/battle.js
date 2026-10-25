@@ -869,13 +869,23 @@ export class Battle {
       }
     }
     s.tgt = best ? best.id : null;
+    // The gun turns to face its target the whole time one is in range, not only on the step it fires,
+    // so the 3D view can swing it round and show the muzzle flash (it needs the aim; without one the
+    // gun sat still and never flashed, though it was firing).
+    if (best) s.aim = Math.atan2(best.y - cy, best.x - cx);
     if (!best || s.cd > 0) return;
     s.cd = 1 / a.rate;
     s.fired = this.t;
     const base = a.dmg * levelDmg(s.level);
     if (a.kind === 'bullet') {
       const hit = this.rand() < ACCURACY;
-      this.addFx({ kind: 'shot', x: cx, y: cy, x2: best.x, y2: best.y, side: 'def', life: 0.12, heavy: s.type !== 'mg' });
+      // A miss flies on a little to one side. The offset comes from the clock and the nest, not from the
+      // battle's random numbers, so how the shots are drawn never changes how a battle turns out.
+      const off = hit ? 0 : Math.sin(this.t * 91.7 + s.id * 12.9) * 0.4;
+      const dx = best.x - cx;
+      const dy = best.y - cy;
+      const len = Math.hypot(dx, dy) || 1;
+      this.addFx({ kind: 'shot', struct: s.id, x: cx, y: cy, x2: best.x - (dy / len) * off, y2: best.y + (dx / len) * off, side: 'def', life: s.type === 'mg' ? 0.16 : 0.12, heavy: s.type !== 'mg' });
       if (hit) this.damage(best, base, a.vs, null);
     } else this.lob({ ...s, side: 'def', isUnit: false }, best.x, best.y, base, a, 0.6);
   }

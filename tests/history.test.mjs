@@ -42,6 +42,7 @@ test('a whole stroke undoes and redoes in one step', () => {
 test('undo restores what a bulldozer removed, residents included', () => {
   const city = new CityState(6, 6);
   const history = new History(city);
+  city.apply('road', 2, 3);
   city.apply('house', 2, 2);
   city.getTile(2, 2).structure.residents = 3;
   history.record('bulldozing', [{ x: 2, y: 2 }], () => city.apply('bulldoze', 2, 2));
@@ -59,6 +60,7 @@ test('edits that change nothing are not recorded, and new edits clear redo', () 
   history.record('tree', [{ x: 1, y: 1 }], () => city.apply('tree', 1, 1));
   history.undo();
   assert.ok(history.canRedo);
+  city.apply('road', 2, 3);
   history.record('house', [{ x: 2, y: 2 }], () => city.apply('house', 2, 2));
   assert.equal(history.canRedo, false);
 });
