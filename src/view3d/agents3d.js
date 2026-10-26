@@ -10,6 +10,13 @@ const MAX_PEOPLE = 160;
 const MAX_CARS = 90;
 const WHITE = new THREE.Color(1, 1, 1);
 const MOOD = { good: '#7fc4ad', caution: '#ffcf6e', bad: '#ff8f7e' };
+const EYE = '#2b2430';
+const BOOT = '#3b2a20';
+// A steady pseudo-random number 0..1 for one walker and one purpose, so a person always looks the same.
+const hv = (w, k) => {
+  const x = Math.sin(((w.phase || 0) + k * 1.37) * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
 
 // A rounded limb whose top is at the origin, so it hangs from a hip or shoulder and swings from there.
 function hanging(w, h, d) {
@@ -47,6 +54,14 @@ export class People3D {
     this.legR = make(hanging(0.016, 0.052, 0.016));
     this.armL = make(hanging(0.011, 0.044, 0.011));
     this.armR = make(hanging(0.011, 0.044, 0.011));
+    // Period details: a long skirt on some, boots, hands, eyes and a bun of hair.
+    this.skirt = make(new THREE.CylinderGeometry(0.02, 0.036, 0.052, 10).translate(0, -0.026, 0));
+    this.bootL = make(new THREE.BoxGeometry(0.026, 0.014, 0.02).translate(0.004, -0.047, 0));
+    this.bootR = make(new THREE.BoxGeometry(0.026, 0.014, 0.02).translate(0.004, -0.047, 0));
+    this.handL = make(new THREE.IcosahedronGeometry(0.0072, 0).translate(0, -0.046, 0));
+    this.handR = make(new THREE.IcosahedronGeometry(0.0072, 0).translate(0, -0.046, 0));
+    this.eyes = make(eyesGeometry());
+    this.bun = make(new THREE.IcosahedronGeometry(0.009, 1));
     this.umbrella = make(new THREE.ConeGeometry(0.06, 0.03, 8, 1, true).translate(0, 0.015, 0));
     this.umbrella.material = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide });
     this.dot = make(new THREE.IcosahedronGeometry(0.008, 0));
@@ -65,7 +80,7 @@ export class People3D {
     this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 6, 24).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true }));
     this.ring.visible = false;
     scene.add(this.ring);
-    this.parts = [this.torso, this.head, this.hair, this.hat, this.legL, this.legR, this.armL, this.armR, this.umbrella, this.dot];
+    this.parts = [this.torso, this.head, this.hair, this.hat, this.legL, this.legR, this.armL, this.armR, this.skirt, this.bootL, this.bootR, this.handL, this.handR, this.eyes, this.bun, this.umbrella, this.dot];
     this.m = new THREE.Matrix4();
     this.base = new THREE.Matrix4();
     this.tmp = new THREE.Matrix4();
@@ -124,6 +139,20 @@ export class People3D {
       i = next(this.head);
       this.put(this.head, i, 0, 0.123, 0);
       this.head.setColorAt(i, this.color(w.skin));
+      i = next(this.eyes);
+      this.put(this.eyes, i, 0, 0.125, 0);
+      this.eyes.setColorAt(i, this.color(EYE));
+      // A few adults wear a long skirt over the legs; some hair is pinned up in a bun.
+      if (!w.child && hv(w, 1) < 0.42) {
+        i = next(this.skirt);
+        this.put(this.skirt, i, 0, 0.075, 0);
+        this.skirt.setColorAt(i, this.color(w.pants || '#5b6a8f'));
+      }
+      if (!w.hat && w.hair && hv(w, 2) < 0.3) {
+        i = next(this.bun);
+        this.put(this.bun, i, -0.019, 0.137, 0);
+        this.bun.setColorAt(i, this.color(w.hair));
+      }
       if (w.hat) {
         i = next(this.hat);
         this.put(this.hat, i, 0, 0.133, 0);
@@ -140,6 +169,10 @@ export class People3D {
         i = next(mesh);
         this.put(mesh, i, 0, 0.053, side, sw);
         mesh.setColorAt(i, this.color(w.pants || '#5b6a8f'));
+        const boot = mesh === this.legL ? this.bootL : this.bootR;
+        i = next(boot);
+        this.put(boot, i, 0, 0.053, side, sw);
+        boot.setColorAt(i, this.color(BOOT));
       }
       for (const [mesh, side, sw] of [
         [this.armL, -0.028, -swing * 0.8],
@@ -148,6 +181,10 @@ export class People3D {
         i = next(mesh);
         this.put(mesh, i, 0, 0.1, side, sw);
         mesh.setColorAt(i, this.color(w.shirt));
+        const hand = mesh === this.armL ? this.handL : this.handR;
+        i = next(hand);
+        this.put(hand, i, 0, 0.1, side, sw);
+        hand.setColorAt(i, this.color(w.skin));
       }
       if (wet > 0.3) {
         i = next(this.umbrella);
@@ -181,6 +218,30 @@ export class People3D {
     this.blob.instanceMatrix.needsUpdate = true;
     void lit;
   }
+}
+
+// Two small dark eyes on the face (people face +x).
+function eyesGeometry() {
+  const a = new THREE.IcosahedronGeometry(0.0034, 0).translate(0.0185, 0.003, -0.0072).toNonIndexed();
+  const b = new THREE.IcosahedronGeometry(0.0034, 0).translate(0.0185, 0.003, 0.0072).toNonIndexed();
+  return mergeGeos([a, b]);
+}
+
+// Join non-indexed geometries into one (positions and normals only).
+function mergeGeos(list) {
+  const g = new THREE.BufferGeometry();
+  const names = list.every((x) => x.getAttribute('color')) ? ['position', 'normal', 'color'] : ['position', 'normal'];
+  for (const name of names) {
+    const arrays = list.map((x) => x.getAttribute(name).array);
+    const out = new Float32Array(arrays.reduce((n, a) => n + a.length, 0));
+    let at = 0;
+    for (const a of arrays) {
+      out.set(a, at);
+      at += a.length;
+    }
+    g.setAttribute(name, new THREE.BufferAttribute(out, 3));
+  }
+  return g;
 }
 
 // A little hat: a crown with a brim.
@@ -223,50 +284,123 @@ function geometryOf(md) {
   return g;
 }
 
-// A little car facing +x: white body (tinted per car), dark windows, wheels and bumpers.
+// A slanted block: the four corners of its foot (lo) and of its top (hi), each [x, y, z], ordered
+// front-left (+z, low x), front-right, back-right, back-left as the walls of MeshData.box are.
+function slab(m, lo, hi, color) {
+  m.quad(lo[0], lo[1], hi[1], hi[0], color);
+  m.quad(lo[1], lo[2], hi[2], hi[1], color);
+  m.quad(lo[2], lo[3], hi[3], hi[2], color);
+  m.quad(lo[3], lo[0], hi[0], hi[3], color);
+  m.quad(hi[3], hi[0], hi[1], hi[2], color);
+  m.quad(lo[3], lo[2], lo[1], lo[0], color);
+}
+
+// Give a non-indexed geometry one flat colour (linear rgb) so pieces can be merged into one tintable mesh.
+function paint(geo, rgb) {
+  const n = geo.getAttribute('position').count;
+  const c = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) c.set(rgb, i * 3);
+  geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  return geo;
+}
+
+// An early motor car facing +x (think Model T): a tub body and bonnet in the car's colour, a brass
+// radiator and lamps, a cloth roof on thin posts, running boards, mudguards and a bench seat.
 function carGeometry() {
   const m = new MeshData();
   const body = [1, 1, 1];
-  const glass = linear('#3a4658');
-  const tyre = linear('#2e2a38');
-  const trim = linear('#e9e4ee');
-  m.box(-0.118, 0.022, -0.057, 0.118, 0.064, 0.057, body, { ao: 0.9 });
-  m.box(-0.068, 0.064, -0.051, 0.05, 0.103, 0.051, body, { ao: 1 });
-  // Windows: windscreen, rear window and the side windows, just proud of the cabin.
-  m.quad([0.0505, 0.068, 0.045], [0.0505, 0.068, -0.045], [0.0505, 0.099, -0.045], [0.0505, 0.099, 0.045], glass);
-  m.quad([-0.0685, 0.068, -0.045], [-0.0685, 0.068, 0.045], [-0.0685, 0.099, 0.045], [-0.0685, 0.099, -0.045], glass);
-  m.quad([-0.062, 0.068, 0.0515], [0.044, 0.068, 0.0515], [0.044, 0.099, 0.0515], [-0.062, 0.099, 0.0515], glass);
-  m.quad([0.044, 0.068, -0.0515], [-0.062, 0.068, -0.0515], [-0.062, 0.099, -0.0515], [0.044, 0.099, -0.0515], glass);
-  for (const x of [-0.072, 0.072]) {
-    for (const z of [-0.058, 0.05]) m.box(x - 0.022, 0, z, x + 0.022, 0.044, z + 0.008, tyre, { ao: 1 });
+  const dark = linear('#2f2a2e');
+  const brass = linear('#c79a3a');
+  const cloth = linear('#7a6a55');
+  const leather = linear('#6b4a33');
+  const glass = linear('#9fb4c4');
+  m.box(-0.115, 0.022, -0.04, 0.12, 0.032, 0.04, dark, { ao: 1 }); // chassis
+  m.box(-0.105, 0.032, -0.05, 0.02, 0.064, 0.05, body, { ao: 0.9 }); // tub
+  m.box(0.02, 0.036, -0.034, 0.112, 0.07, 0.034, body, { ao: 0.9 }); // bonnet
+  m.box(0.112, 0.036, -0.028, 0.12, 0.068, 0.028, brass, { ao: 1 }); // radiator
+  for (const z of [-0.036, 0.036]) m.box(0.098, 0.068, z - 0.006, 0.108, 0.078, z + 0.006, brass, { ao: 1 }); // lamps
+  m.box(-0.098, 0.064, -0.04, -0.088, 0.094, 0.04, leather, { ao: 1 }); // seat back
+  m.box(-0.088, 0.064, -0.04, -0.03, 0.074, 0.04, leather, { ao: 1 }); // seat
+  for (const x of [-0.1, 0.015]) for (const z of [-0.046, 0.04]) m.box(x, 0.064, z, x + 0.006, 0.108, z + 0.006, dark, { ao: 1 }); // roof posts
+  m.box(-0.112, 0.108, -0.054, 0.026, 0.115, 0.054, cloth, { ao: 1 }); // cloth roof
+  m.quad([0.0185, 0.07, 0.04], [0.0185, 0.07, -0.04], [0.0185, 0.104, -0.04], [0.0185, 0.104, 0.04], glass); // windscreen
+  for (const sz of [-1, 1]) {
+    const z0 = sz > 0 ? 0.05 : -0.066;
+    m.box(-0.05, 0.034, z0, 0.05, 0.04, z0 + 0.016, dark, { ao: 1 }); // running board
+    for (const x of [-0.07, 0.07]) m.box(x - 0.03, 0.05, z0, x + 0.03, 0.055, z0 + 0.016, dark, { ao: 1 }); // mudguards
   }
-  m.box(0.118, 0.024, -0.05, 0.126, 0.04, 0.05, trim, { ao: 1 });
-  m.box(-0.126, 0.024, -0.05, -0.118, 0.04, 0.05, trim, { ao: 1 });
   return geometryOf(m);
 }
 
-// A wooden cart on two big wheels (behind the horse).
+// A car tyre and hub, axle along z, centred on its own middle.
+function carWheelGeometry() {
+  const m = new MeshData();
+  m.prism(0, 0, 0.024, 0.024, -0.006, 0.006, 12, linear('#26222a'), { ao: 1 });
+  m.prism(0, 0, 0.012, 0.012, -0.0075, 0.0075, 10, linear('#d9cdb0'), { ao: 1 });
+  return geometryOf(m).rotateX(Math.PI / 2);
+}
+
+// A farm cart facing +x (behind the horse): a slatted bed in the cart's colour, a bench seat, two sacks
+// and a pair of shafts running forward to the horse.
 function cartGeometry() {
   const m = new MeshData();
   const wood = [1, 1, 1];
-  const wheel = linear('#6b4a33');
-  m.box(-0.13, 0.05, -0.05, 0.03, 0.065, 0.05, wood);
-  m.box(-0.13, 0.065, -0.05, 0.03, 0.1, -0.042, wood, { ao: 1 });
-  m.box(-0.13, 0.065, 0.042, 0.03, 0.1, 0.05, wood, { ao: 1 });
-  m.box(-0.13, 0.065, -0.05, -0.122, 0.1, 0.05, wood, { ao: 1 });
-  for (const z of [-0.06, 0.052]) m.box(-0.085, 0.0, z, -0.025, 0.06, z + 0.008, wheel, { ao: 1 });
-  m.box(0.03, 0.05, -0.004, 0.08, 0.056, 0.004, wheel, { ao: 1 }); // the shaft
+  const plank = linear('#7a5a3a');
+  const sack = linear('#e8d9a8');
+  m.box(-0.13, 0.05, -0.05, 0.03, 0.058, 0.05, wood, { ao: 1 });
+  for (const [y0, y1] of [[0.058, 0.07], [0.078, 0.09]]) {
+    for (const z of [-0.05, 0.043]) m.box(-0.13, y0, z, 0.03, y1, z + 0.007, wood, { ao: 1 });
+    m.box(-0.13, y0, -0.05, -0.123, y1, 0.05, wood, { ao: 1 });
+  }
+  for (const x of [-0.13, 0.024]) for (const z of [-0.052, 0.046]) m.box(x, 0.05, z, x + 0.006, 0.094, z + 0.006, plank, { ao: 1 }); // stakes
+  m.box(-0.0, 0.058, -0.043, 0.03, 0.072, 0.043, plank, { ao: 1 }); // bench seat
+  m.blob(-0.09, 0.07, -0.01, 0.026, 0.02, sack);
+  m.blob(-0.05, 0.068, 0.02, 0.022, 0.017, sack);
+  m.box(-0.064, 0.026, -0.058, -0.056, 0.034, 0.058, plank, { ao: 1 }); // axle
+  for (const z of [-0.022, 0.016]) m.box(0.03, 0.062, z, 0.13, 0.068, z + 0.006, plank, { ao: 1 }); // shafts
   return geometryOf(m);
 }
 
-// A horse: body, neck and head, four legs.
+// A spoked cart wheel in the x-y plane: a rim, six spokes and a hub (white where the cart tints, so it
+// takes the cart's colour like the bed does).
+function cartWheelGeometry() {
+  const wood = linear('#6b4a33');
+  const parts = [];
+  parts.push(paint(new THREE.TorusGeometry(0.03, 0.004, 5, 14).toNonIndexed(), wood));
+  for (let i = 0; i < 3; i++) {
+    parts.push(paint(new THREE.BoxGeometry(0.058, 0.004, 0.004).rotateZ((i * Math.PI) / 3).toNonIndexed(), wood));
+  }
+  parts.push(paint(new THREE.CylinderGeometry(0.007, 0.007, 0.012, 8).rotateX(Math.PI / 2).toNonIndexed(), linear('#3b2a20')));
+  return mergeGeos(parts);
+}
+
+// A horse facing +x: barrel body, sheared neck and head, dark mane and tail (legs are separate so they can swing).
 function horseGeometry() {
   const m = new MeshData();
   const c = [1, 1, 1];
-  m.box(0.07, 0.055, -0.02, 0.15, 0.095, 0.02, c);
-  m.box(0.14, 0.085, -0.013, 0.165, 0.13, 0.013, c, { ao: 1 });
-  m.box(0.15, 0.115, -0.012, 0.19, 0.135, 0.012, c, { ao: 1 });
-  for (const x of [0.078, 0.14]) for (const z of [-0.016, 0.008]) m.box(x - 0.005, 0, z, x + 0.005, 0.056, z + 0.008, c, { ao: 1 });
+  const hair = [0.22, 0.2, 0.2];
+  m.box(0.075, 0.058, -0.02, 0.15, 0.102, 0.02, c, { ao: 0.9 }); // barrel
+  m.box(0.14, 0.06, -0.022, 0.166, 0.104, 0.022, c, { ao: 0.9 }); // chest
+  // Neck, leaning forward.
+  slab(m, [[0.138, 0.09, 0.013], [0.166, 0.09, 0.013], [0.166, 0.09, -0.013], [0.138, 0.09, -0.013]], [[0.166, 0.148, 0.011], [0.19, 0.148, 0.011], [0.19, 0.148, -0.011], [0.166, 0.148, -0.011]], c);
+  // Head, nose pointing down and forward.
+  slab(m, [[0.2, 0.116, 0.008], [0.216, 0.116, 0.008], [0.216, 0.116, -0.008], [0.2, 0.116, -0.008]], [[0.182, 0.158, 0.011], [0.2, 0.158, 0.011], [0.2, 0.158, -0.011], [0.182, 0.158, -0.011]], c);
+  for (const z of [-0.007, 0.007]) m.prism(0.188, z, 0.0045, 0.0015, 0.158, 0.172, 4, c, { ao: 1 }); // ears
+  // Mane along the back of the neck.
+  slab(m, [[0.13, 0.092, 0.004], [0.14, 0.092, 0.004], [0.14, 0.092, -0.004], [0.13, 0.092, -0.004]], [[0.16, 0.15, 0.004], [0.17, 0.15, 0.004], [0.17, 0.15, -0.004], [0.16, 0.15, -0.004]], hair);
+  // Tail hanging off the rump.
+  slab(m, [[0.052, 0.045, 0.004], [0.066, 0.045, 0.004], [0.066, 0.045, -0.004], [0.052, 0.045, -0.004]], [[0.07, 0.098, 0.005], [0.08, 0.098, 0.005], [0.08, 0.098, -0.005], [0.07, 0.098, -0.005]], hair);
+  // Harness: a collar and a strap along the barrel.
+  m.box(0.156, 0.08, -0.024, 0.162, 0.108, 0.024, linear('#4a3526'), { ao: 1 });
+  m.box(0.1, 0.1, -0.021, 0.106, 0.104, 0.021, linear('#4a3526'), { ao: 1 });
+  return geometryOf(m);
+}
+
+// One horse leg hanging from the hip (origin at the top), with a dark hoof.
+function legGeometry() {
+  const m = new MeshData();
+  m.box(-0.0055, -0.056, -0.0055, 0.0055, 0, 0.0055, [1, 1, 1], { ao: 1 });
+  m.box(-0.0062, -0.056, -0.0062, 0.0062, -0.047, 0.0062, linear('#2a2220'), { ao: 1 });
   return geometryOf(m);
 }
 
@@ -274,8 +408,8 @@ function horseGeometry() {
 export class Cars3D {
   constructor(scene) {
     const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
-    const make = (geo, material = mat, shadow = true) => {
-      const m = new THREE.InstancedMesh(geo, material, MAX_CARS);
+    const make = (geo, material = mat, shadow = true, cap = MAX_CARS) => {
+      const m = new THREE.InstancedMesh(geo, material, cap);
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       m.castShadow = shadow;
       m.setColorAt(0, WHITE);
@@ -287,14 +421,20 @@ export class Cars3D {
     this.body = make(carGeometry());
     this.cart = make(cartGeometry());
     this.horse = make(horseGeometry());
+    this.carWheels = make(carWheelGeometry(), mat, true, MAX_CARS * 4);
+    this.cartWheels = make(cartWheelGeometry(), mat, true, MAX_CARS * 2);
+    this.legs = make(legGeometry(), mat, true, MAX_CARS * 4);
     this.lights = make(new THREE.BoxGeometry(0.006, 0.012, 0.08).translate(0.127, 0.05, 0), new THREE.MeshBasicMaterial({ color: 0xfff1c4 }), false);
-    this.tail = make(new THREE.BoxGeometry(0.006, 0.01, 0.08).translate(-0.127, 0.05, 0), new THREE.MeshBasicMaterial({ color: 0xff7a6e }), false);
-    this.all = [this.body, this.cart, this.horse, this.lights, this.tail];
+    this.tail = make(new THREE.BoxGeometry(0.006, 0.01, 0.06).translate(-0.109, 0.05, 0), new THREE.MeshBasicMaterial({ color: 0xff7a6e }), false);
+    this.all = [this.body, this.cart, this.horse, this.carWheels, this.cartWheels, this.legs, this.lights, this.tail];
     this.m = new THREE.Matrix4();
     this.q = new THREE.Quaternion();
+    this.q2 = new THREE.Quaternion();
     this.v = new THREE.Vector3();
+    this.p = new THREE.Vector3();
     this.s = new THREE.Vector3(1, 1, 1);
     this.up = new THREE.Vector3(0, 1, 0);
+    this.zAxis = new THREE.Vector3(0, 0, 1);
     this.colors = new Map();
   }
 
@@ -304,6 +444,17 @@ export class Cars3D {
     return c;
   }
 
+  // Put instance i of `mesh` at local offset (x, y, z) of the vehicle at p, turned by the vehicle's
+  // heading plus `spin` about the vehicle's own sideways axis (wheels roll, legs swing).
+  part(mesh, i, p, x, y, z, spin) {
+    this.v.set(x, y, z).applyQuaternion(this.q).add(p);
+    this.q2.setFromAxisAngle(this.zAxis, spin);
+    this.q2.premultiply(this.q);
+    this.m.compose(this.v, this.q2, this.s);
+    mesh.setMatrixAt(i, this.m);
+    mesh.setColorAt(i, WHITE);
+  }
+
   update(agents, { night = 0 } = {}) {
     const n = { car: 0, cart: 0 };
     for (const c of agents.cars) {
@@ -311,24 +462,43 @@ export class Cars3D {
       const p = agents.carPose(c);
       const heading = Math.atan2(p.dy, p.dx);
       this.q.setFromAxisAngle(this.up, -heading);
-      this.m.compose(this.v.set(p.gx, 0, p.gy), this.q, this.s);
+      this.p.set(p.gx, 0, p.gy);
+      this.m.compose(this.p, this.q, this.s);
+      // Distance driven along the heading: wheels roll and the horse's legs swing with it.
+      const run = p.gx * Math.cos(heading) + p.gy * Math.sin(heading);
       if (c.kind === 'cart') {
         const i = n.cart++;
         if (i >= MAX_CARS) continue;
         this.cart.setMatrixAt(i, this.m);
         this.cart.setColorAt(i, this.color(c.cartColor || '#b88a5a'));
         this.horse.setMatrixAt(i, this.m);
-        this.horse.setColorAt(i, this.color(c.horse || '#8a5d3b'));
+        const coat = this.color(c.horse || '#8a5d3b');
+        this.horse.setColorAt(i, coat);
+        const roll = -run / 0.03;
+        this.part(this.cartWheels, i * 2, this.p, -0.06, 0.03, -0.058, roll);
+        this.part(this.cartWheels, i * 2 + 1, this.p, -0.06, 0.03, 0.058, roll);
+        const swing = Math.sin(run * 38) * 0.5;
+        const legs = [[0.155, 0.013, swing], [0.155, -0.013, -swing], [0.09, 0.013, -swing], [0.09, -0.013, swing]];
+        legs.forEach(([x, z, a], k) => {
+          this.part(this.legs, i * 4 + k, this.p, x, 0.058, z, a);
+          this.legs.setColorAt(i * 4 + k, coat);
+        });
         continue;
       }
       const i = n.car++;
       if (i >= MAX_CARS) continue;
       for (const mesh of [this.body, this.lights, this.tail]) mesh.setMatrixAt(i, this.m);
       this.body.setColorAt(i, this.color(c.color || '#ff9f8f'));
+      const roll = -run / 0.024;
+      let k = i * 4;
+      for (const x of [-0.07, 0.07]) for (const z of [-0.057, 0.057]) this.part(this.carWheels, k++, this.p, x, 0.024, z, roll);
     }
     this.body.count = Math.min(MAX_CARS, n.car);
+    this.carWheels.count = this.body.count * 4;
     this.lights.count = this.tail.count = night > 0.35 ? Math.min(MAX_CARS, n.car) : 0;
     this.cart.count = this.horse.count = Math.min(MAX_CARS, n.cart);
+    this.cartWheels.count = this.cart.count * 2;
+    this.legs.count = this.cart.count * 4;
     for (const mesh of this.all) {
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
