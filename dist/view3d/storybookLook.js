@@ -79,7 +79,7 @@ export function makeTextures(gl) {
         const len = 4 + r() * 9;
         const a = -Math.PI / 2 + (r() - 0.5) * 0.9;
         const v = r();
-        g.strokeStyle = v < 0.5 ? `rgba(150,175,120,${0.25 + r() * 0.25})` : `rgba(255,255,230,${0.2 + r() * 0.25})`;
+        g.strokeStyle = v < 0.4 ? `rgba(120,150,95,${0.3 + r() * 0.3})` : v < 0.62 ? `rgba(196,170,105,${0.28 + r() * 0.25})` : `rgba(255,252,225,${0.16 + r() * 0.2})`;
         g.lineWidth = 1 + r() * 1.6;
         wrapDraw(s, x, y, 14, (X, Y) => {
           g.beginPath();
@@ -94,27 +94,40 @@ export function makeTextures(gl) {
   T.cobble = tex(
     gl,
     paint(512, (g, s, r) => {
-      g.fillStyle = grey(150);
+      // Packed earth: mottled, with small pebbles pressed in and the faint line of cart ruts.
+      g.fillStyle = grey(205);
       g.fillRect(0, 0, s, s);
-      const n = 11;
-      const cell = s / n;
-      for (let j = 0; j < n; j++) {
-        for (let i = 0; i < n; i++) {
-          const x = (i + (j % 2) * 0.5) * cell + (r() - 0.5) * cell * 0.15;
-          const y = j * cell + cell / 2 + (r() - 0.5) * cell * 0.15;
-          const w = cell * (0.4 + r() * 0.08);
-          const h = cell * (0.38 + r() * 0.08);
-          const v = 205 + r() * 45;
-          wrapDraw(s, x, y, cell, (X, Y) => {
-            const gr = g.createRadialGradient(X - w * 0.3, Y - h * 0.3, 1, X, Y, w * 1.1);
-            gr.addColorStop(0, grey(Math.min(255, v + 25)));
-            gr.addColorStop(1, grey(v - 35));
-            g.fillStyle = gr;
-            g.beginPath();
-            g.ellipse(X, Y, w, h, r() * 0.6, 0, Math.PI * 2);
-            g.fill();
-          });
-        }
+      for (let i = 0; i < 160; i++) {
+        const x = r() * s;
+        const y = r() * s;
+        const rad = 14 + r() * 40;
+        wrapDraw(s, x, y, rad, (X, Y) => {
+          const gr = g.createRadialGradient(X, Y, 0, X, Y, rad);
+          gr.addColorStop(0, r() < 0.5 ? 'rgba(255,245,225,0.25)' : 'rgba(110,85,55,0.22)');
+          gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr;
+          g.fillRect(X - rad, Y - rad, rad * 2, rad * 2);
+        });
+      }
+      for (let i = 0; i < 420; i++) {
+        const x = r() * s;
+        const y = r() * s;
+        const w = 1.5 + r() * 3.5;
+        const v = 150 + r() * 100;
+        wrapDraw(s, x, y, w + 2, (X, Y) => {
+          g.fillStyle = grey(Math.round(v), 0.85);
+          g.beginPath();
+          g.ellipse(X, Y, w, w * (0.6 + r() * 0.3), r() * 3, 0, Math.PI * 2);
+          g.fill();
+          g.fillStyle = 'rgba(60,45,30,0.25)';
+          g.beginPath();
+          g.ellipse(X + 1, Y + 1.2, w * 0.9, w * 0.55, 0, 0, Math.PI * 2);
+          g.fill();
+        });
+      }
+      for (const x of [s * 0.3, s * 0.7]) {
+        g.fillStyle = 'rgba(70,52,34,0.12)';
+        g.fillRect(x - 10, 0, 20, s);
       }
     })
   );

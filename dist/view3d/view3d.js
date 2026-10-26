@@ -91,14 +91,14 @@ class View3D {
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
     // Filmic colour, for the warm storybook light.
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.1;
+    gl.toneMappingExposure = 1.05;
     canvas.hidden = true;
     deps.mount(canvas);
 
     const scene = (this.scene = new THREE.Scene());
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.05, 400);
-    scene.fog = new THREE.Fog(0xe5f5f1, 30, 120);
-    this.hemi = new THREE.HemisphereLight(0xffffff, 0xa8d5a2, 0.6);
+    scene.fog = new THREE.Fog(0xe9e6d2, 30, 120);
+    this.hemi = new THREE.HemisphereLight(0xfff4de, 0x7f8a4a, 0.55);
     this.sun = new THREE.DirectionalLight(0xffffff, 1.4);
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.015;

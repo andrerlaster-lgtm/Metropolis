@@ -79,7 +79,7 @@ export function buildersMore(H) {
     }
     // A shared front path, window boxes of flowers and a low wall.
     const W = out.layers.wood;
-    W.box(-0.46, 0, 0.3, 0.46, 0.05, 0.315, lin('#efe6d6'), { s: 10 });
+    W.box(-0.46, 0, 0.3, 0.46, 0.05, 0.315, lin('#7a5a3a'), { s: 10 });
     for (let i = 0; i < 3; i++) {
       const [wx, wz] = worldAt(out, -0.205 + i * 0.205, 0.26);
       flowerPatch(out, wx, wz, 0.05, 5, rand(ctx.x, ctx.y, 400 + i));
@@ -392,7 +392,7 @@ export function buildersMore(H) {
     chimney(out, b.x1 - 0.08, -0.14, h + 0.06, h + 0.19);
     // The play yard: a fence, a sandpit, toy blocks, a ball and a tree.
     const W = out.layers.wood;
-    const pc = lin('#efe6d6');
+    const pc = lin('#7a5a3a');
     for (let i = 0; i <= 14; i++) W.box(-0.44 + i * 0.0629 - 0.007, 0, 0.44, -0.44 + i * 0.0629 + 0.007, 0.06, 0.454, pc, { s: 10 });
     W.box(-0.45, 0.04, 0.438, 0.45, 0.05, 0.456, pc, { s: 10 });
     W.box(-0.3, 0, 0.18, -0.12, 0.03, 0.34, lin('#a87848'), { s: 8 });
@@ -807,7 +807,7 @@ export function buildersMore(H) {
     out.layers.paint.cyl(-0.3, 0.4, 0.03, 0.002, 0.2, 0.25, 8, lin('#c99a3a'));
     const [hx2, hz2] = W.tx(-0.3, 0.4);
     out.layers.leaf.blob(hx2, 0.195, hz2, 0.02, 0.02, 0.02, lin('#e8d6a8'), lin('#f4e8c0'), 4, 0);
-    const pc = lin('#efe6d6');
+    const pc = lin('#7a5a3a');
     for (let i = 0; i <= 12; i++) W.box(-0.46 + i * 0.077 - 0.007, 0, 0.45, -0.46 + i * 0.077 + 0.007, 0.07, 0.462, pc, { s: 10 });
     W.box(-0.47, 0.045, 0.447, 0.47, 0.055, 0.465, pc, { s: 10 });
     lotGreens(out, ctx, [[0.42, 0.3, 0, 0.5]], []);

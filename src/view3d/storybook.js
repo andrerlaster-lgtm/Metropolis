@@ -318,25 +318,27 @@ function norm(v) {
 // The game's four pastel building colours, deepened into storybook ones: warm plaster walls and
 // terracotta, rose, slate-teal and plum roofs.
 export const STORY_VARIANTS = {
-  peach: { wall: '#f3dcbc', roof: '#b9583f', trim: '#6b4630', shutter: '#5d8f86' },
-  blush: { wall: '#f1d2c4', roof: '#a8464c', trim: '#5e3d2e', shutter: '#4f6f9c' },
-  mint: { wall: '#e6e3c6', roof: '#4f7f7a', trim: '#5a4231', shutter: '#b0563f' },
-  lavender: { wall: '#eadbd2', roof: '#665b8e', trim: '#4f3a2e', shutter: '#7d9a52' },
+  peach: { wall: '#e9d3ad', roof: '#b4603f', trim: '#5a3d2b', shutter: '#4f6f64' },
+  blush: { wall: '#e6cdb8', roof: '#8b5a3c', trim: '#4f3526', shutter: '#4c6a8a' },
+  mint: { wall: '#dcd6bb', roof: '#4f6585', trim: '#4a3628', shutter: '#9a4f35' },
+  lavender: { wall: '#e0d2c0', roof: '#7a5642', trim: '#44311f', shutter: '#6f8a4a' },
 };
-const FLOWERS = ['#f26a8d', '#ffd166', '#f8f4ec', '#c77dff', '#ff8c42', '#ef476f', '#a0c4ff', '#ffadad'];
+// Rustic colours: earthy and a little weathered, like an illustrated village rather than a toy one.
+const FLOWERS = ['#e8c85a', '#f2eadb', '#d98a9a', '#8fb4dc', '#e58a3c', '#c8505a', '#b79ad8', '#f0e08a'];
 const GREENS = [
-  ['#2f5d2a', '#7fb24a'],
-  ['#2b5a36', '#6ea851'],
-  ['#3a6b2c', '#93bf4f'],
-  ['#2d5530', '#5f9a49'],
+  ['#24472a', '#5f9438'],
+  ['#2a4f2e', '#6f9c42'],
+  ['#31592a', '#86ab45'],
+  ['#223f2a', '#527f3a'],
 ];
-const BLOSSOM = ['#b5606f', '#f7b7c5'];
-const TIMBER = '#5b3d2b';
-const STONE = '#c9bba5';
-const COBBLE = '#cdbb9e';
-const DIRT = '#ad8b5f';
-const GRASS = '#8fbf5a';
-const WOOD = '#a77b52';
+const BLOSSOM = ['#9a4a22', '#e0903a']; // an autumn maple rather than spring blossom
+const TIMBER = '#4d3322';
+const STONE = '#b3a58f';
+const COBBLE = '#b99a6e';
+const DIRT = '#9a7a52';
+const GRASS = '#6f9a3c';
+const WOOD = '#8e6a45';
+const FENCE = '#7a5a3a'; // weathered post-and-rail, not white pickets
 const FLOOR = 0.24;
 
 // ---- Building the scene ----------------------------------------------------------------------
@@ -447,7 +449,7 @@ function ground(out, x, y) {
     const n = rand(cx, cy, 11);
     const m = rand(Math.floor(cx / 3), Math.floor(cy / 3), 12);
     const d = rand(Math.floor((cx + 1) / 2), Math.floor((cy + 1) / 2), 13);
-    return mul(blend(blend(lin(GRASS), lin('#b3cf6a'), m * 0.8), lin('#5f9444'), d * d * 0.6), 0.86 + n * 0.22);
+    return mul(blend(blend(lin(GRASS), lin('#9fae52'), m * 0.8), lin('#4f7a34'), d * d * 0.6), 0.86 + n * 0.22);
   };
   const c = [corner(x, y + 1), corner(x + 1, y + 1), corner(x + 1, y), corner(x, y)];
   g.frames = [{ cx: 0, cz: 0, r: 0 }];
@@ -479,7 +481,7 @@ function street(out, t, lampSpot, cross) {
   const k = 1.7;
   const c = mul(lin(COBBLE), 0.9 + rand(x, y, 3) * 0.14);
   P.quad([x, 0.006, y + 1], [x + 1, 0.006, y + 1], [x + 1, 0.006, y], [x, 0.006, y], c, [[x * k, -(y + 1) * k], [(x + 1) * k, -(y + 1) * k], [(x + 1) * k, -y * k], [x * k, -y * k]]);
-  const flag = lin('#d9cdb6');
+  const flag = lin('#a89a82');
   const box = (ax, az, bx, bz) => S.box(Math.min(ax, bx), 0, Math.min(az, bz), Math.max(ax, bx), KERB, Math.max(az, bz), mul(flag, 0.95 + rand(Math.round(ax * 7), Math.round(az * 7), 5) * 0.1), { s: 3.5, ao: 0.8 });
   for (let sd = 0; sd < 4; sd++) {
     if (m & (1 << sd)) continue;
@@ -497,7 +499,7 @@ function street(out, t, lampSpot, cross) {
     box(cx, cz, cx + WALK, cz + WALK);
   }
   // Crossings: bands of pale stone across the lane.
-  const pale = lin('#f1e8d6');
+  const pale = lin('#bdb099');
   for (let sd = 0; sd < 4; sd++) {
     if (!(cross & m & (1 << sd))) continue;
     for (let i = 0; i < 6; i++) {
@@ -516,7 +518,7 @@ function street(out, t, lampSpot, cross) {
     const W = out.layers.water;
     for (const l of [D, W]) l.frames = [{ cx: 0, cz: 0, r: 0 }];
     D.quad([x + 0.25, 0.011, y + 0.7], [x + 0.75, 0.011, y + 0.7], [x + 0.75, 0.011, y + 0.3], [x + 0.25, 0.011, y + 0.3], lin('#8f7a5c'));
-    W.quad([x + 0.32, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.36], [x + 0.32, 0.014, y + 0.36], lin('#5fa7c4'));
+    W.quad([x + 0.32, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.36], [x + 0.32, 0.014, y + 0.36], lin('#3f86a0'));
   }
   if (lampSpot) lantern(out, lampSpot.gx, lampSpot.gy);
   else if (rand(x, y, 52) < 0.25) out.tufts.push([x + 0.06 + rand(x, y, 53) * 0.88, y + 0.04, 0.6, '#6a9a45']);
@@ -540,7 +542,7 @@ function water(out, x, y, isWater) {
   const w = out.layers.water;
   const d = out.layers.dirt;
   w.frames = [{ cx: 0, cz: 0, r: 0 }];
-  w.quad([x, -0.03, y + 1], [x + 1, -0.03, y + 1], [x + 1, -0.03, y], [x, -0.03, y], lin('#5fa7c4'), [[x, -y - 1], [x + 1, -y - 1], [x + 1, -y], [x, -y]]);
+  w.quad([x, -0.03, y + 1], [x + 1, -0.03, y + 1], [x + 1, -0.03, y], [x, -0.03, y], lin('#3f86a0'), [[x, -y - 1], [x + 1, -y - 1], [x + 1, -y], [x, -y]]);
   d.frames = [{ cx: 0, cz: 0, r: 0 }];
   d.quad([x, -0.09, y + 1], [x + 1, -0.09, y + 1], [x + 1, -0.09, y], [x, -0.09, y], lin('#7c6a4e'));
   // Earthy banks where the water meets land.
@@ -556,11 +558,11 @@ function lantern(out, wx, wz) {
   const T = out.layers.timber;
   const G = out.layers.glow;
   for (const m of [T, G]) m.frames = [{ cx: 0, cz: 0, r: 0 }];
-  T.box(wx - 0.012, 0, wz - 0.012, wx + 0.012, 0.3, wz + 0.012, lin('#3d3a3f'), { s: 4 });
-  T.box(wx - 0.03, 0.3, wz - 0.03, wx + 0.03, 0.31, wz + 0.03, lin('#3d3a3f'));
-  G.box(wx - 0.022, 0.31, wz - 0.022, wx + 0.022, 0.37, wz + 0.022, lin('#ffd27a'));
-  T.box(wx - 0.032, 0.37, wz - 0.032, wx + 0.032, 0.382, wz + 0.032, lin('#3d3a3f'));
-  T.cyl(wx, wz, 0.026, 0.002, 0.382, 0.41, 4, lin('#3d3a3f'));
+  T.box(wx - 0.014, 0, wz - 0.014, wx + 0.014, 0.3, wz + 0.014, lin('#5a3d28'), { s: 4 });
+  T.box(wx - 0.03, 0.3, wz - 0.03, wx + 0.03, 0.31, wz + 0.03, lin('#2f2a28'));
+  G.box(wx - 0.022, 0.31, wz - 0.022, wx + 0.022, 0.37, wz + 0.022, lin('#ffc766'));
+  T.box(wx - 0.032, 0.37, wz - 0.032, wx + 0.032, 0.382, wz + 0.032, lin('#2f2a28'));
+  T.cyl(wx, wz, 0.026, 0.002, 0.382, 0.41, 4, lin('#2f2a28'));
   out.lamps.push({ x: wx, y: 0.36, z: wz });
 }
 
@@ -568,9 +570,23 @@ function lantern(out, wx, wz) {
 function meadow(out, ctx) {
   const { x, y } = ctx;
   for (let i = 0; i < 7; i++) out.tufts.push([x + 0.1 + rand(x, y, 60 + i) * 0.8, y + 0.1 + rand(x, y, 70 + i) * 0.8, 0.6 + rand(x, y, 80 + i) * 0.7, rand(x, y, 85 + i) < 0.5 ? '#5f9a3e' : '#7aae45']);
+  if (rand(x, y, 101) < 0.1) rocks(out, x + 0.3 + rand(x, y, 102) * 0.4, y + 0.3 + rand(x, y, 103) * 0.4, 500, 1 + Math.floor(rand(x, y, 104) * 3));
   if (rand(x, y, 98) < 0.4) flowerPatch(out, x + 0.2 + rand(x, y, 99) * 0.6, y + 0.2 + rand(x, y, 89) * 0.6, 0.1, 7, rand(x, y, 88));
   if (rand(x, y, 90) < 0.6) flowerPatch(out, x + 0.2 + rand(x, y, 91) * 0.6, y + 0.2 + rand(x, y, 92) * 0.6, 0.12, 9, rand(x, y, 93));
   if (rand(x, y, 94) < 0.3) bushWorld(out, x + 0.2 + rand(x, y, 95) * 0.6, y + 0.2 + rand(x, y, 96) * 0.6, 0.07 + rand(x, y, 97) * 0.04, x * 31 + y, 0);
+}
+
+// A few weathered rocks, singly or in a small group: the storybook countryside has stones in it.
+function rocks(out, x, y, seed, count = 1, spread = 0.12) {
+  const m = out.layers.stone;
+  m.frames = [{ cx: 0, cz: 0, r: 0 }];
+  for (let i = 0; i < count; i++) {
+    const a = rand(x, y, seed + i) * Math.PI * 2;
+    const d = rand(x, y, seed + 20 + i) * spread;
+    const r = 0.04 + rand(x, y, seed + 40 + i) * 0.05;
+    const g = 0.5 + rand(x, y, seed + 60 + i) * 0.35;
+    m.blob(x + Math.cos(a) * d, r * 0.55, y + Math.sin(a) * d, r * 1.25, r * 0.8, r, mul(lin('#8c8478'), g), mul(lin('#b9b0a0'), g + 0.1), Math.floor(seed + i * 7), 0);
+  }
 }
 
 function flowerPatch(out, wx, wz, r, n, seed) {
@@ -817,7 +833,7 @@ function chimney(out, x, z, yb, yt) {
 // lane, flower beds along the front and a bush or two.
 function garden(out, ctx, b, { fence = true } = {}) {
   const W = out.layers.wood;
-  const pc = lin('#efe6d6');
+  const pc = lin(FENCE);
   if (fence) {
     const e = 0.46;
     const sides = [
@@ -1170,7 +1186,7 @@ function school(out, ctx) {
 // A low picket fence along the back and sides of a lot.
 function schoolFence(out) {
   const W = out.layers.wood;
-  const pc = lin('#efe6d6');
+  const pc = lin(FENCE);
   const e = 0.47;
   for (const [[ax, az], [bx, bz]] of [[[-e, -e], [e, -e]], [[e, -e], [e, 0.1]], [[-e, 0.1], [-e, -e]]]) {
     W.box(Math.min(ax, bx) - 0.004, 0.05, Math.min(az, bz) - 0.004, Math.max(ax, bx) + 0.004, 0.06, Math.max(az, bz) + 0.004, pc, { s: 10 });
@@ -1808,7 +1824,7 @@ function field(out, ctx) {
   bench(out, -0.44, -0.1, 1);
   bench(out, -0.44, 0.1, 1);
   // A low fence behind the far goal and round the back.
-  const pc = lin('#efe6d6');
+  const pc = lin(FENCE);
   for (let i = 0; i <= 14; i++) {
     const x = -0.45 + (i * 0.9) / 14;
     W.box(x - 0.007, 0, -0.47, x + 0.007, 0.08, -0.457, pc, { s: 10 });
