@@ -326,10 +326,10 @@ export const STORY_VARIANTS = {
 // Rustic colours: earthy and a little weathered, like an illustrated village rather than a toy one.
 const FLOWERS = ['#e8c85a', '#f2eadb', '#d98a9a', '#8fb4dc', '#e58a3c', '#c8505a', '#b79ad8', '#f0e08a'];
 const GREENS = [
-  ['#24472a', '#5f9438'],
-  ['#2a4f2e', '#6f9c42'],
-  ['#31592a', '#86ab45'],
-  ['#223f2a', '#527f3a'],
+  ['#2f5a2c', '#6a9f3c'],
+  ['#335f32', '#79a646'],
+  ['#3a6a2c', '#8fb24a'],
+  ['#2c5532', '#5f8f3e'],
 ];
 const BLOSSOM = ['#9a4a22', '#e0903a']; // an autumn maple rather than spring blossom
 const TIMBER = '#4d3322';
@@ -481,7 +481,7 @@ function street(out, t, lampSpot, cross) {
   const k = 1.7;
   const c = mul(lin(COBBLE), 0.9 + rand(x, y, 3) * 0.14);
   P.quad([x, 0.006, y + 1], [x + 1, 0.006, y + 1], [x + 1, 0.006, y], [x, 0.006, y], c, [[x * k, -(y + 1) * k], [(x + 1) * k, -(y + 1) * k], [(x + 1) * k, -y * k], [x * k, -y * k]]);
-  const flag = lin('#a89a82');
+  const flag = lin('#9a8b72');
   const box = (ax, az, bx, bz) => S.box(Math.min(ax, bx), 0, Math.min(az, bz), Math.max(ax, bx), KERB, Math.max(az, bz), mul(flag, 0.95 + rand(Math.round(ax * 7), Math.round(az * 7), 5) * 0.1), { s: 3.5, ao: 0.8 });
   for (let sd = 0; sd < 4; sd++) {
     if (m & (1 << sd)) continue;
@@ -499,7 +499,7 @@ function street(out, t, lampSpot, cross) {
     box(cx, cz, cx + WALK, cz + WALK);
   }
   // Crossings: bands of pale stone across the lane.
-  const pale = lin('#bdb099');
+  const pale = lin('#948772');
   for (let sd = 0; sd < 4; sd++) {
     if (!(cross & m & (1 << sd))) continue;
     for (let i = 0; i < 6; i++) {
@@ -573,7 +573,7 @@ function meadow(out, ctx) {
   if (rand(x, y, 101) < 0.1) rocks(out, x + 0.3 + rand(x, y, 102) * 0.4, y + 0.3 + rand(x, y, 103) * 0.4, 500, 1 + Math.floor(rand(x, y, 104) * 3));
   if (rand(x, y, 98) < 0.4) flowerPatch(out, x + 0.2 + rand(x, y, 99) * 0.6, y + 0.2 + rand(x, y, 89) * 0.6, 0.1, 7, rand(x, y, 88));
   if (rand(x, y, 90) < 0.6) flowerPatch(out, x + 0.2 + rand(x, y, 91) * 0.6, y + 0.2 + rand(x, y, 92) * 0.6, 0.12, 9, rand(x, y, 93));
-  if (rand(x, y, 94) < 0.3) bushWorld(out, x + 0.2 + rand(x, y, 95) * 0.6, y + 0.2 + rand(x, y, 96) * 0.6, 0.07 + rand(x, y, 97) * 0.04, x * 31 + y, 0);
+  if (rand(x, y, 94) < 0.3) bushWorld(out, x + 0.2 + rand(x, y, 95) * 0.6, y + 0.2 + rand(x, y, 96) * 0.6, 0.07 + rand(x, y, 97) * 0.04, x * 31 + y, 1);
 }
 
 // A few weathered rocks, singly or in a small group: the storybook countryside has stones in it.
@@ -1071,7 +1071,7 @@ function treeTile(out, ctx) {
     const oz = n === 1 ? 0 : (rand(x, y, 220 + i) - 0.5) * 0.5;
     storyTree(out, x + 0.5 + ox, y + 0.5 + oz, i === 0 ? kind : Math.floor(rand(x, y, 230 + i) * 3), (n === 1 ? 1.15 : 0.85) + rand(x, y, 240 + i) * 0.3, x * 101 + y * 7 + i);
   }
-  for (let i = 0; i < 2; i++) bushWorld(out, x + 0.15 + rand(x, y, 250 + i) * 0.7, y + 0.15 + rand(x, y, 260 + i) * 0.7, 0.05 + rand(x, y, 270 + i) * 0.04, x * 3 + y * 5 + i, 0);
+  for (let i = 0; i < 2; i++) bushWorld(out, x + 0.15 + rand(x, y, 250 + i) * 0.7, y + 0.15 + rand(x, y, 260 + i) * 0.7, 0.05 + rand(x, y, 270 + i) * 0.04, x * 3 + y * 5 + i, 1);
   meadow(out, ctx);
 }
 

@@ -103,7 +103,7 @@ export function makeTextures(gl) {
         const rad = 14 + r() * 40;
         wrapDraw(s, x, y, rad, (X, Y) => {
           const gr = g.createRadialGradient(X, Y, 0, X, Y, rad);
-          gr.addColorStop(0, r() < 0.5 ? 'rgba(255,245,225,0.25)' : 'rgba(110,85,55,0.22)');
+          gr.addColorStop(0, r() < 0.5 ? 'rgba(255,245,225,0.16)' : 'rgba(110,85,55,0.09)');
           gr.addColorStop(1, 'rgba(0,0,0,0)');
           g.fillStyle = gr;
           g.fillRect(X - rad, Y - rad, rad * 2, rad * 2);
@@ -115,13 +115,15 @@ export function makeTextures(gl) {
         const w = 1.5 + r() * 3.5;
         const v = 150 + r() * 100;
         wrapDraw(s, x, y, w + 2, (X, Y) => {
-          g.fillStyle = grey(Math.round(v), 0.85);
+          const k = w * (0.6 + r() * 0.3);
+          const a = r() * 3;
+          g.fillStyle = 'rgba(60,45,30,0.14)'; // a faint shadow under the stone
           g.beginPath();
-          g.ellipse(X, Y, w, w * (0.6 + r() * 0.3), r() * 3, 0, Math.PI * 2);
+          g.ellipse(X + 0.8, Y + 1, w, k, a, 0, Math.PI * 2);
           g.fill();
-          g.fillStyle = 'rgba(60,45,30,0.25)';
+          g.fillStyle = grey(Math.round(Math.min(255, v + 25)), 0.7); // a lighter, raised top
           g.beginPath();
-          g.ellipse(X + 1, Y + 1.2, w * 0.9, w * 0.55, 0, 0, Math.PI * 2);
+          g.ellipse(X, Y, w, k, a, 0, Math.PI * 2);
           g.fill();
         });
       }
