@@ -5,6 +5,7 @@
 
 import * as THREE from './vendor/three.module.min.js';
 import { MeshData, linear } from './mesh.js';
+import { mergeGeos } from './mergeGeo.js';
 
 const MAX_PEOPLE = 160;
 const MAX_CARS = 90;
@@ -225,23 +226,6 @@ function eyesGeometry() {
   const a = new THREE.IcosahedronGeometry(0.0034, 0).translate(0.0185, 0.003, -0.0072).toNonIndexed();
   const b = new THREE.IcosahedronGeometry(0.0034, 0).translate(0.0185, 0.003, 0.0072).toNonIndexed();
   return mergeGeos([a, b]);
-}
-
-// Join non-indexed geometries into one (positions and normals only).
-function mergeGeos(list) {
-  const g = new THREE.BufferGeometry();
-  const names = list.every((x) => x.getAttribute('color')) ? ['position', 'normal', 'color'] : ['position', 'normal'];
-  for (const name of names) {
-    const arrays = list.map((x) => x.getAttribute(name).array);
-    const out = new Float32Array(arrays.reduce((n, a) => n + a.length, 0));
-    let at = 0;
-    for (const a of arrays) {
-      out.set(a, at);
-      at += a.length;
-    }
-    g.setAttribute(name, new THREE.BufferAttribute(out, 3));
-  }
-  return g;
 }
 
 // A little hat: a crown with a brim.

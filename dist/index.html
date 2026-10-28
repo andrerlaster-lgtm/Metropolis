@@ -5112,6 +5112,38 @@ button.mil-sq {
   }
 }
 
+.mil-ico.mil-face {
+  width: 46px;
+  height: 46px;
+  padding: 2px;
+  border-radius: 14px;
+  background: #ece9f2;
+}
+.mil-face svg {
+  width: 100%;
+  height: 100%;
+}
+/* Menus ease in: the sheet slides up, tab bodies fade. */
+@keyframes mil-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.mil-panel {
+  animation: mil-rise 0.28s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mil-panel {
+    animation: none;
+  }
+}
+.mil-item,
+.mil-recruit,
+.mil-soldier {
+  box-sizing: border-box;
+}
+
 </style>
 </head>
 <body>
@@ -28894,6 +28926,17 @@ const ART = {
   bunker: `<svg viewBox="0 0 120 70" aria-hidden="true"><ellipse cx="60" cy="58" rx="46" ry="8" fill="#000" opacity=".08"/><path d="M14 38l46-22 46 22-46 22z" fill="#b3a58a"/><path d="M14 38l46 22v8L14 46z" fill="#8f8268"/><path d="M106 38L60 60v8l46-22z" fill="#756a55"/><path d="M26 38l34-16 34 16-34 16z" fill="#c4b79c"/><path d="M44 52l12 6v4l-12-6z" fill="#33302a"/><path d="M68 58l12-6v4l-12 6z" fill="#33302a"/></svg>`,
   mortar: `<svg viewBox="0 0 120 70" aria-hidden="true"><ellipse cx="60" cy="58" rx="40" ry="8" fill="#000" opacity=".08"/><path d="M24 48l36-18 36 18-36 18z" fill="#a89570"/><path d="M24 48l36 18v5L24 53z" fill="#857453"/><path d="M96 48L60 66v5l36-18z" fill="#6c5e44"/><path d="M42 40l18-9 18 9-18 9z" fill="#55585c"/><rect x="52" y="8" width="14" height="38" rx="5" fill="#3d4046" transform="rotate(24 59 40)"/><rect x="55" y="6" width="9" height="8" rx="3" fill="#1f2125" transform="rotate(24 59 40)"/></svg>`,
 };
+// Faces for the troop cards: helmet colour, a medic's cross, a grenadier's scarf.
+const FACE = {
+  rifleman: ['#6f7c45', ''],
+  gunner: ['#4d5a3a', '<rect x="26" y="40" width="28" height="7" rx="3" fill="#2b2f2a"/>'],
+  grenadier: ['#8a6a3a', '<path d="M22 54h36v8H22z" fill="#c4553f"/>'],
+  medic: ['#e8e8e2', '<path d="M36 16h8v16h-8z M32 20h16v8H32z" fill="#d4453a"/>'],
+};
+const face = (k) => {
+  const [helmet, extra] = FACE[k] || FACE.rifleman;
+  return `<svg viewBox="0 0 80 72" aria-hidden="true"><ellipse cx="40" cy="66" rx="26" ry="5" fill="#000" opacity=".08"/><path d="M18 66c0-14 10-20 22-20s22 6 22 20z" fill="#7a8a52"/><circle cx="40" cy="38" r="15" fill="#e8b894"/><path d="M23 36c0-14 8-22 17-22s17 8 17 22z" fill="${helmet}"/><rect x="21" y="33" width="38" height="5" rx="2" fill="${helmet}" opacity=".85"/><circle cx="34" cy="42" r="2" fill="#2b2430"/><circle cx="46" cy="42" r="2" fill="#2b2430"/>${extra}</svg>`;
+};
 const FILTERS = [
   ['all', 'All'],
   ['walls', 'Walls'],
@@ -29731,7 +29774,7 @@ class MilitaryScreen {
       const u = UNITS[k];
       const err = m.recruitError(k);
       const errNow = m.recruitError(k, { emergency: true });
-      return `<div class="mil-recruit"><span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(u.label)}</b><small>${esc(u.desc)} ${u.hp} health · range ${u.attack.range}</small></span>
+      return `<div class="mil-recruit"><span class="mil-ico mil-face">${face(k)}</span><span class="mil-item-text"><b>${esc(u.label)}</b><small>${esc(u.desc)} ${u.hp} health · range ${u.attack.range}</small></span>
         <span class="mil-row">${
           u.train
             ? `<button type="button" class="pill" data-recruit="${k}" ${err ? 'disabled' : ''} title="${esc(err || '')}">Train ${money(m.recruitCost(k))} · ${forDays(u.train)}</button><button type="button" class="pill" data-recruit="${k}" data-emergency ${errNow ? 'disabled' : ''} title="${esc(errNow || 'Emergency recruit: ready at once')}">Now ${money(m.recruitCost(k, { emergency: true }))}</button>`
