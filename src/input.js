@@ -1,13 +1,11 @@
 // Input: turns mouse, touch, pen, trackpad and keyboard input into camera moves and tile actions.
 // Tap/click builds one tile; dragging with a build tool paints a stroke (roads draw as an L).
-// Touch: one finger always moves the map; double-tap builds (a single tap just shows a preview, and double-tap
-// then drag paints a stroke). Two fingers pan and pinch; long-press bulldozes. Mouse: right or middle drag pans,
+// Touch: one finger always moves the map. With a building tool a tap marks a spot (onTouchPlace) and a Build
+// button confirms it. Two fingers pan and pinch; long-press bulldozes. Mouse: right or middle drag pans,
 // right-click bulldozes, wheel zooms. With the Inspect tool, a one-finger or left drag pans.
 // Trackpad: two-finger scrolling pans and pinching zooms (the scroll setting can make scrolling
 // always zoom or always pan). Keyboard: arrow keys and WASD glide the camera.
 
-const DOUBLE_TAP_MS = 350;
-const DOUBLE_TAP_PX = 36;
 const LONG_PRESS_MS = 480;
 
 // Camera keys, by physical position (so French AZERTY keyboards get ZQSD), and the direction each moves.
@@ -132,8 +130,6 @@ export class InputController {
     this.pointers.set(e.pointerId, { x: p.x, y: p.y });
     if (this.pointers.size === 1) {
       const panButton = e.pointerType === 'mouse' && e.button !== 0;
-      const lt = this.lastTap;
-      const doubleTap = e.pointerType === 'touch' && !!lt && performance.now() - lt.t < DOUBLE_TAP_MS && Math.hypot(p.x - lt.x, p.y - lt.y) < DOUBLE_TAP_PX;
       this.gesture = {
         button: e.button,
         type: e.pointerType,
@@ -141,9 +137,8 @@ export class InputController {
         startY: p.y,
         moved: false,
         mode: null, // 'pan' or 'paint' once the pointer has moved
-        // Touch: one finger moves the map; only a double-tap (and drag) paints.
-        wantsPaint: !panButton && this.handlers.canPaint() && (e.pointerType !== 'touch' || doubleTap),
-        doubleTap,
+        // Touch: one finger always moves the map; building is by tap and a Build button.
+        wantsPaint: !panButton && this.handlers.canPaint() && e.pointerType !== 'touch',
         pinched: false,
         longPressed: false,
         vx: 0,
@@ -241,12 +236,10 @@ export class InputController {
     if (cancelled) return;
     if (!g.moved && !g.longPressed && !g.pinched) {
       if (g.button === 2) this.handlers.onBulldoze(p.x, p.y);
-      else if (g.button === 0 && g.type === 'touch' && this.handlers.canPaint() && !g.doubleTap) {
-        // A single tap with a building tool only previews where it would go; tap again to build.
-        this.lastTap = { x: p.x, y: p.y, t: performance.now() };
-        this.handlers.onHover(p.x, p.y);
+      else if (g.button === 0 && g.type === 'touch' && this.handlers.onTouchPlace && this.handlers.canPaint()) {
+        // A tap with a building tool marks the spot; the Build button does the building.
+        this.handlers.onTouchPlace(p.x, p.y);
       } else if (g.button === 0) {
-        this.lastTap = null;
         this.handlers.onTap(p.x, p.y);
       }
     } else if (g.mode === 'pan' && !g.pinched && performance.now() - g.lastT < 80) {
