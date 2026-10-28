@@ -179,7 +179,7 @@ test('a miss still looks like a shot, and the tracer runs from the muzzle to the
   const ends = d.shots.map((s) => G.tracerOf(s, d.b.structs));
   for (const t of ends) {
     assert.ok(t.y0 > 0.2 && t.y0 < 0.5, 'leaves at gun height');
-    assert.ok(Math.hypot(t.x0 - (d.nest.x + 0.5), t.z0 - (d.nest.y + 0.5)) > 0.3, 'from the muzzle, not the middle of the nest');
+    assert.ok(Math.hypot(t.x0 - (d.nest.x + 0.5), t.z0 - (d.nest.y + 0.5)) > 0.2, 'from the muzzle, not the middle of the nest');
     assert.ok(Math.hypot(t.x1 - t.x0, t.z1 - t.z0) > 0.5, 'and travels well on');
   }
   assert.ok(ends.length > 5);

@@ -9,6 +9,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { CameraRig } from './rig.js';
 import { mergeGeos, strut } from './mergeGeo.js';
 import { kitModel } from './kit.js';
+import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { buildScenery } from './battleScenery.js';
 import { flashOf, recoilOf, tracerOf } from './gunfire.js';
 
@@ -62,7 +63,7 @@ function contactShadow() {
   return new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
 }
 
-const mat = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, ...extra });
+const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0, ...extra });
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 
 class BattleView {
@@ -85,13 +86,19 @@ class BattleView {
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
     // A gentle filmic curve keeps the warm light from washing out, without shifting the colours.
     gl.toneMapping = THREE.NeutralToneMapping;
-    gl.toneMappingExposure = 1.05;
+    gl.toneMappingExposure = 0.95;
     gl.setClearColor(0xe9e6d2);
 
     const scene = (this.scene = new THREE.Scene());
     scene.fog = new THREE.Fog(0xe9e6d2, 45, 100);
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
-    const hemi = new THREE.HemisphereLight(0xfff4de, 0x7f8a4a, 0.8);
+    // Soft light from all around (a studio room, blurred once at start-up) on every light-responsive
+    // material; the sky light and sun do the rest.
+    const pmrem = new THREE.PMREMGenerator(gl);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.32;
+    pmrem.dispose();
+    const hemi = new THREE.HemisphereLight(0xfff4de, 0x6f7a42, 0.4);
     const sun = (this.sun = new THREE.DirectionalLight(0xffe9c8, 1.55));
     sun.castShadow = true;
     // Sharper shadows on bigger screens; phones keep the lighter 1024 map.
@@ -397,7 +404,8 @@ class BattleView {
         bag(x0 + Math.cos(ry) * t, 0.07 + r * 0.11, z0 - Math.sin(ry) * t, ry, i + r);
       }
     };
-    const kitHq = s.type === 'hq' ? kitModel('hq', () => (this.staticKey = '')) : null;
+    const redraw = () => (this.staticKey = '');
+    const kitHq = s.type === 'hq' ? kitModel('hq', redraw) : null;
     if (kitHq) {
       // The headquarters from the Kenney kits (tools/kit/recipes.mjs): one mesh, baked colours.
       const house = add(kitHq, new THREE.MeshStandardMaterial({ vertexColors: true, color: new THREE.Color(soot, soot, soot), roughness: 0.82, metalness: 0 }), 0, 0.06, -0.08);
@@ -450,6 +458,23 @@ class BattleView {
       wall(0.92, 3, 0, 0, 0);
       add(box(0.06, 0.3, 0.06), wood, -0.46, 0.15, 0.12);
       add(box(0.06, 0.3, 0.06), wood, 0.46, 0.15, 0.12);
+    } else if (s.type === 'mg' && kitModel('mgBase', redraw) && kitModel('mgGun', redraw)) {
+      // From the Tower Defense Kit (tools/kit/recipes.mjs): a round concrete emplacement ringed with
+      // sandbags, and the turret on top, which turns to aim and kicks back when it fires.
+      const kit = new THREE.MeshStandardMaterial({ vertexColors: true, color: new THREE.Color(soot, soot, soot), roughness: 0.78, metalness: 0.05 });
+      add(kitModel('mgBase'), kit, 0, 0, 0);
+      sandbagRing(0.44, 13);
+      sandbagRing(0.42, 12, 0.19);
+      add(box(0.14, 0.1, 0.09), olive, 0.27, 0.19, -0.22, 0.4);
+      const head = new THREE.Group();
+      head.position.y = 0.3;
+      const gun = new THREE.Mesh(kitModel('mgGun'), kit);
+      gun.userData.z0 = 0;
+      gun.userData.kick = 0.04;
+      gun.castShadow = true;
+      head.add(gun);
+      g.add(head);
+      this.heads.set(s.id, head);
     } else if (s.type === 'mg') {
       sandbagRing(0.38, 11);
       sandbagRing(0.35, 10, 0.21);
@@ -513,6 +538,12 @@ class BattleView {
       g.add(head);
       this.heads.set(s.id, head);
     }
+    // A soft shadow pooled at the foot of every defence (the command post has its own, larger one).
+    if (s.type !== 'hq') {
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(s.w * 1.35, s.h * 1.35).rotateX(-Math.PI / 2), contactShadow());
+      pool.position.y = 0.012;
+      g.add(pool);
+    }
     // Upgrade levels: a gold band per level.
     for (let l = 1; l < (s.level || 1); l++) {
       const pip = new THREE.Mesh(box(0.12, 0.04, 0.04), mat(0xf2c14e));
@@ -528,7 +559,7 @@ class BattleView {
 
   makeInstances() {
     const scene = this.scene;
-    const white = (extra) => new THREE.MeshLambertMaterial({ color: 0xffffff, ...extra });
+    const white = (extra) => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, ...extra });
     const inst = (geo, material, n, shadow = true) => {
       const im = new THREE.InstancedMesh(geo, material, n);
       im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -640,7 +671,10 @@ class BattleView {
         head.rotation.y += d * Math.min(1, dt * 10);
       }
       // The barrel jerks back when the gun fires (gunfire.js).
-      if (head?.children[0] && s.type === 'mg') head.children[0].position.z = 0.18 - 0.07 * recoilOf(s, m.t);
+      if (head?.children[0] && s.type === 'mg') {
+        const gun = head.children[0];
+        gun.position.z = (gun.userData.z0 ?? 0.18) - (gun.userData.kick ?? 0.07) * recoilOf(s, m.t);
+      }
     }
     this.drawUnits(m);
     this.drawEffects(m);

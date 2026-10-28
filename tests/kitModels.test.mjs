@@ -33,3 +33,21 @@ test('the kit command post is one light mesh that fits its 2×2 footprint', () =
   }
   assert.ok(Math.abs(minY) < 1e-4, 'stands on the ground');
 });
+
+test('the kit machine-gun nest: an emplacement on the ground and a gun that turns about its middle', () => {
+  const base = flatten(load('../src/view3d/models/mgBase.glb'));
+  const gun = flatten(load('../src/view3d/models/mgGun.glb'));
+  for (const f of [base, gun]) assert.ok(f.position.length / 9 < 1000, 'light enough for phones');
+  let baseMin = Infinity;
+  for (let i = 0; i < base.position.length; i += 3) {
+    assert.ok(Math.hypot(base.position[i], base.position[i + 2]) <= 0.5, 'emplacement inside its tile');
+    baseMin = Math.min(baseMin, base.position[i + 1]);
+  }
+  assert.ok(Math.abs(baseMin) < 1e-4, 'emplacement on the ground');
+  let front = -Infinity;
+  for (let i = 0; i < gun.position.length; i += 3) {
+    assert.ok(Math.hypot(gun.position[i], gun.position[i + 2]) <= 0.5, 'the gun turns inside its tile');
+    front = Math.max(front, gun.position[i + 2]);
+  }
+  assert.ok(front > 0.15, 'barrels point forward (+z)');
+});

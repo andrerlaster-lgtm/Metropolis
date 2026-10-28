@@ -4,6 +4,7 @@
 // scaled into game tiles. `remap` recolours baked palette colours (sRGB 0–255) toward the game's look.
 
 const MB = 'modular-buildings';
+const TD = 'tower-defense';
 const STOREY = 0.63;
 
 // The military command post: a two-storey stone headquarters, three bays wide and two deep, with a
@@ -37,4 +38,33 @@ export const hq = {
     }
     return [r, g, b];
   },
+};
+
+// The Tower Defense Kit's toy palette (lavender, orange, purple) recoloured as military kit:
+// lavender greys → olive drab, orange and red → dark olive housing, light blues → gunmetal, dark → black.
+const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function military([r, g, b], { stone = false } = {}) {
+  const lum = (r + g + b) / 3;
+  const shade = (base, ref) => hex(base).map((c) => Math.min(255, (c * lum) / ref));
+  if (r > 180 && g < 150) return stone ? shade('#8c7458', 170) : shade('#5f6b3e', 160); // orange, red
+  if (b > r + 25 && r > 140 && g > 140) return stone ? shade('#a39e94', 200) : shade('#7d8a4f', 190); // lavender light
+  if (b > r + 25 && r > 100) return stone ? shade('#8a857c', 160) : shade('#66713f', 150); // lavender mid
+  if (b > r + 25) return shade('#4f5a34', 110); // purple, dark lavender
+  if (g > r + 20) return shade('#3d4146', 180); // light blue, teal: gunmetal
+  if (lum < 100) return shade('#2a2c2e', 90); // near black: barrels
+  return shade('#55585c', 130);
+}
+
+// Machine-gun nest, in two parts so the gun can turn: a round concrete emplacement (the game rings it
+// with sandbags) and the gun on its mount, made from the kit's turret, its barrels facing +z.
+export const mgBase = {
+  scale: 0.76,
+  pieces: [{ kit: TD, name: 'tower-round-base', remap: (c) => military(c, { stone: true }) }],
+};
+
+export const mgGun = {
+  scale: 0.85,
+  keepOrigin: true,
+  ao: { reach: 0.08, strength: 0.5 },
+  pieces: [{ kit: TD, name: 'weapon-turret', at: [0, -0.24, -0.02], remap: (c) => military(c) }],
 };

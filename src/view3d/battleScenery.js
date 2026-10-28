@@ -3,6 +3,7 @@
 // It is only decoration outside the field, so nothing here touches the rules or the tiles.
 
 import * as THREE from './vendor/three.module.min.js';
+import { mergeStatic } from './mergeGeo.js';
 
 const mat = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, ...extra });
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -214,5 +215,5 @@ export function buildScenery(w, h) {
     r.rotation.set(rnd() * 3, rnd() * 3, 0);
     g.add(r);
   }
-  return g;
+  return mergeStatic(g);
 }

@@ -5,8 +5,8 @@
 
 export const FLASH_SECS = { mg: 0.1, default: 0.08 }; // how long a shot's flash stays up
 export const RECOIL_SECS = 0.12;
-export const MUZZLE_REACH = { mg: 0.45, mortar: 0.4, hq: 0.6, default: 0.45 }; // from the middle of the tile
-export const GUN_Y = { mg: 0.32, mortar: 0.4, hq: 0.5, default: 0.32 }; // height of the barrel
+export const MUZZLE_REACH = { mg: 0.25, mortar: 0.4, hq: 0.6, default: 0.45 }; // from the middle of the tile
+export const GUN_Y = { mg: 0.39, mortar: 0.4, hq: 0.5, default: 0.32 }; // height of the barrel
 export const FLASH_SCALE = { mg: 1.9, mortar: 2.2, hq: 1.3, default: 1.5 };
 const TARGET_Y = 0.25; // chest height of whoever is being shot at
 

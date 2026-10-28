@@ -32,3 +32,32 @@ export function strut(a, b, thick) {
   o.updateMatrix();
   return geo.applyMatrix4(o.matrix);
 }
+
+// Fold a group of static meshes into one mesh per material (instanced meshes are kept as they are), so
+// scenery made of hundreds of pieces draws in a handful of calls. A merged mesh casts (or takes) shadows if any of its pieces did.
+export function mergeStatic(group) {
+  group.updateMatrixWorld(true);
+  const buckets = new Map();
+  const out = new THREE.Group();
+  group.traverse((o) => {
+    if (o.isInstancedMesh) {
+      out.add(o.clone());
+      return;
+    }
+    if (!o.isMesh) return;
+    const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    for (const k of Object.keys(geo.attributes)) if (k !== 'position' && k !== 'normal') geo.deleteAttribute(k);
+    let b = buckets.get(o.material);
+    if (!b) buckets.set(o.material, (b = { list: [], shadow: false, receive: false }));
+    b.list.push(geo);
+    b.shadow ||= o.castShadow;
+    b.receive ||= o.receiveShadow;
+  });
+  for (const [material, b] of buckets) {
+    const mesh = new THREE.Mesh(mergeGeos(b.list), material);
+    mesh.castShadow = b.shadow;
+    mesh.receiveShadow = b.receive;
+    out.add(mesh);
+  }
+  return out;
+}
