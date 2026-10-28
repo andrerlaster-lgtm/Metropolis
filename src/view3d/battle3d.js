@@ -7,6 +7,7 @@
 
 import * as THREE from './vendor/three.module.min.js';
 import { CameraRig } from './rig.js';
+import { buildScenery } from './battleScenery.js';
 import { flashOf, recoilOf, tracerOf } from './gunfire.js';
 
 const MAX_UNITS = 140;
@@ -63,12 +64,12 @@ class BattleView {
     gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
-    gl.setClearColor(0xcfe6ee);
+    gl.setClearColor(0xe9e6d2);
 
     const scene = (this.scene = new THREE.Scene());
-    scene.fog = new THREE.Fog(0xcfe6ee, 40, 90);
+    scene.fog = new THREE.Fog(0xe9e6d2, 45, 100);
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x9cc98a, 0.75);
+    const hemi = new THREE.HemisphereLight(0xfff4de, 0x7f8a4a, 0.8);
     const sun = (this.sun = new THREE.DirectionalLight(0xfff4e0, 1.35));
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -119,8 +120,8 @@ class BattleView {
     const freeH = Math.max(120, H - i.top - i.bottom);
     const fullH = H + Math.abs(i.top - i.bottom);
     const k = 2 * Math.tan((this.camera.fov * Math.PI) / 360);
-    const depth = map.h * Math.sin(ANGLED.pitch) + 1.5;
-    const across = map.w + 1.5;
+    const depth = map.h * Math.sin(ANGLED.pitch) + 4;
+    const across = map.w + 5;
     const dist = Math.max((depth * fullH) / (freeH * k), (across * fullH) / (freeW * k)) * 1.04;
     const yaw = this.camMode === 'free' ? r.og.yaw : ANGLED.yaw;
     const pitch = this.camMode === 'free' ? r.og.pitch : ANGLED.pitch;
@@ -225,27 +226,8 @@ class BattleView {
       rock.castShadow = rock.receiveShadow = true;
       g.add(rock);
     }
-    // Trees around the outside, so the base sits in the countryside.
-    const trunk = mat(0x8a6a4a);
-    const leaf = mat(0x6fae6a, { flatShading: true });
-    let seed = 11;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < 70; i++) {
-      const side = i % 3;
-      const x = side === 0 ? -1.5 - rnd() * 6 : side === 1 ? w + 1.5 + rnd() * 6 : rnd() * (w + 12) - 6;
-      const z = side === 2 ? h + 1.5 + rnd() * 5 : rnd() * (h + 6) - 3;
-      const t = new THREE.Group();
-      const s = 0.7 + rnd() * 0.6;
-      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.4, 5), trunk);
-      tr.position.y = 0.2;
-      const top = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.95, 6), leaf);
-      top.position.y = 0.8;
-      top.castShadow = true;
-      t.add(tr, top);
-      t.scale.setScalar(s);
-      t.position.set(x, 0, z);
-      g.add(t);
-    }
+    // The countryside around the base: fence, watch towers, a camp and woods.
+    g.add(buildScenery(w, h));
     for (const s of m.structs) g.add(this.makeStructure(s));
     // Forward positions: a pole with a flag in the colour of whoever holds it, and a ring that
     // fills as someone takes it.
@@ -281,17 +263,39 @@ class BattleView {
     cv.width = (w + pad * 2) * px;
     cv.height = (h + pad * 2) * px;
     const c = cv.getContext('2d');
-    c.fillStyle = '#93c07f';
+    c.fillStyle = '#7fae5f';
     c.fillRect(0, 0, cv.width, cv.height);
     const ox = pad * px;
     const oy = pad * px;
-    c.fillStyle = '#a7cf8f';
+    c.fillStyle = '#92bf6c';
     c.fillRect(ox, oy, w * px, h * px);
+    // Mottled grass with little straw strokes, then a dusty track the length of the field.
+    let sd = 5;
+    const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 900; i++) {
+      c.fillStyle = rr() < 0.5 ? 'rgba(90, 130, 60, 0.13)' : 'rgba(190, 200, 110, 0.12)';
+      c.beginPath();
+      c.arc(rr() * cv.width, rr() * cv.height, 10 + rr() * 34, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.fillStyle = 'rgba(205, 184, 130, 0.28)';
+    c.fillRect(ox + (w / 2 - 1.1) * px, oy, 2.2 * px, h * px);
+    c.fillRect(ox + (w / 2 - 1.4) * px, oy + (h - 1) * px, 2.8 * px, pad * px);
+    for (let i = 0; i < 6000; i++) {
+      const x = rr() * cv.width;
+      const y = rr() * cv.height;
+      c.strokeStyle = rr() < 0.5 ? 'rgba(75, 115, 50, 0.35)' : 'rgba(215, 205, 120, 0.4)';
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + (rr() - 0.5) * 4, y - 3 - rr() * 4);
+      c.stroke();
+    }
     c.fillStyle = mine === 'att' ? yours : theirs;
     c.fillRect(ox, oy, w * px, entryRows * px);
     c.fillStyle = mine === 'att' ? theirs : yours;
     c.fillRect(ox, oy + (h - deployRows) * px, w * px, deployRows * px);
-    c.strokeStyle = 'rgba(60, 80, 50, 0.12)';
+    c.strokeStyle = 'rgba(60, 80, 50, 0.09)';
     c.lineWidth = 1;
     for (let x = 0; x <= w; x++) {
       c.beginPath();

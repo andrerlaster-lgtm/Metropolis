@@ -27,6 +27,21 @@ const ICON = {
   grenadier: 'Gr',
   medic: '+',
 };
+// Little isometric pictures for the build cards.
+const sandbag = (x, y) => `<path d="M${x} ${y}l13-6 13 6-13 6z" fill="#e2c88a"/><path d="M${x} ${y}l13 6v8l-13-6z" fill="#c9a965"/><path d="M${x + 26} ${y}l-13 6v8l13-6z" fill="#b8975a"/>`;
+const ART = {
+  sandbags: `<svg viewBox="0 0 120 70" aria-hidden="true"><ellipse cx="60" cy="58" rx="46" ry="8" fill="#000" opacity=".08"/>${sandbag(18, 40)}${sandbag(44, 40)}${sandbag(70, 40)}${sandbag(31, 30)}${sandbag(57, 30)}${sandbag(44, 20)}</svg>`,
+  mg: `<svg viewBox="0 0 120 70" aria-hidden="true"><ellipse cx="60" cy="58" rx="42" ry="8" fill="#000" opacity=".08"/><path d="M20 44l40-20 40 20-40 20z" fill="#9a9a62"/><path d="M20 44l40 20v6l-40-20z" fill="#75754a"/><path d="M100 44l-40 20v6l40-20z" fill="#5f5f3c"/><path d="M34 40l26-13 26 13-26 13z" fill="#b9b27a"/><rect x="48" y="26" width="30" height="9" rx="3" fill="#33363a" transform="rotate(-18 60 30)"/><rect x="62" y="22" width="30" height="5" rx="2" fill="#23262a" transform="rotate(-18 60 30)"/><circle cx="56" cy="34" r="6" fill="#4a4d52"/></svg>`,
+  bunker: `<svg viewBox="0 0 120 70" aria-hidden="true"><ellipse cx="60" cy="58" rx="46" ry="8" fill="#000" opacity=".08"/><path d="M14 38l46-22 46 22-46 22z" fill="#b3a58a"/><path d="M14 38l46 22v8L14 46z" fill="#8f8268"/><path d="M106 38L60 60v8l46-22z" fill="#756a55"/><path d="M26 38l34-16 34 16-34 16z" fill="#c4b79c"/><path d="M44 52l12 6v4l-12-6z" fill="#33302a"/><path d="M68 58l12-6v4l-12 6z" fill="#33302a"/></svg>`,
+  mortar: `<svg viewBox="0 0 120 70" aria-hidden="true"><ellipse cx="60" cy="58" rx="40" ry="8" fill="#000" opacity=".08"/><path d="M24 48l36-18 36 18-36 18z" fill="#a89570"/><path d="M24 48l36 18v5L24 53z" fill="#857453"/><path d="M96 48L60 66v5l36-18z" fill="#6c5e44"/><path d="M42 40l18-9 18 9-18 9z" fill="#55585c"/><rect x="52" y="8" width="14" height="38" rx="5" fill="#3d4046" transform="rotate(24 59 40)"/><rect x="55" y="6" width="9" height="8" rx="3" fill="#1f2125" transform="rotate(24 59 40)"/></svg>`,
+};
+const FILTERS = [
+  ['all', 'All'],
+  ['walls', 'Walls'],
+  ['towers', 'Towers'],
+  ['cannons', 'Cannons'],
+];
+const GROUP = { sandbags: 'walls', mg: 'towers', bunker: 'towers', mortar: 'cannons' };
 const STATUS = { ready: 'Ready', training: 'Training', injured: 'Recovering', raiding: 'Away' };
 const TABS = [
   ['build', 'Build'],
@@ -56,6 +71,7 @@ export class MilitaryScreen {
     this.app = document.getElementById('app');
     this.open = false;
     this.tab = 'build';
+    this.filter = 'all';
     this.tool = null;
     this.selSoldier = null;
     this.selStruct = null;
@@ -96,7 +112,7 @@ export class MilitaryScreen {
     this.el.innerHTML = `
       <div class="mil-stage" data-stage></div>
       <header class="mil-top glass">
-        <div class="mil-title"><b>Military base</b><span data-town></span></div>
+        <div class="mil-title"><i aria-hidden="true">🏛</i><b>Military base</b><span data-town></span></div>
         <div class="mil-chips" data-chips></div>
         <div class="seg mil-cam" role="group" aria-label="Camera"><button type="button" data-cam="angled" aria-pressed="true">Angled</button><button type="button" data-cam="free" aria-pressed="false">Free</button></div>
         <button type="button" class="pill mil-close" data-close>Back to town</button>
@@ -608,6 +624,10 @@ export class MilitaryScreen {
       this.hint(null);
       return this.renderPanel(true);
     }
+    if (ds.filter) {
+      this.filter = ds.filter;
+      return this.renderPanel(true);
+    }
     if (ds.tool) {
       this.tool = this.tool === ds.tool ? null : ds.tool;
       this.selSoldier = null;
@@ -773,10 +793,10 @@ export class MilitaryScreen {
 
   renderTop() {
     const intel = this.war.intel();
-    const chips = [`<span class="mil-chip" title="Military budget">${money(this.m.funds)}</span>`, `<span class="mil-chip">${esc(this.d.clock())}</span>`];
+    const chips = [`<span class="mil-chip" title="Military budget"><i class="mil-coin" aria-hidden="true">$</i>${money(this.m.funds).replace('$', '')}</span>`, `<span class="mil-chip"><i aria-hidden="true">📅</i>${esc(this.d.clock())}</span>`];
     if (intel.coming) chips.push(`<span class="mil-chip warn">⚔ ${esc(intel.coming.from)} attacks ${inDays(intel.coming.in)}</span>`);
     else if (intel.protectedFor > 0) chips.push(`<span class="mil-chip ok">Safe for ${forDays(intel.protectedFor)}</span>`);
-    else chips.push(`<span class="mil-chip">${this.m.state.raids === 'off' ? 'Raids are off' : 'All quiet'}</span>`);
+    else chips.push(`<span class="mil-chip"><i aria-hidden="true">🛡</i>${this.m.state.raids === 'off' ? 'Raids are off' : 'All quiet'}</span>`);
     const html = chips.join('');
     if (html !== this._chips) {
       this._chips = html;
@@ -824,14 +844,23 @@ export class MilitaryScreen {
           ${!d.fixed ? `<button type="button" class="pill" data-remove data-id="${sel.id}">Take down (+${money(m.refundOf(sel))})</button>` : ''}
         </div></div>`;
     }
-    const items = BUILDABLE.map((k) => {
-      const d = DEFENCES[k];
-      const a = d.attack;
-      const stats = a ? `${a.kind === 'shell' ? 'lobs shells' : 'fires'} · range ${a.range}` : 'blocks the way · cover';
-      return `<button type="button" class="mil-item${this.tool === k ? ' is-on' : ''}" data-tool="${k}" aria-pressed="${this.tool === k}">
-        <span class="mil-ico">${ICON[k]}</span><span class="mil-item-text"><b>${esc(d.label)}</b><small>${stats} · ${d.hp} health</small></span><span class="mil-cost${m.canPay(m.defenceCost(k)) ? '' : ' short'}">${money(m.defenceCost(k))}</span></button>`;
-    }).join('');
-    return `${info}<p class="mil-small">Pick a defence, then tap the field. Attackers come from the red edge; there must always be a way from it to your command post. Tap something you've built to upgrade, repair or take it down.</p><div class="mil-list">${items}</div>`;
+    const items = BUILDABLE.filter((k) => this.filter === 'all' || GROUP[k] === this.filter)
+      .map((k) => {
+        const d = DEFENCES[k];
+        const a = d.attack;
+        const line1 = a ? (a.kind === 'shell' ? 'Lobs shells at enemies' : 'Fires at enemies') : 'Blocks the way';
+        const line2 = a ? `Range ${a.range} • ${d.hp} health` : `Cover • ${d.hp} health`;
+        return `<button type="button" class="mil-card-item${this.tool === k ? ' is-on' : ''}" data-tool="${k}" aria-pressed="${this.tool === k}">
+        <span class="mil-art">${ART[k]}</span><b>${esc(d.label)}</b>
+        <span class="mil-cost${m.canPay(m.defenceCost(k)) ? '' : ' short'}"><i class="mil-coin" aria-hidden="true">$</i>${money(m.defenceCost(k)).replace('$', '')}</span>
+        <small>${line1}<br>${line2}</small></button>`;
+      })
+      .join('');
+    const chips = `<div class="mil-filters" role="group" aria-label="Defence type">${FILTERS.map(([k, label]) => `<button type="button" data-filter="${k}" aria-pressed="${this.filter === k}">${label}</button>`).join('')}</div>`;
+    return `${info}<p class="mil-lead">Defend your town: pick a defence, then tap the field. Attackers come from the red edge.</p>
+      <div class="mil-section"><h3>Defence buildings</h3>${chips}</div>
+      <div class="mil-grid">${items}</div>
+      <p class="mil-tip"><i aria-hidden="true">💡</i><span><b>Tip:</b> keep a path open from the red edge to your command post so enemies can reach it. Use a mix of walls and towers for the best defence. Tap something you've built to upgrade, repair or take it down.</span></p>`;
   }
 
   troopsHtml() {
