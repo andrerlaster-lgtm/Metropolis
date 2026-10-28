@@ -7,6 +7,7 @@
 
 import * as THREE from './vendor/three.module.min.js';
 import { CameraRig } from './rig.js';
+import { mergeGeos, strut } from './mergeGeo.js';
 import { buildScenery } from './battleScenery.js';
 import { flashOf, recoilOf, tracerOf } from './gunfire.js';
 
@@ -360,45 +361,110 @@ class BattleView {
         add(new THREE.CapsuleGeometry(0.06, 0.12, 2, 6), sand, Math.cos(a) * r, y, Math.sin(a) * r, -a).rotation.z = Math.PI / 2;
       }
     };
+    const sandDark = m(0xc2a876);
+    const wood = m(0x8a6a4a);
+    const olive = m(0x6f7c45);
+    const metal = m(0x4a4d52);
+    const bag = (x, y, z, ry, i) => add(new THREE.CapsuleGeometry(0.07, 0.15, 2, 6), i % 3 ? sand : sandDark, x, y, z, ry).rotation.set(0, ry, Math.PI / 2);
+    // A run of sandbags, courses laid like bricks.
+    const wall = (len, rows, x0, z0, ry) => {
+      const n = Math.round(len / 0.28);
+      for (let r = 0; r < rows; r++) for (let i = 0; i < n - (r % 2); i++) {
+        const t = (i + (r % 2 ? 0.5 : 0) + 0.5) * 0.28 - len / 2;
+        bag(x0 + Math.cos(ry) * t, 0.07 + r * 0.11, z0 - Math.sin(ry) * t, ry, i + r);
+      }
+    };
     if (s.type === 'hq') {
-      add(box(1.7, 0.75, 1.5), concrete, 0, 0.375, 0.05);
-      add(box(1.85, 0.08, 1.65), m(0x8b8579), 0, 0.79, 0.05);
-      add(box(0.36, 0.4, 0.05), dark, 0, 0.2, 0.81);
-      for (const x of [-0.55, 0.55]) add(box(0.28, 0.16, 0.05), m(0x6b8db5), x, 0.5, 0.81);
-      const pole = add(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), m(0xdddddd), 0.6, 1.2, -0.4);
-      void pole;
-      add(box(0.36, 0.22, 0.02), mat(this.mine === 'att' ? SIDE.att.body : SIDE.def.body), 0.79, 1.5, -0.4);
-      add(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 4), dark, -0.6, 1.1, -0.45);
+      const plaster = m(0xd9cfba);
+      const roofTile = m(0x8a5a45);
+      const glow = mat(0xffe29a);
+      add(box(1.85, 0.06, 1.65), m(0x9d978e), 0, 0.03, 0.02);
+      add(box(1.6, 0.62, 1.35), plaster, 0, 0.37, -0.05);
+      add(box(1.66, 0.07, 1.41), m(0xa59d8f), 0, 0.09, -0.05);
+      // Hipped tile roof with a chimney.
+      const roof = add(new THREE.ConeGeometry(1.15, 0.4, 4).rotateY(Math.PI / 4), roofTile, 0, 0.85, -0.05);
+      roof.scale.set(1.2, 1, 1.02);
+      add(box(0.14, 0.26, 0.14), m(0x7f776d), 0.5, 0.95, -0.3);
+      // Porch with two posts, the door, and lit windows with shutters.
+      add(box(0.9, 0.05, 0.42), roofTile, 0, 0.6, 0.82);
+      for (const x of [-0.4, 0.4]) add(new THREE.CylinderGeometry(0.035, 0.035, 0.54, 6), wood, x, 0.3, 0.98);
+      add(box(0.3, 0.4, 0.05), m(0x5a4636), 0, 0.26, 0.64);
+      for (const x of [-0.62, 0.62]) {
+        add(box(0.26, 0.18, 0.04), glow, x, 0.46, 0.64);
+        for (const dx of [-0.17, 0.17]) add(box(0.07, 0.18, 0.05), m(0x6f8a5a), x + dx, 0.46, 0.64);
+      }
+      for (const z of [-0.3, 0.2]) add(box(0.04, 0.18, 0.26), glow, 0.81, 0.46, z);
+      for (const z of [-0.3, 0.2]) add(box(0.04, 0.18, 0.26), glow, -0.81, 0.46, z);
+      // Flag on a pole, an aerial, and sandbags by the porch.
+      add(new THREE.CylinderGeometry(0.02, 0.02, 1.0, 6), m(0xdddddd), 0.62, 1.1, 0.55);
+      add(box(0.38, 0.24, 0.02), mat(this.mine === 'att' ? SIDE.att.body : SIDE.def.body), 0.82, 1.48, 0.55);
+      add(new THREE.CylinderGeometry(0.012, 0.012, 0.8, 4), dark, -0.6, 1.2, -0.45);
+      wall(0.56, 2, -0.62, 1.0, 0);
+      wall(0.56, 2, 0.62, 1.0, 0);
     } else if (s.type === 'sandbags') {
-      for (let row = 0; row < 2; row++) for (let i = 0; i < 3; i++) add(new THREE.CapsuleGeometry(0.075, 0.16, 2, 6), sand, -0.3 + i * 0.3 + (row ? 0.15 : 0), 0.08 + row * 0.13, 0, 0).rotation.z = Math.PI / 2;
+      wall(0.92, 3, 0, 0, 0);
+      add(box(0.06, 0.3, 0.06), wood, -0.46, 0.15, 0.12);
+      add(box(0.06, 0.3, 0.06), wood, 0.46, 0.15, 0.12);
     } else if (s.type === 'mg') {
-      sandbagRing(0.36, 9);
-      sandbagRing(0.33, 8, 0.21);
+      sandbagRing(0.38, 11);
+      sandbagRing(0.35, 10, 0.21);
+      sandbagRing(0.31, 9, 0.33);
+      // Tripod, ammo box and the gun on its mount.
+      for (const [dx, dz] of [[0, 0.16], [-0.14, -0.1], [0.14, -0.1]]) add(strut([0, 0.3, 0], [dx, 0.1, dz], 0.025), metal, 0, 0, 0);
+      add(box(0.14, 0.1, 0.09), olive, 0.2, 0.1, -0.12, 0.4);
+      add(box(0.1, 0.012, 0.03), m(0xe2b53a), 0.2, 0.16, -0.12, 0.4);
       const head = new THREE.Group();
       head.position.y = 0.3;
-      const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6), dark);
-      gun.rotation.x = Math.PI / 2;
-      gun.position.z = 0.18;
-      const body = new THREE.Mesh(box(0.14, 0.1, 0.22), dark);
-      gun.castShadow = body.castShadow = true;
-      head.add(gun, body);
+      const barrel = new THREE.Mesh(mergeGeos([
+        new THREE.CylinderGeometry(0.022, 0.022, 0.5, 8).rotateX(Math.PI / 2),
+        new THREE.CylinderGeometry(0.04, 0.04, 0.2, 8).rotateX(Math.PI / 2).translate(0, 0, -0.1),
+        new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8).rotateX(Math.PI / 2).translate(0, 0, 0.24),
+      ]), dark);
+      barrel.position.z = 0.18;
+      const body = new THREE.Mesh(box(0.14, 0.1, 0.22), metal);
+      const shield = new THREE.Mesh(box(0.26, 0.17, 0.02), olive);
+      shield.position.set(0, 0.02, 0.12);
+      const grip = new THREE.Mesh(box(0.03, 0.1, 0.03), dark);
+      grip.position.set(0, -0.08, -0.04);
+      barrel.castShadow = body.castShadow = shield.castShadow = true;
+      head.add(barrel, body, shield, grip);
       g.add(head);
       this.heads.set(s.id, head);
     } else if (s.type === 'bunker') {
-      add(box(0.92, 0.5, 0.92), concrete, 0, 0.25, 0);
-      add(box(0.98, 0.1, 0.98), m(0x9d978e), 0, 0.53, 0);
-      add(box(0.6, 0.07, 0.04), dark, 0, 0.36, -0.47);
-      add(box(0.04, 0.07, 0.5), dark, 0.47, 0.36, 0);
-      add(box(0.04, 0.07, 0.5), dark, -0.47, 0.36, 0);
+      const moss = m(0x7f9a5a);
+      add(box(0.96, 0.34, 0.96), concrete, 0, 0.17, 0);
+      add(box(0.84, 0.18, 0.84), m(0xaaa49b), 0, 0.43, 0);
+      add(box(1.0, 0.07, 1.0), m(0x9d978e), 0, 0.56, 0);
+      add(box(0.55, 0.03, 0.4), moss, 0.1, 0.6, -0.1);
+      add(new THREE.CylinderGeometry(0.04, 0.04, 0.12, 6), metal, -0.3, 0.66, 0.2);
+      add(new THREE.CylinderGeometry(0.012, 0.012, 0.9, 4), dark, 0.38, 1.0, 0.36);
+      add(box(0.6, 0.08, 0.04), dark, 0, 0.4, -0.43);
+      add(box(0.04, 0.08, 0.5), dark, 0.43, 0.4, 0);
+      add(box(0.04, 0.08, 0.5), dark, -0.43, 0.4, 0);
+      add(box(0.26, 0.28, 0.04), m(0x5a4636), 0, 0.15, 0.49);
+      wall(0.4, 2, 0, 0.6, 0);
     } else if (s.type === 'mortar') {
-      sandbagRing(0.38, 10);
+      sandbagRing(0.4, 11);
+      sandbagRing(0.37, 10, 0.21);
+      add(new THREE.CylinderGeometry(0.15, 0.17, 0.03, 10), m(0x7d7f80), 0, 0.03, 0);
+      add(box(0.12, 0.09, 0.09), olive, 0.24, 0.1, -0.14, 0.5);
+      for (let i = 0; i < 3; i++) add(new THREE.CylinderGeometry(0.025, 0.025, 0.1, 6), m(0x6b6f55), -0.24 + i * 0.06, 0.07, -0.18);
       const head = new THREE.Group();
       head.position.y = 0.12;
-      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.5, 8), dark);
+      const tube = new THREE.Mesh(mergeGeos([
+        new THREE.CylinderGeometry(0.05, 0.06, 0.5, 10),
+        new THREE.CylinderGeometry(0.072, 0.07, 0.07, 10).translate(0, 0.25, 0),
+        new THREE.CylinderGeometry(0.066, 0.066, 0.03, 10).translate(0, -0.08, 0),
+      ]), dark);
       tube.rotation.x = -0.75;
       tube.position.set(0, 0.15, 0.08);
       tube.castShadow = true;
       head.add(tube);
+      for (const x of [-0.1, 0.1]) {
+        const leg = new THREE.Mesh(strut([x, 0.2, 0.1], [x * 1.6, -0.08, 0.28], 0.025), metal);
+        leg.castShadow = true;
+        head.add(leg);
+      }
       g.add(head);
       this.heads.set(s.id, head);
     }
@@ -409,7 +475,7 @@ class BattleView {
       g.add(pip);
     }
     if (frac < 0.66) g.rotation.z = frac < 0.34 ? 0.05 : 0.02;
-    if (frac < 0.34) this.fires.push({ x: cx, z: cz, r: Math.max(s.w, s.h) * 0.3, y: s.type === 'hq' ? 0.8 : 0.35 });
+    if (frac < 0.34) this.fires.push({ x: cx, z: cz, r: Math.max(s.w, s.h) * 0.3, y: s.type === 'hq' ? 1.0 : 0.4 });
     return g;
   }
 
@@ -427,16 +493,28 @@ class BattleView {
       scene.add(im);
       return im;
     };
-    const legs = box(0.13, 0.16, 0.08).translate(0, 0.08, 0);
-    const torso = box(0.17, 0.16, 0.1).translate(0, 0.24, 0);
-    const head = new THREE.SphereGeometry(0.055, 8, 6).translate(0, 0.37, 0);
-    const helmet = new THREE.SphereGeometry(0.068, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.385, 0);
-    const gun = box(0.03, 0.03, 0.24).translate(-0.07, 0.25, 0.09); // in the right hand (local −x)
+    // A soldier faces +z with the rifle in the right hand (local −x). Each part is one instanced mesh; the
+    // ones that take a colour (legs, torso, arms, pack, helmet, head, hands) are tinted per soldier.
+    const legs = mergeGeos([box(0.065, 0.15, 0.075).translate(-0.04, 0.085, 0), box(0.065, 0.15, 0.075).translate(0.04, 0.085, 0)]);
+    const boots = mergeGeos([box(0.07, 0.045, 0.11).translate(-0.04, 0.022, 0.018), box(0.07, 0.045, 0.11).translate(0.04, 0.022, 0.018)]);
+    const torso = mergeGeos([box(0.18, 0.15, 0.1).translate(0, 0.235, 0), box(0.2, 0.05, 0.11).translate(0, 0.31, 0)]);
+    const arms = mergeGeos([strut([-0.1, 0.3, 0], [-0.07, 0.25, 0.07], 0.045), strut([0.1, 0.3, 0], [-0.02, 0.25, 0.14], 0.045)]);
+    const hands = mergeGeos([new THREE.IcosahedronGeometry(0.026, 0).translate(-0.07, 0.25, 0.08), new THREE.IcosahedronGeometry(0.026, 0).translate(-0.02, 0.25, 0.15)]);
+    const pack = box(0.13, 0.15, 0.06).translate(0, 0.25, -0.08);
+    const head = new THREE.SphereGeometry(0.052, 10, 8).translate(0, 0.385, 0);
+    const helmet = mergeGeos([new THREE.SphereGeometry(0.068, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.395, 0), new THREE.CylinderGeometry(0.075, 0.075, 0.012, 12).translate(0, 0.395, 0)]);
+    const eyes = mergeGeos([new THREE.IcosahedronGeometry(0.008, 0).translate(-0.02, 0.39, 0.047), new THREE.IcosahedronGeometry(0.008, 0).translate(0.02, 0.39, 0.047)]);
+    const gun = mergeGeos([box(0.03, 0.04, 0.2).translate(-0.07, 0.255, 0.1), new THREE.CylinderGeometry(0.008, 0.008, 0.12, 6).rotateX(Math.PI / 2).translate(-0.07, 0.262, 0.2), box(0.025, 0.07, 0.035).translate(-0.07, 0.21, 0.1), box(0.028, 0.045, 0.07).translate(-0.07, 0.25, -0.01)]);
     this.parts = {
       legs: inst(legs, white(), MAX_UNITS),
+      boots: inst(boots, new THREE.MeshLambertMaterial({ color: 0x3b2a20 }), MAX_UNITS),
       torso: inst(torso, white(), MAX_UNITS),
+      arms: inst(arms, white(), MAX_UNITS),
+      hands: inst(hands, white(), MAX_UNITS, false),
+      pack: inst(pack, white(), MAX_UNITS),
       head: inst(head, white(), MAX_UNITS),
       helmet: inst(helmet, white(), MAX_UNITS),
+      eyes: inst(eyes, new THREE.MeshLambertMaterial({ color: 0x2b2430 }), MAX_UNITS, false),
       gun: inst(gun, new THREE.MeshLambertMaterial({ color: 0x2f2b33 }), MAX_UNITS),
     };
     const ring = new THREE.RingGeometry(0.17, 0.23, 20).rotateX(-Math.PI / 2).translate(0, 0.02, 0);
@@ -571,13 +649,16 @@ class BattleView {
       v.set(u.x, bob, u.y);
       s.set(1.15, 1.15, 1.15);
       m4.compose(v, q, s);
-      for (const k of ['legs', 'torso', 'head', 'helmet', 'gun']) P[k].setMatrixAt(n, m4);
+      for (const k in P) P[k].setMatrixAt(n, m4);
       const dim = u.alive ? 1 : 0.55;
       P.legs.setColorAt(n, col.set(side.dark).multiplyScalar(dim));
       P.torso.setColorAt(n, col.set(side.body).multiplyScalar(dim));
+      P.arms.setColorAt(n, col.set(side.body).multiplyScalar(0.92 * dim));
+      P.pack.setColorAt(n, col.set(side.dark).multiplyScalar(0.9 * dim));
       P.helmet.setColorAt(n, col.set(side.dark).multiplyScalar(0.85 * dim));
       if (!this.skin.has(u.id)) this.skin.set(u.id, SKIN[(u.id * 7) % SKIN.length]);
       P.head.setColorAt(n, col.set(this.skin.get(u.id)).multiplyScalar(dim));
+      P.hands.setColorAt(n, col.set(this.skin.get(u.id)).multiplyScalar(dim));
       n++;
       if (!u.alive) continue;
       if (this.selected.has(u.id) && r < MAX_UNITS) {
@@ -602,7 +683,7 @@ class BattleView {
     }
     for (const id of this.downAt.keys()) if (!seen.has(id)) this.downAt.delete(id);
     for (const st of m.structs) {
-      if (st.hp > 0 && st.hp < st.maxHp) bar(st.x + st.w / 2, st.type === 'hq' ? 1.15 : 0.8, st.y + st.h / 2, st.hp / st.maxHp, 0.5 + st.w * 0.25, st.hp / st.maxHp > 0.5 ? 0x5cbf88 : st.hp / st.maxHp > 0.25 ? 0xf2b230 : 0xef6461);
+      if (st.hp > 0 && st.hp < st.maxHp) bar(st.x + st.w / 2, st.type === 'hq' ? 1.65 : 0.95, st.y + st.h / 2, st.hp / st.maxHp, 0.5 + st.w * 0.25, st.hp / st.maxHp > 0.5 ? 0x5cbf88 : st.hp / st.maxHp > 0.25 ? 0xf2b230 : 0xef6461);
       // A muzzle flash at the end of the barrel while a shot is fresh (gunfire.js).
       const flash = flashOf(st, t);
       if (flash && fl < MAX_UNITS + 40) {
