@@ -171,6 +171,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   let fitted = false;
   let framing = 'town'; // what the recenter button framed last
   let stroke = null; // drag-to-build in progress: { start, last, tiles }
+  let pending = null; // touch: the spot (or road) marked by a tap, waiting for the Build button: { tool, start, end, tiles }
   let following = false; // the camera follows the main person
   // The world (world.js): your town and its computer-run neighbours. `viewing` is the town on screen;
   // you build only in your own, and watch the others.
@@ -194,6 +195,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onTool: (id) => {
       tool = id;
       if (id !== 'inspect') selected = null;
+      clearPending();
     },
     onRandom: () => newTownSheet.toggle(true),
     // First press frames the town; pressing again shows the whole map.
@@ -1151,17 +1153,60 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       }
       stroke.last = t;
     },
+    // Touch: a tap marks a spot (a road takes two taps: its start, then its end) and the Build button builds it.
+    onTouchPlace: (sx, sy) => {
+      const t = tileAt(sx, sy);
+      if (!t || watching()) return;
+      audio.play('click');
+      if (tool === 'road' && pending?.tool === 'road' && !pending.end) {
+        pending.end = t;
+        pending.tiles = lPath(pending.start, t).slice(0, MAX_STROKE);
+      } else {
+        pending = { tool, start: t, end: null, tiles: [t] };
+      }
+      stroke = pending;
+      hover = t;
+      showPlaceBar();
+    },
     onPaintEnd: (commit) => {
       const s = stroke;
       stroke = null;
-      if (!commit || !s || watching()) return;
-      const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
-      const why = s.tiles.map((c) => city.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
-      if (!coords.length) return nope(s.start.x, s.start.y, why);
-      if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
-      else if (why) ui.toast(`${s.tiles.length - coords.length} skipped: ${why.toLowerCase()}`, 2600);
+      commitStroke(commit ? s : null);
     },
   });
+
+  // ---- Touch building: the Build / cancel buttons under a marked spot -------------------------------
+  const placeBar = document.getElementById('place-bar');
+  function showPlaceBar() {
+    if (!placeBar) return;
+    const road = pending.tool === 'road';
+    const hint = road && !pending.end ? 'Tap where the road ends' : '';
+    placeBar.innerHTML = `${hint ? `<span>${hint}</span>` : ''}<button type="button" class="primary-btn" data-place="build">Build ✓</button><button type="button" class="ghost-btn" data-place="cancel" aria-label="Cancel">✕</button>`;
+    placeBar.hidden = false;
+  }
+  function clearPending() {
+    if (!pending) return;
+    pending = null;
+    stroke = null;
+    hover = null;
+    if (placeBar) placeBar.hidden = true;
+  }
+  placeBar?.addEventListener('click', (e) => {
+    const a = e.target.closest('button')?.dataset.place;
+    if (!a) return;
+    const s = pending;
+    clearPending();
+    if (a === 'build') commitStroke(s);
+  });
+
+  function commitStroke(s) {
+    if (!s || watching()) return;
+    const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
+    const why = s.tiles.map((c) => city.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
+    if (!coords.length) return nope(s.start.x, s.start.y, why);
+    if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
+    else if (why) ui.toast(`${s.tiles.length - coords.length} skipped: ${why.toLowerCase()}`, 2600);
+  }
 
   if (fresh) {
     // A first visit starts from a seed that grows by itself, with a main person to follow.
@@ -1176,7 +1221,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     askForMainPerson();
     const touch = window.matchMedia?.('(pointer: coarse)').matches;
     ui.toast(
-      touch ? 'Drag to move · double-tap to build · pinch to zoom · long-press to bulldoze' : 'Click or drag to build · right-drag, arrow keys or two-finger scroll to move · right-click to bulldoze',
+      touch ? 'Drag to move · tap a spot, then Build · pinch to zoom · long-press to bulldoze' : 'Click or drag to build · right-drag, arrow keys or two-finger scroll to move · right-click to bulldoze',
       6000
     );
   } else {
@@ -1211,6 +1256,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     selected = null;
     hover = null;
     stroke = null;
+    clearPending();
     ui.closeTray();
     ui.inspect(c.city, null);
     app.classList.toggle('mode-watch', watching());

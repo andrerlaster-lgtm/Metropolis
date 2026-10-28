@@ -4874,6 +4874,38 @@ button.mil-sq {
   visibility: hidden;
 }
 
+/* Touch building: Build / cancel under a marked spot */
+.place-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 112px);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+}
+.place-bar[hidden] {
+  display: none;
+}
+.place-bar span {
+  padding-left: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.place-bar button {
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 800;
+}
+.place-bar .ghost-btn {
+  padding: 0 16px;
+}
+
 </style>
 <main id="app">
       <canvas id="city" aria-label="Your city. Tap a tile to build, drag to pan, pinch or scroll to zoom."></canvas>
@@ -4968,6 +5000,7 @@ button.mil-sq {
       <section class="more-sheet glass skills-sheet" id="skills-sheet" role="dialog" aria-label="Town upgrades" hidden></section>
       <section class="more-sheet glass townhall-sheet" id="townhall-sheet" role="dialog" aria-label="Town hall" hidden></section>
       <section class="decision-card glass diplo-card" id="diplo-card" role="dialog" aria-label="A message from a neighbouring mayor" hidden></section>
+      <div class="place-bar glass" id="place-bar" hidden></div>
       <div class="toast glass" id="toast" role="status"></div>
     </main>
 <script>
@@ -19869,14 +19902,12 @@ return { Camera };
 const __mod_input = (() => {
 // Input: turns mouse, touch, pen, trackpad and keyboard input into camera moves and tile actions.
 // Tap/click builds one tile; dragging with a build tool paints a stroke (roads draw as an L).
-// Touch: one finger always moves the map; double-tap builds (a single tap just shows a preview, and double-tap
-// then drag paints a stroke). Two fingers pan and pinch; long-press bulldozes. Mouse: right or middle drag pans,
+// Touch: one finger always moves the map. With a building tool a tap marks a spot (onTouchPlace) and a Build
+// button confirms it. Two fingers pan and pinch; long-press bulldozes. Mouse: right or middle drag pans,
 // right-click bulldozes, wheel zooms. With the Inspect tool, a one-finger or left drag pans.
 // Trackpad: two-finger scrolling pans and pinching zooms (the scroll setting can make scrolling
 // always zoom or always pan). Keyboard: arrow keys and WASD glide the camera.
 
-const DOUBLE_TAP_MS = 350;
-const DOUBLE_TAP_PX = 36;
 const LONG_PRESS_MS = 480;
 
 // Camera keys, by physical position (so French AZERTY keyboards get ZQSD), and the direction each moves.
@@ -20001,8 +20032,6 @@ class InputController {
     this.pointers.set(e.pointerId, { x: p.x, y: p.y });
     if (this.pointers.size === 1) {
       const panButton = e.pointerType === 'mouse' && e.button !== 0;
-      const lt = this.lastTap;
-      const doubleTap = e.pointerType === 'touch' && !!lt && performance.now() - lt.t < DOUBLE_TAP_MS && Math.hypot(p.x - lt.x, p.y - lt.y) < DOUBLE_TAP_PX;
       this.gesture = {
         button: e.button,
         type: e.pointerType,
@@ -20010,9 +20039,8 @@ class InputController {
         startY: p.y,
         moved: false,
         mode: null, // 'pan' or 'paint' once the pointer has moved
-        // Touch: one finger moves the map; only a double-tap (and drag) paints.
-        wantsPaint: !panButton && this.handlers.canPaint() && (e.pointerType !== 'touch' || doubleTap),
-        doubleTap,
+        // Touch: one finger always moves the map; building is by tap and a Build button.
+        wantsPaint: !panButton && this.handlers.canPaint() && e.pointerType !== 'touch',
         pinched: false,
         longPressed: false,
         vx: 0,
@@ -20110,12 +20138,10 @@ class InputController {
     if (cancelled) return;
     if (!g.moved && !g.longPressed && !g.pinched) {
       if (g.button === 2) this.handlers.onBulldoze(p.x, p.y);
-      else if (g.button === 0 && g.type === 'touch' && this.handlers.canPaint() && !g.doubleTap) {
-        // A single tap with a building tool only previews where it would go; tap again to build.
-        this.lastTap = { x: p.x, y: p.y, t: performance.now() };
-        this.handlers.onHover(p.x, p.y);
+      else if (g.button === 0 && g.type === 'touch' && this.handlers.onTouchPlace && this.handlers.canPaint()) {
+        // A tap with a building tool marks the spot; the Build button does the building.
+        this.handlers.onTouchPlace(p.x, p.y);
       } else if (g.button === 0) {
-        this.lastTap = null;
         this.handlers.onTap(p.x, p.y);
       }
     } else if (g.mode === 'pan' && !g.pinched && performance.now() - g.lastT < 80) {
@@ -30315,6 +30341,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   let fitted = false;
   let framing = 'town'; // what the recenter button framed last
   let stroke = null; // drag-to-build in progress: { start, last, tiles }
+  let pending = null; // touch: the spot (or road) marked by a tap, waiting for the Build button: { tool, start, end, tiles }
   let following = false; // the camera follows the main person
   // The world (world.js): your town and its computer-run neighbours. `viewing` is the town on screen;
   // you build only in your own, and watch the others.
@@ -30338,6 +30365,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     onTool: (id) => {
       tool = id;
       if (id !== 'inspect') selected = null;
+      clearPending();
     },
     onRandom: () => newTownSheet.toggle(true),
     // First press frames the town; pressing again shows the whole map.
@@ -31295,17 +31323,60 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       }
       stroke.last = t;
     },
+    // Touch: a tap marks a spot (a road takes two taps: its start, then its end) and the Build button builds it.
+    onTouchPlace: (sx, sy) => {
+      const t = tileAt(sx, sy);
+      if (!t || watching()) return;
+      audio.play('click');
+      if (tool === 'road' && pending?.tool === 'road' && !pending.end) {
+        pending.end = t;
+        pending.tiles = lPath(pending.start, t).slice(0, MAX_STROKE);
+      } else {
+        pending = { tool, start: t, end: null, tiles: [t] };
+      }
+      stroke = pending;
+      hover = t;
+      showPlaceBar();
+    },
     onPaintEnd: (commit) => {
       const s = stroke;
       stroke = null;
-      if (!commit || !s || watching()) return;
-      const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
-      const why = s.tiles.map((c) => city.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
-      if (!coords.length) return nope(s.start.x, s.start.y, why);
-      if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
-      else if (why) ui.toast(`${s.tiles.length - coords.length} skipped: ${why.toLowerCase()}`, 2600);
+      commitStroke(commit ? s : null);
     },
   });
+
+  // ---- Touch building: the Build / cancel buttons under a marked spot -------------------------------
+  const placeBar = document.getElementById('place-bar');
+  function showPlaceBar() {
+    if (!placeBar) return;
+    const road = pending.tool === 'road';
+    const hint = road && !pending.end ? 'Tap where the road ends' : '';
+    placeBar.innerHTML = `${hint ? `<span>${hint}</span>` : ''}<button type="button" class="primary-btn" data-place="build">Build ✓</button><button type="button" class="ghost-btn" data-place="cancel" aria-label="Cancel">✕</button>`;
+    placeBar.hidden = false;
+  }
+  function clearPending() {
+    if (!pending) return;
+    pending = null;
+    stroke = null;
+    hover = null;
+    if (placeBar) placeBar.hidden = true;
+  }
+  placeBar?.addEventListener('click', (e) => {
+    const a = e.target.closest('button')?.dataset.place;
+    if (!a) return;
+    const s = pending;
+    clearPending();
+    if (a === 'build') commitStroke(s);
+  });
+
+  function commitStroke(s) {
+    if (!s || watching()) return;
+    const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
+    const why = s.tiles.map((c) => city.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
+    if (!coords.length) return nope(s.start.x, s.start.y, why);
+    if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
+    else if (why) ui.toast(`${s.tiles.length - coords.length} skipped: ${why.toLowerCase()}`, 2600);
+  }
 
   if (fresh) {
     // A first visit starts from a seed that grows by itself, with a main person to follow.
@@ -31320,7 +31391,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     askForMainPerson();
     const touch = window.matchMedia?.('(pointer: coarse)').matches;
     ui.toast(
-      touch ? 'Drag to move · double-tap to build · pinch to zoom · long-press to bulldoze' : 'Click or drag to build · right-drag, arrow keys or two-finger scroll to move · right-click to bulldoze',
+      touch ? 'Drag to move · tap a spot, then Build · pinch to zoom · long-press to bulldoze' : 'Click or drag to build · right-drag, arrow keys or two-finger scroll to move · right-click to bulldoze',
       6000
     );
   } else {
@@ -31355,6 +31426,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     selected = null;
     hover = null;
     stroke = null;
+    clearPending();
     ui.closeTray();
     ui.inspect(c.city, null);
     app.classList.toggle('mode-watch', watching());
