@@ -8,6 +8,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { CameraRig } from './rig.js';
 import { mergeGeos, strut } from './mergeGeo.js';
+import { kitModel } from './kit.js';
 import { buildScenery } from './battleScenery.js';
 import { flashOf, recoilOf, tracerOf } from './gunfire.js';
 
@@ -44,6 +45,23 @@ export function createBattleView(opts) {
   return new BattleView(canvas, gl, opts);
 }
 
+// A soft dark pool under a building (a cheap stand-in for ambient occlusion), shared by everything.
+let shadowTex = null;
+function contactShadow() {
+  if (!shadowTex) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    const gr = x.createRadialGradient(32, 32, 6, 32, 32, 32);
+    gr.addColorStop(0, 'rgba(0,0,0,0.42)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = gr;
+    x.fillRect(0, 0, 64, 64);
+    shadowTex = new THREE.CanvasTexture(c);
+  }
+  return new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
+}
+
 const mat = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, ...extra });
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 
@@ -65,15 +83,20 @@ class BattleView {
     gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    // A gentle filmic curve keeps the warm light from washing out, without shifting the colours.
+    gl.toneMapping = THREE.NeutralToneMapping;
+    gl.toneMappingExposure = 1.05;
     gl.setClearColor(0xe9e6d2);
 
     const scene = (this.scene = new THREE.Scene());
     scene.fog = new THREE.Fog(0xe9e6d2, 45, 100);
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
     const hemi = new THREE.HemisphereLight(0xfff4de, 0x7f8a4a, 0.8);
-    const sun = (this.sun = new THREE.DirectionalLight(0xfff4e0, 1.35));
+    const sun = (this.sun = new THREE.DirectionalLight(0xffe9c8, 1.55));
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    // Sharper shadows on bigger screens; phones keep the lighter 1024 map.
+    const big = !window.matchMedia?.('(pointer: coarse)').matches;
+    sun.shadow.mapSize.set(big ? 2048 : 1024, big ? 2048 : 1024);
     sun.shadow.bias = -0.0006;
     sun.shadow.normalBias = 0.02;
     scene.add(hemi, sun, sun.target);
@@ -374,7 +397,29 @@ class BattleView {
         bag(x0 + Math.cos(ry) * t, 0.07 + r * 0.11, z0 - Math.sin(ry) * t, ry, i + r);
       }
     };
-    if (s.type === 'hq') {
+    const kitHq = s.type === 'hq' ? kitModel('hq', () => (this.staticKey = '')) : null;
+    if (kitHq) {
+      // The headquarters from the Kenney kits (tools/kit/recipes.mjs): one mesh, baked colours.
+      const house = add(kitHq, new THREE.MeshStandardMaterial({ vertexColors: true, color: new THREE.Color(soot, soot, soot), roughness: 0.82, metalness: 0 }), 0, 0.06, -0.08);
+      house.castShadow = house.receiveShadow = true;
+      add(box(1.9, 0.06, 1.7), m(0x9d978e), 0, 0.03, 0);
+      // A darker stone plinth and a ledge between the floors, and a soft shadow pooled at its feet.
+      add(box(1.79, 0.06, 1.2), m(0x9b8f7c), 0, 0.09, -0.08);
+      add(box(0.16, 0.3, 0.16), m(0x8f857a), 0.55, 1.02, -0.4);
+      add(box(0.2, 0.04, 0.2), m(0x6f665c), 0.55, 1.18, -0.4);
+      add(box(1.8, 0.035, 1.21), m(0xcbbfa6), 0, 0.43, -0.08);
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.1).rotateX(-Math.PI / 2), contactShadow());
+      pool.position.y = 0.065;
+      g.add(pool);
+      // Steps up to the door, the flag, an aerial and sandbags either side of the steps.
+      add(box(0.36, 0.05, 0.2), m(0xa59d8f), 0, 0.085, 0.72);
+      add(box(0.3, 0.05, 0.12), m(0xb3ab9d), 0, 0.12, 0.66);
+      add(new THREE.CylinderGeometry(0.02, 0.02, 1.0, 6), m(0xdddddd), 0.7, 0.56, 0.62);
+      add(box(0.38, 0.24, 0.02), mat(this.mine === 'att' ? SIDE.att.body : SIDE.def.body), 0.9, 0.94, 0.62);
+      add(new THREE.CylinderGeometry(0.012, 0.012, 0.7, 4), dark, -0.62, 1.25, -0.4);
+      wall(0.5, 2, -0.6, 0.78, 0);
+      wall(0.5, 2, 0.6, 0.78, 0);
+    } else if (s.type === 'hq') {
       const plaster = m(0xd9cfba);
       const roofTile = m(0x8a5a45);
       const glow = mat(0xffe29a);
