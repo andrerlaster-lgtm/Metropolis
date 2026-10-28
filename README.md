@@ -158,8 +158,8 @@ Events are plain data in `src/lifeEvents.js` and `src/lifeEventsMore.js` (78 in 
 
 | Action | Desktop | Touch |
 | --- | --- | --- |
-| Build selected item | Click | Double-tap (a single tap shows a preview) |
-| Build many at once | Drag (roads draw as an L) | Double-tap and drag on the second tap |
+| Build selected item | Click | Tap a spot, then press **Build ✓** |
+| Build many at once | Drag (roads draw as an L) | Roads: tap the start, tap the end, then **Build ✓** (drag always moves the map) |
 | Undo / redo | Ctrl+Z / Ctrl+Shift+Z (⌘ on a Mac), or the buttons by the toolbar. In a text field these undo your typing instead | Buttons by the toolbar |
 | Sound on / off | M, or the speaker button | ☰ City controls |
 | Bulldoze | Right-click (or Bulldoze tool, B) | Long-press (or Bulldoze tool) |
