@@ -4900,3 +4900,203 @@ button.mil-sq {
 .place-bar .ghost-btn {
   padding: 0 16px;
 }
+
+/* War screen: a frosted header and sheet, card grid of defences (see the mock-up) */
+.mil-top {
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 26px rgba(40, 40, 70, 0.2);
+}
+.mil-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 800 20px/1.1 var(--font-display);
+  color: #3d3563;
+}
+.mil-title i {
+  font-style: normal;
+  font-size: 22px;
+}
+.mil-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #fff;
+  font: 800 14px/1.2 var(--font-body);
+  box-shadow: 0 1px 4px rgba(60, 50, 90, 0.12);
+}
+.mil-chip i {
+  font-style: normal;
+}
+.mil-coin {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(#ffc94d, #e9972b);
+  color: #7a4a10;
+  font: 800 12px/1 var(--font-body);
+  font-style: normal;
+}
+.military .mil-cam {
+  border-radius: 999px;
+  background: rgba(150, 140, 175, 0.2);
+  padding: 3px;
+}
+.military .mil-cam button {
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+.military .mil-close {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 15px;
+}
+.mil-panel {
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 34px rgba(40, 40, 70, 0.25);
+}
+.mil-tabs {
+  padding: 0;
+  gap: 0;
+  background: #ece9f2;
+}
+.mil-tabs button {
+  padding: 16px 6px;
+  border-radius: 20px 20px 0 0;
+  font-size: 16px;
+  color: #7b7396;
+}
+.mil-tabs button[aria-selected='true'] {
+  background: #fff;
+  color: #3d3563;
+}
+.mil-body {
+  background: #fff;
+  padding: 14px 16px 16px;
+}
+.mil-lead {
+  margin: 4px 0 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e7e3ee;
+  color: #6f6890;
+  font: 600 15px/1.4 var(--font-body);
+}
+.mil-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mil-section h3 {
+  margin: 8px 0;
+  font: 800 20px/1.2 var(--font-display);
+  color: #3a2f8f;
+}
+.mil-filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+.mil-filters button {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #ece9f2;
+  color: #6f6890;
+  font: 700 14px/1 var(--font-body);
+  cursor: pointer;
+}
+.mil-filters button[aria-pressed='true'] {
+  background: #9b7ee0;
+  color: #fff;
+}
+.mil-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+.mil-card-item {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 8px 8px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: #f7f5fb;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.mil-card-item.is-on {
+  box-shadow: 0 0 0 2px #7c4fd0;
+  background: #f1ebff;
+}
+.mil-art {
+  display: block;
+  padding: 4px;
+  border-radius: 12px;
+  background: #ece9f2;
+}
+.mil-art svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.mil-card-item b {
+  font: 800 15px/1.2 var(--font-body);
+  color: #3a2f8f;
+}
+.mil-card-item .mil-cost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 800 17px/1 var(--font-body);
+  color: #3a2f8f;
+}
+.mil-card-item small {
+  color: #7b7396;
+  font: 600 12.5px/1.35 var(--font-body);
+}
+.mil-tip {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #ede8fb;
+  color: #5a4f86;
+  font: 600 14px/1.4 var(--font-body);
+}
+.mil-tip i {
+  font-style: normal;
+  font-size: 22px;
+}
+@media (max-width: 560px) {
+  .mil-title {
+    font-size: 17px;
+    gap: 6px;
+  }
+  .military .mil-cam button {
+    padding: 7px 10px;
+  }
+  .military .mil-close {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+}
