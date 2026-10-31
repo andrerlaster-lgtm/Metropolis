@@ -1,0 +1,27 @@
+{
+  "_note": "Measured on 2026-10-31 in the cloud container (software GL). 3D town: 112-130 draw calls, 256k-302k triangles, 750-1,700 ms. Military base with one of each defence: 143-145 calls, 21.7k triangles, 200-320 ms. Calls and triangles fail the run (about 25% headroom); ms only warns, because software-GL frame times swing with machine load.",
+  "town3d": {
+    "desktop": {
+      "calls": 160,
+      "triangles": 370000,
+      "ms": 1900
+    },
+    "phone": {
+      "calls": 160,
+      "triangles": 370000,
+      "ms": 1400
+    }
+  },
+  "base": {
+    "desktop": {
+      "calls": 185,
+      "triangles": 28000,
+      "ms": 420
+    },
+    "phone": {
+      "calls": 185,
+      "triangles": 28000,
+      "ms": 380
+    }
+  }
+}
