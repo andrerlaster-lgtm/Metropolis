@@ -88,6 +88,22 @@ test('growth only builds what the era allows, and nothing when it is off', () =>
   assert.equal(JSON.stringify(city.tiles.map((t) => t.structure?.type || '')), before);
 });
 
+test("growth never spends the town's last dollar: it keeps two days of upkeep, at least $250", async () => {
+  const { upkeepReserve } = await import('../src/growth.js');
+  const { city, sim } = seedTown();
+  const g = sim.growth;
+  const keep = upkeepReserve(city);
+  assert.ok(keep >= 250);
+  const park = sim.economy.costOf('park');
+  sim.economy.state.money = park + keep - 1;
+  assert.equal(g.canPay('park'), false, 'one dollar short of the reserve');
+  sim.economy.state.money = park + keep;
+  assert.equal(g.canPay('park'), true);
+  assert.equal(g.canPay('house'), true, 'homes are free, reserve or not');
+  sim.economy.state.money = 0;
+  assert.equal(g.canPay('house'), true);
+});
+
 test('growth keeps the way on from a dead end free for a new street', () => {
   const { city, sim, center } = seedTown();
   // The seed's east arm ends 3 tiles out: the next tile must stay free for the street to continue.
