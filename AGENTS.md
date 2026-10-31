@@ -13,10 +13,23 @@ node build.mjs   # build to dist/
 npm test         # node --test tests/*.test.mjs
 ```
 
+Smoke test (headless browser, desktop and phone, 3D town and military base, performance budgets): see `.claude/skills/run-metropolis/SKILL.md`. Run it after any change you can see, and always after 3D changes.
+
 ## This app's specifics
 
 - The repo is `Metropolis`. An older repo `30lilmickey-prog/pocket-metropolis` no longer deploys; don't push there.
 - Save compatibility matters: don't change the saved-game shape without a migration and a test.
+
+## 3D visual standards
+
+The target is a painted, miniature-diorama look: warm, rustic, slightly cartoon. Keep new 3D work consistent with it.
+
+- **Scale:** one map tile is one unit. A building stays inside its footprint; match the proportions of the people, vehicles and buildings already in the game.
+- **Palette:** earthy and warm: plaster, stone, timber, terracotta and slate roofs, deep greens. Military kit is olive drab, sand and concrete. Team colours (lavender yours, coral theirs) only on soldiers and flags.
+- **Geometry:** no bare boxes for buildings. Give them roofs, windows, doors, trim and depth. Prefer models from the Kenney kits through `tools/kit/` (one mesh, baked colours and ambient occlusion) over hand-placed boxes.
+- **Materials:** `MeshStandardMaterial` for buildings, defences and soldiers (they pick up the environment light); the cheaper `MeshLambertMaterial` for the ground and large scenery, which cover most of the screen and cost the most on phones.
+- **Lighting:** sun, sky light and the soft environment light in the military base; no post-processing effects (bloom, screen-space AO) without approval, because of phones.
+- **Budgets:** a kit model stays under 1,500 triangles. Repeated scenery is merged or instanced. Keep within `.claude/skills/run-metropolis/budgets.json`, and if a change needs more, say so in the PR instead of raising the numbers quietly.
 
 ## Rules for any AI agent working here (Codex, Claude, or others)
 
