@@ -11,7 +11,9 @@
 // railway age, offices and malls once there are cars, towers in modern times.
 //
 // Homes and businesses are built by residents (free); roads, services, parks and trees are paid
-// from the town's budget, and are skipped when it can't afford them. The player can keep building too.
+// from the town's budget, and are skipped when it can't afford them while keeping a reserve back for
+// upkeep (upkeepReserve), so growth never spends the town's last dollar. The player can keep building
+// too, with no reserve.
 // A computer-run town (cpuPlanner.js) grows by the same rules (homes and businesses free, the rest paid
 // for) and sets a `reserve` of money it keeps back for upkeep. Tests can set `payAll` to make growth pay
 // for homes and businesses too.
@@ -27,7 +29,13 @@ import { addChronicle } from './chronicle.js';
 export const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
 const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320, bungalow: 90, rowhouse: 120, villa: 160, restaurant: 90, market: 120, bank: 260, hotel: 300, warehouse: 200, workshop: 150, powerplant: 500, kindergarten: 200, museum: 500, pharmacy: 160, hospital: 700, firehut: 200, fountain: 140, garden: 130, pool: 260, cinema: 340, stadium: 800, farm: 140, mill: 300 };
-const BLOCK = 5; // a side street can branch every this many tiles
+const BLOCK = 5;
+const RESERVE_MIN = 250;
+
+// Money a town's own growth leaves in the bank: two days of upkeep, and never less than a small float.
+export function upkeepReserve(city) {
+  return Math.max(RESERVE_MIN, Math.round((city.derived.economy?.totalOut || 0) * 2));
+} // a side street can branch every this many tiles
 const PUBLIC = new Set(['road', 'school', 'clinic', 'library', 'firestation', 'university', 'park', 'playground', 'field', 'tree', 'kindergarten', 'museum', 'pharmacy', 'hospital', 'firehut', 'fountain', 'garden', 'pool', 'stadium']);
 const FIRSTS = {
   shop: 'The first shop opened its doors',
@@ -65,7 +73,7 @@ export class Growth {
     this.milestones = milestones;
     this.rng = rng;
     this.payAll = false; // pay for homes and businesses too
-    this.reserve = 0; // money kept back, never spent on building (computer-run towns)
+    this.reserve = 0; // more money to keep back than upkeepReserve (a computer town saving up)
     this.onBuilt = null; // (what) → called after each change the town makes
   }
 
@@ -131,7 +139,7 @@ export class Growth {
 
   canPay(type, n = 1) {
     if (!this.paid(type)) return true;
-    return this.economy.canAfford(this.economy.costOf(type) * n + this.reserve);
+    return this.economy.canAfford(this.economy.costOf(type) * n + Math.max(this.reserve, upkeepReserve(this.city)));
   }
 
   // ---- Demand ------------------------------------------------------------------------------
