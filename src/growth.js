@@ -12,8 +12,9 @@
 //
 // Homes and businesses are built by residents (free); roads, services, parks and trees are paid
 // from the town's budget, and are skipped when it can't afford them. The player can keep building too.
-// A computer-run town (cpuPlanner.js) sets `payAll`: then everything is paid for at the player's prices,
-// and a `reserve` of money is kept back for upkeep.
+// A computer-run town (cpuPlanner.js) grows by the same rules (homes and businesses free, the rest paid
+// for) and sets a `reserve` of money it keeps back for upkeep. Tests can set `payAll` to make growth pay
+// for homes and businesses too.
 //
 // Saved in city.systems.growth = { on, timer, boosts: [{ mult, until, label }], built }.
 
@@ -63,8 +64,8 @@ export class Growth {
     this.economy = economy;
     this.milestones = milestones;
     this.rng = rng;
-    this.payAll = false; // pay for homes and businesses too (computer-run towns)
-    this.reserve = 0; // with payAll: money kept back, never spent on building
+    this.payAll = false; // pay for homes and businesses too
+    this.reserve = 0; // money kept back, never spent on building (computer-run towns)
     this.onBuilt = null; // (what) → called after each change the town makes
   }
 
@@ -130,7 +131,7 @@ export class Growth {
 
   canPay(type, n = 1) {
     if (!this.paid(type)) return true;
-    return this.economy.canAfford(this.economy.costOf(type) * n + (this.payAll ? this.reserve : 0));
+    return this.economy.canAfford(this.economy.costOf(type) * n + this.reserve);
   }
 
   // ---- Demand ------------------------------------------------------------------------------

@@ -4,8 +4,9 @@
 //   - growth.js decides what the town needs (homes when they fill up, work when people are idle,
 //     cafés and parks where townsfolk lack them, schools and clinics where families have none, new
 //     streets when lots run out), at the pace a growing town builds;
-//   - everything is paid for from the town's own budget at the player's prices (growth `payAll`),
-//     keeping a reserve back for upkeep, and nothing is built while the money isn't there;
+//   - it grows by the player's rules: residents build homes and businesses, and the town's own budget
+//     pays for roads, services, parks and trees at the player's prices, keeping a reserve back for
+//     upkeep; nothing paid for is built while the money isn't there;
 //   - eras and milestones decide what may be built, and every placement goes through city.apply,
 //     the same placement rules as the player's tools;
 //   - when families need a school or clinic it can't afford yet, it saves up for it (other building
@@ -35,7 +36,6 @@ export class CpuPlanner {
     this.city = sim.city;
     const g = sim.growth;
     g.on = true;
-    g.payAll = true;
     g.onBuilt = (what) => this.note(what);
   }
 
@@ -60,7 +60,6 @@ export class CpuPlanner {
     const sim = this.sim;
     const g = sim.growth;
     g.on = true;
-    g.payAll = true;
     const base = this.reserve();
     g.reserve = base;
     if (sim.decisions.pending) this.decide();
