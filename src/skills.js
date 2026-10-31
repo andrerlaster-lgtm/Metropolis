@@ -61,14 +61,14 @@ const S = (o) => o;
 // `fx` says what the upgrade does; effects() combines them. `text` must say exactly what fx does.
 export const SKILLS = [
   // ---- Treasury ------------------------------------------------------------------------------------
-  S({ id: 'taxOffice', branch: 'treasury', tier: 1, name: 'Tax office', text: 'Home taxes bring in 10% more.', fx: { residentTax: 1.1 } }),
+  S({ id: 'taxOffice', branch: 'treasury', tier: 1, name: 'Tax office', text: 'Income tax brings in 10% more.', fx: { residentTax: 1.1 } }),
   S({ id: 'marketDays', branch: 'treasury', tier: 2, cost: 1, needs: ['taxOffice'], name: 'Market days', text: 'Businesses pay 15% more tax.', fx: { businessTax: 1.15 } }),
   S({ id: 'thrifty', branch: 'treasury', tier: 2, cost: 1, needs: ['taxOffice'], name: 'Thrifty builders', text: 'Building costs 10% less.', fx: { buildCost: 0.9 } }),
   S({ id: 'tradeFair', branch: 'treasury', tier: 3, cost: 1, needs: ['marketDays'], name: 'Trade fair', text: 'Businesses pay another 15% more tax.', fx: { businessTax: 1.15 } }),
   S({ id: 'crews', branch: 'treasury', tier: 3, cost: 1, needs: ['thrifty'], name: 'Maintenance crews', text: 'Upkeep of roads, schools, parks and services costs 20% less.', fx: { upkeep: 0.8 } }),
   S({ id: 'bonds', branch: 'treasury', tier: 4, cost: 2, needs: ['tradeFair', 'crews'], name: 'Town bonds', text: 'A steady income of $25 a day, plus 25¢ for every resident.', fx: { grantBase: 25, grantPerResident: 0.25 } }),
-  S({ id: 'charter', branch: 'treasury', tier: 5, needs: ['bonds'], excludes: ['relief'], name: 'Merchants’ charter', text: 'Businesses pay 12% more tax, but home taxes bring in 6% less.', fx: { businessTax: 1.12, residentTax: 0.94 } }),
-  S({ id: 'relief', branch: 'treasury', tier: 5, needs: ['bonds'], excludes: ['charter'], name: 'Homestead relief', text: 'Home taxes bring in 8% less, and every home is 2% happier.', fx: { residentTax: 0.92, happy: 0.02 } }),
+  S({ id: 'charter', branch: 'treasury', tier: 5, needs: ['bonds'], excludes: ['relief'], name: 'Merchants’ charter', text: 'Businesses pay 12% more tax, but income tax brings in 6% less.', fx: { businessTax: 1.12, residentTax: 0.94 } }),
+  S({ id: 'relief', branch: 'treasury', tier: 5, needs: ['bonds'], excludes: ['charter'], name: 'Homestead relief', text: 'Income tax brings in 8% less, and every home is 2% happier.', fx: { residentTax: 0.92, happy: 0.02 } }),
   S({ id: 'savingsBank', branch: 'treasury', tier: 6, needs: ['charter', 'relief'], name: 'Savings bank', text: 'The treasury earns 0.5% a day on the money it holds, up to $150 a day.', fx: { interest: 0.005, interestCap: 150 } }),
   S({ id: 'mint', branch: 'treasury', tier: 7, needs: ['savingsBank'], milestone: true, name: 'Town mint', text: 'Town bonds pay 50% more, and the mayor’s fundraisers raise 25% more.', fx: { bondsMult: 1.5, fundraiser: 1.25 } }),
 

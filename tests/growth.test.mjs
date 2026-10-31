@@ -103,7 +103,7 @@ test('decisions ask, apply their effects, and lapse to the last choice', () => {
   assert.equal(d.id, 'taxes');
   const money = sim.economy.money;
   sim.decisions.choose(1); // cut taxes
-  assert.ok(sim.decisions.state.taxRate < 1);
+  assert.ok(sim.economy.taxRate < 10, 'the income tax rate went down');
   assert.ok(sim.growth.rate() > 0);
   assert.ok(sim.growth.state.boosts.some((b) => b.mult > 1));
   assert.equal(sim.economy.money, money);

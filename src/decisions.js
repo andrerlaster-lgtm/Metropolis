@@ -286,7 +286,11 @@ export class Decisions {
     const now = day(this.city);
     st.effects = st.effects.filter((e) => e.until > now);
     this.city.derived.spirit = clamp(st.effects.reduce((s, e) => s + e.amount, 0), -0.15, 0.15);
-    if (this.economy) this.economy.modifiers.residentTax = st.taxRate;
+    // Older saves kept a tax multiplier here; it is now the income tax rate (economy.js).
+    if (st.taxRate !== 1 && this.economy) {
+      this.economy.setTaxRate(this.economy.taxRate * st.taxRate);
+      st.taxRate = 1;
+    }
     if (st.pending) {
       if (now - st.pending.day >= 1) this.choose(decisionById(st.pending.id).choices.length - 1, { lapsed: true });
       return null;
@@ -343,7 +347,7 @@ export class Decisions {
     if (c.growth && this.growth) this.growth.boost(c.growth[0], c.growth[1], d.title);
     if (c.spirit) st.effects.push({ amount: c.spirit[0], until: now + c.spirit[1], id: d.id });
     if (c.hurry && this.eras) this.eras.hurry(c.hurry);
-    if (c.tax) st.taxRate = clamp(st.taxRate * c.tax, 0.6, 1.6);
+    if (c.tax && eco) eco.setTaxRate(eco.taxRate * c.tax);
     if (c.build && this.growth) this.growth.buildType(c.build[0], { where: c.build[1], free: true });
     if (c.trees && this.growth) {
       if (c.trees < 0) this.growth.clearTrees(-c.trees);

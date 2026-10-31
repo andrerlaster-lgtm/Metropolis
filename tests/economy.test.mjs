@@ -48,7 +48,7 @@ test('residents and businesses pay taxes, services cost upkeep, and money flows 
   for (const h of city.homes()) h.structure.residents = 4;
   sim.refresh();
   const e = city.derived.economy;
-  assert.ok(e.income.homes > 0, 'home taxes');
+  assert.ok(e.income.wages > 0, 'income tax on wages');
   assert.ok(e.income.office > 0, 'business tax');
   assert.ok(e.expenses.school > 0 && e.expenses.road > 0, 'upkeep');
   assert.ok(city.getTile(11, 7).earning > 0 && city.getTile(9, 9).earning < 0);
@@ -148,4 +148,89 @@ test('a notable whose home is bulldozed moves to another home', () => {
   assert.ok(t.structure && STRUCTURES[t.structure.type].capacity > 0);
   const restored = new Notables(CityState.fromJSON(JSON.parse(JSON.stringify(city.toJSON()))));
   assert.equal(restored.people.length, 1, 'saved with the city');
+});
+
+// ---- Wages and the income tax ---------------------------------------------------------------------
+
+test('people earn wages at their jobs, and the town takes the income tax rate you set', async () => {
+  const { wageOf } = await import('../src/economy.js');
+  const { TAX_RATE, WAGE_SCALE } = await import('../src/config.js');
+  const city = new CityState(32, 32);
+  generateTown(city, 3);
+  const sim = new Simulation(city);
+  sim.refresh();
+  assert.equal(sim.economy.taxRate, TAX_RATE.default, 'a new town starts at the default rate');
+  // A worker earns the yearly pay of that job's first rung in Life Story, per day, scaled down.
+  assert.equal(wageOf('shop'), CAREERS.shop.pay[0] / WAGE_SCALE);
+  let wages = 0;
+  for (const t of city.tiles) if (t.workersFilled) wages += t.workersFilled * wageOf(t.structure.type);
+  const e10 = city.derived.economy;
+  assert.ok(Math.abs(e10.wages - wages) < 1e-6, 'the wage bill is everyone working times their wage');
+  assert.ok(Math.abs(e10.income.wages - wages * 0.1) < 1e-6, 'income tax is 10% of wages');
+  assert.equal(e10.income.homes, undefined, 'homes pay no flat tax');
+  sim.economy.setTaxRate(20);
+  sim.refresh();
+  assert.ok(Math.abs(city.derived.economy.income.wages - 2 * e10.income.wages) < 1e-6, 'twice the rate, twice the income tax');
+  // Kept inside 0–25%.
+  assert.equal(sim.economy.setTaxRate(40), TAX_RATE.max);
+  assert.equal(sim.economy.setTaxRate(-3), TAX_RATE.min);
+  assert.equal(sim.economy.setTaxRate(Number.NaN), TAX_RATE.default);
+});
+
+test('low taxes make homes nicer to live in, high taxes less so', () => {
+  const city = new CityState(32, 32);
+  generateTown(city, 11);
+  const sim = new Simulation(city);
+  const at = (r) => {
+    sim.economy.setTaxRate(r);
+    sim.refresh();
+    return city.stats.happiness;
+  };
+  const low = at(0);
+  const normal = at(10);
+  const high = at(25);
+  assert.ok(low > normal && normal > high, `${low} > ${normal} > ${high}`);
+  assert.equal(city.homes()[0].factors.taxes, (10 - 25) * 0.006);
+});
+
+test('the tax rate is saved; older saves start at 10% and keep a council tax decision', () => {
+  const city = new CityState(16, 16);
+  const sim = new Simulation(city);
+  sim.economy.reset('land');
+  sim.economy.setTaxRate(17);
+  const back = CityState.fromJSON(JSON.parse(JSON.stringify(city.toJSON())));
+  assert.equal(new Simulation(back).economy.taxRate, 17);
+  // An older save: no rate, and the council had raised taxes by 20% (decisions.taxRate 1.2).
+  const old = JSON.parse(JSON.stringify(city.toJSON()));
+  delete old.systems.economy.taxRate;
+  old.systems.decisions = { pending: null, next: 99, seen: {}, effects: [], taxRate: 1.2, made: 1 };
+  const sim2 = new Simulation(CityState.fromJSON(old));
+  assert.equal(sim2.economy.taxRate, 10);
+  sim2.decisions.update();
+  assert.equal(sim2.economy.taxRate, 12, 'the raise carries over as 12%');
+  assert.equal(sim2.decisions.state.taxRate, 1);
+});
+
+test('your Life Story character is paid the same wage and pays the same income tax', async () => {
+  const { LifeSystem } = await import('../src/life.js');
+  const city = new CityState(32, 32);
+  generateTown(city, 3);
+  const sim = new Simulation(city);
+  sim.refresh();
+  const life = new LifeSystem(city, { rng: () => 0.5 });
+  life.create({ first: 'Ada', last: 'Lane' });
+  const c = life.char;
+  const gain = (rate) => {
+    sim.economy.setTaxRate(rate);
+    c.age = 30;
+    c.livesWithParents = true;
+    c.job = { type: 'shop', level: 0, years: 0 };
+    const before = c.money;
+    life.yearly();
+    return c.money - before;
+  };
+  const untaxed = gain(0);
+  const taxed = gain(20);
+  assert.equal(untaxed, Math.round(CAREERS.shop.pay[0] * (c.traits.includes('thrifty') ? 0.25 : 0.15)));
+  assert.equal(taxed, Math.round(CAREERS.shop.pay[0] * 0.8 * (c.traits.includes('thrifty') ? 0.25 : 0.15)));
 });

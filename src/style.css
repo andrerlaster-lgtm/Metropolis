@@ -5132,3 +5132,23 @@ button.mil-sq {
 .mil-soldier {
   box-sizing: border-box;
 }
+
+/* Income tax slider in the City panel's budget */
+.tax-row {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 6px;
+}
+.tax-row label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.tax-row label b {
+  font: 800 16px/1 var(--font-body);
+}
+.tax-row input[type='range'] {
+  width: 100%;
+  min-height: 32px;
+  accent-color: var(--focus);
+}

@@ -1,14 +1,15 @@
-// Budget section of the City panel: the balance, what comes in and goes out each day by kind of
-// building, the buildings that earn the most, and the last few days. Read-only HTML builders.
+// Budget section of the City panel: the balance, the income tax slider, what comes in and goes out
+// each day by kind, the buildings that earn the most, and the last few days. HTML builders; the slider's
+// input is handled in cityUI.js.
 
-import { STRUCTURES } from './config.js';
+import { STRUCTURES, TAX_RATE } from './config.js';
 import { CATEGORY_LABELS, money } from './economy.js';
 import { addressOf } from './streets.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 function bars(entries, kind, max) {
-  if (!entries.length) return `<p class="insp-note">${kind === 'in' ? 'No taxes yet: build homes and workplaces.' : 'No upkeep yet.'}</p>`;
+  if (!entries.length) return `<p class="insp-note">${kind === 'in' ? 'No taxes yet: people need homes and jobs to earn wages.' : 'No upkeep yet.'}</p>`;
   return `<ul class="budget-bars ${kind}">${entries
     .map(
       ([cat, v]) =>
@@ -26,7 +27,18 @@ export function budgetKey(econ, state, sandbox) {
     sandbox,
     econ.top.map((t) => [t.x, t.y, Math.round(t.earning)]),
     state.days.length,
+    econ.taxRate,
   ]);
+}
+
+// The income tax slider: the town takes this share of everyone's wages.
+export function taxHTML(econ) {
+  const r = econ.taxRate ?? TAX_RATE.default;
+  return (
+    `<div class="tax-row"><label for="tax-rate"><span class="sheet-label">Income tax</span><b data-taxlabel>${r}%</b></label>` +
+    `<input id="tax-rate" type="range" min="${TAX_RATE.min}" max="${TAX_RATE.max}" step="1" value="${r}" data-taxrate aria-describedby="tax-note">` +
+    `<p class="insp-note" id="tax-note">Workers earn ${money(econ.wages || 0)} a day in wages, and the town keeps ${r}% of it. Lower taxes make homes nicer to live in, so the town grows faster; higher taxes bring in more money.</p></div>`
+  );
 }
 
 export function budgetHTML(econ, state, sandbox) {
@@ -53,6 +65,7 @@ export function budgetHTML(econ, state, sandbox) {
   return (
     `<div class="budget-head"><div><span class="insp-kicker">Balance</span><strong>${money(state.money)}</strong></div>` +
     `<div class="budget-net ${net >= 0 ? 'up' : 'down'}"><span>${net >= 0 ? '▲' : '▼'} ${money(Math.abs(net))}</span><small>per day</small></div></div>` +
+    taxHTML(econ) +
     (sandbox ? '<p class="insp-note">Sandbox: building is free, but taxes and upkeep still show what the town would earn.</p>' : '') +
     (!sandbox && state.money <= 0 && net < 0 ? '<p class="budget-warn">The town is out of money. Upkeep is unpaid until taxes come in.</p>' : '') +
     `<div class="budget-cols"><div><span class="sheet-label">Coming in · ${money(econ.totalIn)}/day</span>${bars(inc, 'in', max)}</div>` +

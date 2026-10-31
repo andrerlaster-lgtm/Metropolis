@@ -63,6 +63,19 @@ export class CityPanel {
       },
       true,
     );
+    // The income tax slider: the rate changes as it moves; the budget redraws once it's let go.
+    this.panel.addEventListener('input', (e) => {
+      if (e.target.dataset?.taxrate == null || !this.economy) return;
+      this._taxDrag = true;
+      const r = this.economy().setTaxRate(Number(e.target.value));
+      const label = this.panel.querySelector('[data-taxlabel]');
+      if (label) label.textContent = `${r}%`;
+    });
+    this.panel.addEventListener('change', (e) => {
+      if (e.target.dataset?.taxrate == null) return;
+      this._taxDrag = false;
+      this._budgetKey = '';
+    });
     this.panel.addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -138,7 +151,7 @@ export class CityPanel {
     if (budgetBox && this.economy) {
       const eco = this.economy();
       const bkey = budgetKey(city.derived.economy, eco.state, eco.sandbox);
-      if (bkey !== this._budgetKey || this._budgetBox !== budgetBox) {
+      if (!this._taxDrag && (bkey !== this._budgetKey || this._budgetBox !== budgetBox)) {
         this._budgetKey = bkey;
         this._budgetBox = budgetBox;
         const open = !!budgetBox.querySelector('details')?.open;
