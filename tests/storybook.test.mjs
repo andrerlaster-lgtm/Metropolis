@@ -144,3 +144,22 @@ test('every flower and tuft the models scatter has a colour, so winter and snow 
     }
   }
 });
+
+test('no building type is heavier than 3,000 triangles in the 3D town', () => {
+  // Phones draw every building in view; the heaviest today, the university, is about 1,900 and
+  // rubble the lightest at about 190. A building is measured as its tile with it, less the same
+  // tile empty.
+  const city = new CityState(12, 12);
+  const count = (type) => {
+    for (const t of city.tiles) t.structure = null;
+    city.getTile(5, 6).structure = { type: 'road' };
+    if (type) city.getTile(5, 5).structure = { type, variant: 'blush', floors: 4, shape: 0, residents: 2, id: 1 };
+    const out = SB.buildStorybook(city, { x0: 3, y0: 3, x1: 8, y1: 8 }, { growthOf, STRUCTURES });
+    return Object.values(out.layers).reduce((n, m) => n + m.vertices, 0) / 3;
+  };
+  const empty = count(null);
+  for (const type of Object.keys(STRUCTURES).filter((t) => t !== 'road')) {
+    const tris = count(type) - empty;
+    assert.ok(tris < 3000, `${type}: ${Math.round(tris)} triangles`);
+  }
+});
