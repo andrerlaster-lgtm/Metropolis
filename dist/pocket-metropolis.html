@@ -13489,8 +13489,9 @@ const __mod_growth = (() => {
 //
 // Homes and businesses are built by residents (free); roads, services, parks and trees are paid
 // from the town's budget, and are skipped when it can't afford them. The player can keep building too.
-// A computer-run town (cpuPlanner.js) sets `payAll`: then everything is paid for at the player's prices,
-// and a `reserve` of money is kept back for upkeep.
+// A computer-run town (cpuPlanner.js) grows by the same rules (homes and businesses free, the rest paid
+// for) and sets a `reserve` of money it keeps back for upkeep. Tests can set `payAll` to make growth pay
+// for homes and businesses too.
 //
 // Saved in city.systems.growth = { on, timer, boosts: [{ mult, until, label }], built }.
 
@@ -13539,8 +13540,8 @@ class Growth {
     this.economy = economy;
     this.milestones = milestones;
     this.rng = rng;
-    this.payAll = false; // pay for homes and businesses too (computer-run towns)
-    this.reserve = 0; // with payAll: money kept back, never spent on building
+    this.payAll = false; // pay for homes and businesses too
+    this.reserve = 0; // money kept back, never spent on building (computer-run towns)
     this.onBuilt = null; // (what) → called after each change the town makes
   }
 
@@ -13606,7 +13607,7 @@ class Growth {
 
   canPay(type, n = 1) {
     if (!this.paid(type)) return true;
-    return this.economy.canAfford(this.economy.costOf(type) * n + (this.payAll ? this.reserve : 0));
+    return this.economy.canAfford(this.economy.costOf(type) * n + this.reserve);
   }
 
   // ---- Demand ------------------------------------------------------------------------------
@@ -25353,8 +25354,9 @@ const __mod_cpuPlanner = (() => {
 //   - growth.js decides what the town needs (homes when they fill up, work when people are idle,
 //     cafés and parks where townsfolk lack them, schools and clinics where families have none, new
 //     streets when lots run out), at the pace a growing town builds;
-//   - everything is paid for from the town's own budget at the player's prices (growth `payAll`),
-//     keeping a reserve back for upkeep, and nothing is built while the money isn't there;
+//   - it grows by the player's rules: residents build homes and businesses, and the town's own budget
+//     pays for roads, services, parks and trees at the player's prices, keeping a reserve back for
+//     upkeep; nothing paid for is built while the money isn't there;
 //   - eras and milestones decide what may be built, and every placement goes through city.apply,
 //     the same placement rules as the player's tools;
 //   - when families need a school or clinic it can't afford yet, it saves up for it (other building
@@ -25383,7 +25385,6 @@ class CpuPlanner {
     this.city = sim.city;
     const g = sim.growth;
     g.on = true;
-    g.payAll = true;
     g.onBuilt = (what) => this.note(what);
   }
 
@@ -25408,7 +25409,6 @@ class CpuPlanner {
     const sim = this.sim;
     const g = sim.growth;
     g.on = true;
-    g.payAll = true;
     const base = this.reserve();
     g.reserve = base;
     if (sim.decisions.pending) this.decide();

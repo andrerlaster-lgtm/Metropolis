@@ -60,7 +60,7 @@ test('a save from before the world gets a computer-run neighbour, and your town 
   assert.equal(sim.economy.money, money, 'and so is your money');
 });
 
-test('the neighbour builds over the days, paying for everything, within its era and milestones', () => {
+test('the neighbour builds over the days by your rules: it pays for roads, services and parks, within its era and milestones', () => {
   const { city, sim } = homeTown(5);
   sim.growth.on = false; // only the computer builds here
   sim.disasters.level = 'off';
@@ -77,9 +77,10 @@ test('the neighbour builds over the days, paying for everything, within its era 
     const r = grow();
     if (!r) return r;
     builds.push(r);
-    const cost = eco.costOf(r.type) * (r.n || 1);
-    assert.ok(cost > 0, `${r.type} has a price`);
-    assert.ok(Math.abs(before - eco.money - cost) < 1e-6, `${r.type} was paid for: ${before} → ${eco.money}, cost ${cost}`);
+    // Like yours, its homes and businesses are built by residents; the rest comes out of its budget.
+    const cost = g.paid(r.type) ? eco.costOf(r.type) * (r.n || 1) : 0;
+    if (g.paid(r.type)) assert.ok(cost > 0, `${r.type} has a price`);
+    assert.ok(Math.abs(before - eco.money - cost) < 1e-6, `${r.type} cost ${before - eco.money}, expected ${cost}`);
     assert.ok(eco.money >= g.reserve - 1e-6, `kept the reserve (${eco.money} ≥ ${g.reserve})`);
     if (r.type !== 'road' && r.type !== 'tree') assert.ok(buildsFor(era).includes(r.type), `${r.type} is allowed in era ${era}`);
     assert.ok(cpu.sim.milestones.isUnlocked(r.type), `${r.type} is unlocked`);
