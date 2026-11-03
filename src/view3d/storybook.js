@@ -373,11 +373,15 @@ export function buildStorybook(city, area, { fallback = null, growthOf = null, l
   const tile = (x, y) => (x >= 0 && y >= 0 && x < city.width && y < city.height ? city.getTile(x, y) : null);
   const isWater = (x, y) => tile(x, y)?.terrain === 'water';
   const solidLayers = all.filter((m) => m !== L.grass && m !== L.path && m !== L.dirt && m !== L.water && m !== L.leaf && m !== L.bark && m !== L.glow);
+  const near = settledNear(city, NEAR_TILES);
+
 
   for (let y = y0; y < y1; y++) {
     for (let x = x0; x < x1; x++) {
       const t = tile(x, y);
       if (!t) continue;
+      // Full leafy detail on and around the town; the woods and meadows further out are lighter.
+      out.detail = near[y * city.width + x] ? 1 : 0;
       for (const m of all) m.place(x + 0.5, y + 0.5, 0);
       if (edges) mapEdge(out, city, x, y);
       if (t.terrain === 'water') {
@@ -419,10 +423,44 @@ export function buildStorybook(city, area, { fallback = null, growthOf = null, l
           }
         });
         if (top > 0) out.tops.push([y * city.width + x, top]);
+        // Baked shade: walls darken toward the ground and under the eaves, so buildings sit in the
+        // lot instead of floating on it. Done once here; it costs nothing to draw.
+        solidLayers.forEach((m, i) => {
+          const P = m.p;
+          const N = m._n;
+          const C = m._c;
+          for (let k = from[i]; k < P.length; k += 3) {
+            const ny = N[k + 1];
+            let f = 1;
+            if (Math.abs(ny) < 0.6) f = 0.66 + 0.34 * Math.min(1, P[k + 1] / 0.3);
+            else if (ny < -0.5) f = 0.72;
+            if (f < 1) {
+              C[k] *= f;
+              C[k + 1] *= f;
+              C[k + 2] *= f;
+            }
+          }
+        });
         // Fences and gardens spread wide; the footprint is the building, about the middle of the lot.
         if (ax < bx) out.feet.push([x + 0.5, y + 0.5, Math.min(0.75, bx - ax + 0.1), Math.min(0.7, bz - az + 0.1)]);
       }
     }
+  }
+  return out;
+}
+
+// Within this many tiles of a street or building, trees and bushes get their full detail.
+const NEAR_TILES = 3;
+
+// For every tile: is a street or building within `reach` tiles? (Trees, rubble and empty land don't count.)
+function settledNear(city, reach) {
+  const W = city.width;
+  const H = city.height;
+  const out = new Uint8Array(W * H);
+  for (const t of city.tiles) {
+    const ty = t.structure?.type;
+    if (!ty || ty === 'tree' || ty === 'rubble') continue;
+    for (let y = Math.max(0, t.y - reach); y <= Math.min(H - 1, t.y + reach); y++) for (let x = Math.max(0, t.x - reach); x <= Math.min(W - 1, t.x + reach); x++) out[y * W + x] = 1;
   }
   return out;
 }
@@ -481,13 +519,18 @@ function street(out, t, lampSpot, cross) {
   const k = 1.7;
   const c = mul(lin(COBBLE), 0.9 + rand(x, y, 3) * 0.14);
   P.quad([x, 0.006, y + 1], [x + 1, 0.006, y + 1], [x + 1, 0.006, y], [x, 0.006, y], c, [[x * k, -(y + 1) * k], [(x + 1) * k, -(y + 1) * k], [(x + 1) * k, -y * k], [x * k, -y * k]]);
-  const flag = lin('#9a8b72');
-  const box = (ax, az, bx, bz) => S.box(Math.min(ax, bx), 0, Math.min(az, bz), Math.max(ax, bx), KERB, Math.max(az, bz), mul(flag, 0.95 + rand(Math.round(ax * 7), Math.round(az * 7), 5) * 0.1), { s: 3.5, ao: 0.8 });
+  const flag = lin('#a08f74');
+  const kerb = lin('#d6cbb5');
+  const box = (ax, az, bx, bz, col = flag) => S.box(Math.min(ax, bx), 0, Math.min(az, bz), Math.max(ax, bx), KERB, Math.max(az, bz), mul(col, 0.95 + rand(Math.round(ax * 7), Math.round(az * 7), 5) * 0.1), { s: 3.5, ao: 0.8 });
   for (let sd = 0; sd < 4; sd++) {
     if (m & (1 << sd)) continue;
     const [ax, az] = sideAt(x, y, sd, 0, 0);
-    const [bx, bz] = sideAt(x, y, sd, 1, WALK);
+    const [bx, bz] = sideAt(x, y, sd, 1, WALK - 0.025);
     box(ax, az, bx, bz);
+    // A row of pale kerb stones along the road edge.
+    const [kx, kz] = sideAt(x, y, sd, 0, WALK - 0.025);
+    const [lx, lz] = sideAt(x, y, sd, 1, WALK);
+    box(kx, kz, lx, lz, kerb);
   }
   // Where two arms meet, the sidewalks join in a square at the corner.
   for (let cn = 0; cn < 4; cn++) {
@@ -520,7 +563,10 @@ function street(out, t, lampSpot, cross) {
     D.quad([x + 0.25, 0.011, y + 0.7], [x + 0.75, 0.011, y + 0.7], [x + 0.75, 0.011, y + 0.3], [x + 0.25, 0.011, y + 0.3], lin('#8f7a5c'));
     W.quad([x + 0.32, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.64], [x + 0.68, 0.014, y + 0.36], [x + 0.32, 0.014, y + 0.36], lin('#3f86a0'));
   }
-  if (lampSpot) lantern(out, lampSpot.gx, lampSpot.gy);
+  if (lampSpot) {
+    lantern(out, lampSpot.gx, lampSpot.gy);
+    planter(out, lampSpot.gx, lampSpot.gy, x, y);
+  }
   else if (rand(x, y, 52) < 0.25) out.tufts.push([x + 0.06 + rand(x, y, 53) * 0.88, y + 0.04, 0.6, '#6a9a45']);
 }
 
@@ -553,6 +599,23 @@ function water(out, x, y, isWater) {
   if (!isWater(x - 1, y)) d.quad([x, -0.09, y + 1], [x, -0.09, y], [x, 0, y], [x, 0, y + 1], bank);
 }
 
+// A wooden planter of flowers beside a street lamp, set toward the lot side so walkers pass by.
+function planter(out, lx, lz, x, y) {
+  const W = out.layers.wood;
+  W.frames = [{ cx: 0, cz: 0, r: 0 }];
+  const cx = x + 0.5;
+  const cz = y + 0.5;
+  // Step from the lamp away from the middle of the road tile, along the sidewalk.
+  const ox = Math.abs(lx - cx) > Math.abs(lz - cz) ? 0 : 0.075 * Math.sign(lx - cx || 1);
+  const oz = ox ? 0 : 0.075 * Math.sign(lz - cz || 1);
+  const px = lx + ox;
+  const pz = lz + oz;
+  W.box(px - 0.03, KERB, pz - 0.03, px + 0.03, KERB + 0.04, pz + 0.03, lin('#8a5a3b'), { s: 8, top: lin('#4a3326') });
+  const col = FLOWERS[Math.floor(rand(x, y, 77) * FLOWERS.length)];
+  for (let i = 0; i < 6; i++) out.flowers.push([px + Math.cos(i * 1.05) * 0.018, KERB + 0.05 + (i % 2) * 0.008, pz + Math.sin(i * 1.05) * 0.018, 0.85, i % 3 ? col : '#f8f4ec']);
+  out.tufts.push([px, pz, 0.5, '#4f8a37']);
+}
+
 // A lamp post with a little glass lantern on top.
 function lantern(out, wx, wz) {
   const T = out.layers.timber;
@@ -569,11 +632,13 @@ function lantern(out, wx, wz) {
 // An open lawn: tufts, the odd flower patch and bush.
 function meadow(out, ctx) {
   const { x, y } = ctx;
-  for (let i = 0; i < 7; i++) out.tufts.push([x + 0.1 + rand(x, y, 60 + i) * 0.8, y + 0.1 + rand(x, y, 70 + i) * 0.8, 0.6 + rand(x, y, 80 + i) * 0.7, rand(x, y, 85 + i) < 0.5 ? '#5f9a3e' : '#7aae45']);
+  // Out in the far meadow, fewer tufts and flowers: there's more to see near the town.
+  const far = out.detail === 0;
+  for (let i = 0; i < (far ? 3 : 7); i++) out.tufts.push([x + 0.1 + rand(x, y, 60 + i) * 0.8, y + 0.1 + rand(x, y, 70 + i) * 0.8, 0.6 + rand(x, y, 80 + i) * 0.7, rand(x, y, 85 + i) < 0.5 ? '#5f9a3e' : '#7aae45']);
   if (rand(x, y, 101) < 0.1) rocks(out, x + 0.3 + rand(x, y, 102) * 0.4, y + 0.3 + rand(x, y, 103) * 0.4, 500, 1 + Math.floor(rand(x, y, 104) * 3));
-  if (rand(x, y, 98) < 0.4) flowerPatch(out, x + 0.2 + rand(x, y, 99) * 0.6, y + 0.2 + rand(x, y, 89) * 0.6, 0.1, 7, rand(x, y, 88));
-  if (rand(x, y, 90) < 0.6) flowerPatch(out, x + 0.2 + rand(x, y, 91) * 0.6, y + 0.2 + rand(x, y, 92) * 0.6, 0.12, 9, rand(x, y, 93));
-  if (rand(x, y, 94) < 0.3) bushWorld(out, x + 0.2 + rand(x, y, 95) * 0.6, y + 0.2 + rand(x, y, 96) * 0.6, 0.07 + rand(x, y, 97) * 0.04, x * 31 + y, 1);
+  if (rand(x, y, 98) < (far ? 0.15 : 0.4)) flowerPatch(out, x + 0.2 + rand(x, y, 99) * 0.6, y + 0.2 + rand(x, y, 89) * 0.6, 0.1, 7, rand(x, y, 88));
+  if (rand(x, y, 90) < (far ? 0.3 : 0.6)) flowerPatch(out, x + 0.2 + rand(x, y, 91) * 0.6, y + 0.2 + rand(x, y, 92) * 0.6, 0.12, 9, rand(x, y, 93));
+  if (rand(x, y, 94) < 0.3) bushWorld(out, x + 0.2 + rand(x, y, 95) * 0.6, y + 0.2 + rand(x, y, 96) * 0.6, 0.07 + rand(x, y, 97) * 0.04, x * 31 + y);
 }
 
 // A few weathered rocks, singly or in a small group: the storybook countryside has stones in it.
@@ -601,7 +666,7 @@ function flowerPatch(out, wx, wz, r, n, seed) {
 }
 
 // A bush at a world position, dotted with flowers sometimes.
-function bushWorld(out, wx, wz, r, seed, detail = 1) {
+function bushWorld(out, wx, wz, r, seed, detail = out.detail ?? 1) {
   const m = out.layers.leaf;
   m.frames = [{ cx: 0, cz: 0, r: 0 }];
   const [dark, light] = GREENS[seed % GREENS.length].map(lin);
@@ -616,7 +681,7 @@ function bushWorld(out, wx, wz, r, seed, detail = 1) {
 
 // A lush storybook tree at world (wx, wz): a tapering trunk and a crown of overlapping soft blobs.
 // kind 0 round, 1 tall, 2 pine, 3 blossom.
-export function storyTree(out, wx, wz, kind, scale, seed, detail = 1) {
+export function storyTree(out, wx, wz, kind, scale, seed, detail = out.detail ?? 1) {
   const B = out.layers.bark;
   const F = out.layers.leaf;
   for (const m of [B, F]) m.frames = [{ cx: 0, cz: 0, r: 0 }];
@@ -641,7 +706,7 @@ export function storyTree(out, wx, wz, kind, scale, seed, detail = 1) {
   const n = tall ? 4 : 5;
   const cy = h + (tall ? 0.2 : 0.14) * s;
   const R = (tall ? 0.15 : 0.2) * s;
-  F.blob(wx, cy, wz, R, R * (tall ? 1.5 : 0.95), R, dark, light, seed, 1);
+  F.blob(wx, cy, wz, R, R * (tall ? 1.5 : 0.95), R, dark, light, seed, detail);
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + rand(seed, i, 1) * 0.6;
     const d = R * (0.6 + rand(seed, i, 2) * 0.3);
@@ -672,6 +737,13 @@ function wallRect(m, f, u0, u1, v0, v1, e, col, s = 1) {
   m.quad(onWall(f, u0, v0, e), onWall(f, u1, v0, e), onWall(f, u1, v1, e), onWall(f, u0, v1, e), col, [[u0 * s, v0 * s], [u1 * s, v0 * s], [u1 * s, v1 * s], [u0 * s, v1 * s]]);
 }
 
+// A ledge along a wall from u0 to u1 at height v: `depth` out from it and `h` tall (sills, lintels).
+function ledge(m, f, u0, u1, v, depth, h, col) {
+  const a = onWall(f, u0, v, 0);
+  const c = onWall(f, u1, v + h, depth);
+  m.box(Math.min(a[0], c[0]), v, Math.min(a[2], c[2]), Math.max(a[0], c[0]), v + h, Math.max(a[2], c[2]), col, { s: 6, ao: 0.9 });
+}
+
 // A timber beam on a wall from (ua, va) to (ub, vb), standing slightly proud of it.
 function beam(m, f, ua, va, ub, vb, w, col) {
   const dx = ub - ua;
@@ -700,10 +772,15 @@ function walls(out, b, y0, y1, col, layer = 'plaster') {
 }
 
 // A window: glass that glows warmly, a timber frame with a cross, shutters or a flower box.
-function windowAt(out, b, face, u, v, w, h, ctx, { box = false, shutters = false } = {}) {
+function windowAt(out, b, face, u, v, w, h, ctx, { box = false, shutters = false, dressed = false } = {}) {
   const f = wallFrame(b, face);
   const T = out.layers.timber;
   const trim = lin(ctx.v.trim);
+  if (dressed) {
+    // A pale stone sill that sticks out under the window and a lintel over it, so it sits in the wall.
+    ledge(out.layers.stone, f, u - w / 2 - 0.016, u + w / 2 + 0.016, v - 0.014, 0.024, 0.014, lin('#e6dccb'));
+    ledge(out.layers.stone, f, u - w / 2 - 0.01, u + w / 2 + 0.01, v + h + 0.004, 0.012, 0.016, lin('#d8ccb6'));
+  }
   wallRect(out.layers.glass, f, u - w / 2, u + w / 2, v, v + h, 0.004, lin('#ffd98f'));
   const fw = 0.014;
   beam(T, f, u - w / 2, v, u + w / 2, v, fw, trim);
@@ -733,8 +810,28 @@ function windowAt(out, b, face, u, v, w, h, ctx, { box = false, shutters = false
 }
 
 // A plank door with a frame, a step and a little lamp beside it.
-function doorAt(out, b, u, w, h, ctx) {
+function doorAt(out, b, u, w, h, ctx, { hood = false } = {}) {
   const f = wallFrame(b, 0);
+  if (hood) {
+    // A little pitched hood over the door on two brackets, and a pot of flowers either side.
+    const R = out.layers.roof;
+    const y = 0.03 + h + 0.035;
+    const a = onWall(f, u - w / 2 - 0.035, y, 0);
+    const c = onWall(f, u + w / 2 + 0.035, y, 0.075);
+    const [x0, x1] = [Math.min(a[0], c[0]), Math.max(a[0], c[0])];
+    const [zw, zo] = [a[2], c[2]];
+    const roof = lin(ctx.v.roof);
+    R.quad([x0, y - 0.03, zo], [x1, y - 0.03, zo], [x1, y + 0.012, zw], [x0, y + 0.012, zw], roof, [[x0 * 5, 0], [x1 * 5, 0], [x1 * 5, 0.4], [x0 * 5, 0.4]]);
+    out.layers.timber.box(x0, y - 0.036, Math.min(zw, zo), x1, y - 0.03, Math.max(zw, zo), lin('#4a3326'));
+    for (const side of [-1, 1]) {
+      const p = onWall(f, u + side * (w / 2 + 0.05), 0, 0.045);
+      out.layers.paint.cyl(p[0], p[2], 0.022, 0.017, 0, 0.04, 8, lin('#b8643f'), { top: lin('#5a3a26') });
+      const [wx, wz] = out.layers.paint.tx(p[0], p[2]);
+      out.layers.leaf.frames = [{ cx: 0, cz: 0, r: 0 }];
+      out.layers.leaf.blob(wx, 0.058, wz, 0.026, 0.024, 0.026, lin('#3f7a3a'), lin('#7fb85a'), ctx.x * 3 + ctx.y + side, 0);
+      for (let i = 0; i < 4; i++) out.flowers.push([wx + Math.cos(i * 1.7) * 0.016, 0.07 + (i % 2) * 0.01, wz + Math.sin(i * 1.7) * 0.016, 0.8, FLOWERS[(ctx.x + ctx.y + i + (side > 0 ? 3 : 0)) % FLOWERS.length]]);
+    }
+  }
   wallRect(out.layers.wood, f, u - w / 2, u + w / 2, 0.03, 0.03 + h, 0.005, lin('#7a4b2e'), 10);
   const T = out.layers.timber;
   const trim = lin(ctx.v.trim);
@@ -831,9 +928,17 @@ function chimney(out, x, z, yb, yt) {
 
 // A garden around a house lot: a picket fence along the sides and back, a stepping-stone path to the
 // lane, flower beds along the front and a bush or two.
-function garden(out, ctx, b, { fence = true } = {}) {
+function garden(out, ctx, b, { fence = true, hedges = false } = {}) {
   const W = out.layers.wood;
   const pc = lin(FENCE);
+  if (hedges) {
+    // Clipped hedges along the front of the lot, with a gap for the path to the door.
+    const L = out.layers.leaf;
+    L.frames = W.frames.map((f) => ({ ...f })); // trees and bushes leave the leaf layer in world space
+    const dark = lin('#3c7438');
+    const light = lin('#6ea84e');
+    for (const [x0, x1] of [[-0.44, -0.09], [0.09, 0.44]]) L.box(x0, 0, 0.385, x1, 0.075, 0.445, dark, { top: light, s: 4, ao: 0.75 });
+  }
   if (fence) {
     const e = 0.46;
     const sides = [
@@ -896,14 +1001,14 @@ function house(out, ctx) {
   timbering(out, b, h * 0.55, h, ctx);
   gableRoof(out, b, h, 0.27, { col: lin(v.roof), wall: v.wall });
   const mid = (b.x1 - b.x0) / 2; // positions along a wall count from its left end
-  doorAt(out, b, mid, 0.09, 0.15, ctx);
-  windowAt(out, b, 0, mid - 0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true });
-  windowAt(out, b, 0, mid + 0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true });
-  windowAt(out, b, 0, mid - 0.14, 0.2, 0.065, 0.06, ctx);
-  windowAt(out, b, 0, mid + 0.14, 0.2, 0.065, 0.06, ctx);
+  doorAt(out, b, mid, 0.09, 0.15, ctx, { hood: (s.shape || 0) % 2 === 0 });
+  windowAt(out, b, 0, mid - 0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true, dressed: true });
+  windowAt(out, b, 0, mid + 0.16, 0.08, 0.08, 0.075, ctx, { box: true, shutters: true, dressed: true });
+  windowAt(out, b, 0, mid - 0.14, 0.2, 0.065, 0.06, ctx, { dressed: true });
+  windowAt(out, b, 0, mid + 0.14, 0.2, 0.065, 0.06, ctx, { dressed: true });
   for (const face of [1, 2, 3]) {
     const f = wallFrame(b, face);
-    windowAt(out, b, face, f.w * 0.5, 0.09, 0.07, 0.07, ctx, { shutters: face === 2 });
+    windowAt(out, b, face, f.w * 0.5, 0.09, 0.07, 0.07, ctx, { shutters: face === 2, dressed: true });
   }
   const shape = s.shape || 0;
   chimney(out, shape >= 2 ? b.x0 + 0.1 : b.x1 - 0.1, -0.05, h + 0.08, h + 0.33);
@@ -927,7 +1032,7 @@ function house(out, ctx) {
     gableRoof(out, e, 0.2, 0.12, { o: 0.03, col: lin(v.roof), wall: v.wall });
     windowAt(out, e, 0, (e.x1 - e.x0) / 2, 0.07, 0.06, 0.06, ctx, { box: true });
   }
-  garden(out, ctx, b);
+  garden(out, ctx, b, { hedges: true });
 }
 
 // A cottage: low stone walls under a deep golden thatch, with a round bush at the door.
@@ -935,15 +1040,17 @@ function cottage(out, ctx) {
   const b = block(0.44, 0.36, -0.04);
   const h = 0.2;
   const v = ctx.v;
-  walls(out, b, 0, h, lin('#d8ccb6'), 'stone');
-  gableRoof(out, b, h, 0.25, { o: 0.07, layer: 'thatch', col: lin('#d2a85c'), wall: '#e8dcc3', ridge: false });
+  // A darker stone plinth, then the whitewashed stone walls.
+  out.layers.stone.box(b.x0 - 0.012, 0, b.z0 - 0.012, b.x1 + 0.012, 0.03, b.z1 + 0.012, lin('#9c8f7a'), { s: 6 });
+  walls(out, b, 0.03, h, lin('#e3d8c4'), 'stone');
+  gableRoof(out, b, h, 0.25, { o: 0.07, layer: 'thatch', col: lin('#d9ad5e'), wall: '#ede2cb', ridge: false });
   // A plump thatch ridge.
   out.layers.thatch.box(b.x0 - 0.07, h + 0.22, -0.065, b.x1 + 0.07, h + 0.265, -0.015, lin('#b98d45'), { s: 4 });
   doorAt(out, b, (b.x1 - b.x0) / 2 - 0.05, 0.08, 0.13, ctx);
-  windowAt(out, b, 0, (b.x1 - b.x0) / 2 + 0.12, 0.07, 0.07, 0.065, ctx, { box: true });
-  for (const face of [1, 2, 3]) windowAt(out, b, face, wallFrame(b, face).w / 2, 0.07, 0.06, 0.06, ctx);
+  windowAt(out, b, 0, (b.x1 - b.x0) / 2 + 0.12, 0.07, 0.07, 0.065, ctx, { box: true, shutters: true, dressed: true });
+  for (const face of [1, 2, 3]) windowAt(out, b, face, wallFrame(b, face).w / 2, 0.07, 0.06, 0.06, ctx, { dressed: true, box: face === 2 });
   chimney(out, b.x1 - 0.08, -0.04, h + 0.05, h + 0.3);
-  garden(out, ctx, b, { fence: (ctx.s.shape || 0) % 2 === 0 });
+  garden(out, ctx, b, { fence: (ctx.s.shape || 0) % 2 === 0, hedges: true });
 }
 
 // Apartments, towers and offices: a tall half-timbered townhouse. Each storey jetties out a touch over
@@ -1071,7 +1178,7 @@ function treeTile(out, ctx) {
     const oz = n === 1 ? 0 : (rand(x, y, 220 + i) - 0.5) * 0.5;
     storyTree(out, x + 0.5 + ox, y + 0.5 + oz, i === 0 ? kind : Math.floor(rand(x, y, 230 + i) * 3), (n === 1 ? 1.15 : 0.85) + rand(x, y, 240 + i) * 0.3, x * 101 + y * 7 + i);
   }
-  for (let i = 0; i < 2; i++) bushWorld(out, x + 0.15 + rand(x, y, 250 + i) * 0.7, y + 0.15 + rand(x, y, 260 + i) * 0.7, 0.05 + rand(x, y, 270 + i) * 0.04, x * 3 + y * 5 + i, 1);
+  for (let i = 0; i < 2; i++) bushWorld(out, x + 0.15 + rand(x, y, 250 + i) * 0.7, y + 0.15 + rand(x, y, 260 + i) * 0.7, 0.05 + rand(x, y, 270 + i) * 0.04, x * 3 + y * 5 + i);
   meadow(out, ctx);
 }
 

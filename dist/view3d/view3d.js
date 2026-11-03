@@ -15,6 +15,7 @@ import { CameraRig, DIST_MIN, DIST_MAX } from './rig.js';
 import { People3D, Cars3D } from './agents3d.js';
 import { Effects3D } from './effects3d.js';
 import { Signs3D } from './signs3d.js';
+import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 
 const CHUNK = 8;
 const QUALITY = {
@@ -89,9 +90,9 @@ class View3D {
     this.active = false;
     this.time = 0;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
-    // Filmic colour, for the warm storybook light.
-    gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = 1.05;
+    // A gentle filmic curve that keeps the storybook colours bright and saturated (ACES greys them).
+    gl.toneMapping = THREE.NeutralToneMapping;
+    gl.toneMappingExposure = 1.0;
     canvas.hidden = true;
     deps.mount(canvas);
 
@@ -123,6 +124,14 @@ class View3D {
     };
     // The storybook look: painted textures and a material per surface kind (storybookLook.js).
     this.sb = makeMaterials(makeTextures(gl));
+    // Soft light from all around (a studio room, blurred once) on buildings, trees, props and people,
+    // so their sides and undersides keep colour and form. Not on the ground and grass, which cover
+    // most of the screen and would cost the most to light this way.
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    this.envMats = ['plaster', 'timber', 'roof', 'thatch', 'stone', 'wood', 'leaf', 'bark', 'paint', 'glass', 'villager'].map((k) => this.sb[k]);
+    for (const m of this.envMats) m.envMap = env;
     this.smoke = this.makeSmoke();
     this.clouds = this.makeClouds();
     this.chunks = new Map();
@@ -776,7 +785,8 @@ class View3D {
     // Sky light: bright and neutral by day, low and blue at night.
     this.hemi.color.setRGB(amb[0] * 0.92, amb[1] * 0.95, amb[2]);
     this.hemi.groundColor.setRGB(0.55 * amb[0], 0.62 * amb[1], 0.5 * amb[2]);
-    this.hemi.intensity = (0.55 + 0.5 * day) * 1.35;
+    this.hemi.intensity = (0.55 + 0.5 * day) * 1.05;
+    for (const m of this.envMats) m.envMapIntensity = 0.12 + 0.38 * day;
     // The sun swings from east-north-east in the morning to south-west in the evening; by night a
     // faint moon lights the town from high up.
     const up = sunH > 0.02;
@@ -793,8 +803,8 @@ class View3D {
     const cloud = 1 - 0.5 * (w.cloud || 0) - 0.3 * (w.rain || 0);
     if (up) {
       // A warm, storybook sun.
-      this.sun.color.setRGB(1, 0.9 - 0.12 * warm, 0.76 - 0.3 * warm);
-      this.sun.intensity = (0.35 + 1.15 * day) * cloud * 1.9;
+      this.sun.color.setRGB(1, 0.88 - 0.12 * warm, 0.72 - 0.3 * warm);
+      this.sun.intensity = (0.35 + 1.15 * day) * cloud * 2.15;
     } else {
       this.sun.color.setRGB(0.62, 0.68, 0.95);
       this.sun.intensity = 0.32;
