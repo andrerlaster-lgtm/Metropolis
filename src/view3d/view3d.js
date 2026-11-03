@@ -893,11 +893,11 @@ class View3D {
     const { L, w } = this.light(focus, span);
     this.lightLamps(focus, L);
     const agents = this.focus.agents;
-    this.people.update(agents.walkers, this.time, { wet: Math.max(w.rain || 0, w.snow || 0), softShadows: !QUALITY[this.level].shadows, paused: this.deps.isPaused() });
+    this.people.update(agents.walkers, this.time, { wet: Math.max(w.rain || 0, w.snow || 0), softShadows: !QUALITY[this.level].shadows, paused: this.deps.isPaused(), span });
     this.updateSmoke(focus);
     this.updateClouds(w, L);
     this.effects.update(this.city, this, cam, this.time);
-    this.cars.update(agents, { night: L.lamps });
+    this.cars.update(agents, { night: L.lamps, span });
     for (const c of this.chunks.values()) for (const m of c.meshes) if (m.material === this.sb.water) m.position.y = Math.sin(this.time * 1.3) * 0.004;
     this.sb.leaf.userData.time.value = this.time;
     this.updateWeather(w, focus, span);
