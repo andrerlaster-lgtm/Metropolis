@@ -365,7 +365,7 @@ export function makeMaterials(T) {
     glow: new THREE.MeshBasicMaterial({ vertexColors: true }),
     water: std(null, { transparent: true, opacity: 0.85, roughness: 0.12 }),
     flower: new THREE.MeshStandardMaterial({ roughness: 0.6, emissive: 0x221a10 }),
-    tuft: new THREE.MeshStandardMaterial({ roughness: 1 }),
+    tuft: new THREE.MeshStandardMaterial({ roughness: 1, side: THREE.DoubleSide }),
     villager: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }),
   };
   // A gentle breeze in the leaves: the crowns sway a little, more the higher they are.
@@ -387,33 +387,27 @@ export function makeMaterials(T) {
 }
 
 // A five-petal flower head, small enough to scatter by the thousand.
+// An 8-sided bead: at a few pixels across it reads as a flower head, for 8 triangles instead of 20.
 export function flowerGeometry() {
-  const g = new THREE.IcosahedronGeometry(0.011, 0);
+  const g = new THREE.OctahedronGeometry(0.011, 0);
   g.scale(1, 0.7, 1);
   return g;
 }
 
-// A grass tuft: three thin blades leaning apart.
+// A grass tuft: three thin blades leaning apart, one triangle each (drawn from both sides).
 export function tuftGeometry() {
-  const parts = [];
+  const pos = [];
+  const nor = [];
   for (let i = 0; i < 3; i++) {
-    const c = new THREE.ConeGeometry(0.006, 0.045, 3, 1, true).toNonIndexed();
-    c.translate(0, 0.022, 0);
-    c.rotateZ((i - 1) * 0.35);
-    c.rotateY(i * 2.1);
-    parts.push(c);
-  }
-  const n = parts.reduce((k, p) => k + p.attributes.position.count, 0);
-  const pos = new Float32Array(n * 3);
-  const nor = new Float32Array(n * 3);
-  let o = 0;
-  for (const p of parts) {
-    pos.set(p.attributes.position.array, o);
-    nor.set(p.attributes.normal.array, o);
-    o += p.attributes.position.array.length;
+    const a = i * 2.1;
+    const lean = (i - 1) * 0.012;
+    const [cx, cz] = [Math.cos(a), Math.sin(a)];
+    const w = 0.006;
+    pos.push(-cz * w, 0, cx * w, cz * w, 0, -cx * w, lean * cx, 0.045, lean * cz);
+    for (let k = 0; k < 3; k++) nor.push(cx, 0.4, cz);
   }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nor), 3));
   return geo;
 }
