@@ -139,6 +139,11 @@ class View3D {
     scene.add(this.root);
     this.people = new People3D(scene);
     this.cars = new Cars3D(scene);
+    // Townsfolk, horses and carts get the same soft light as the buildings.
+    for (const m of [...this.people.materials, ...this.cars.materials]) {
+      m.envMap = env;
+      this.envMats.push(m);
+    }
     this.weather = this.makeWeather();
     this.effects = new Effects3D(scene);
     this.signs = new Signs3D(scene);
