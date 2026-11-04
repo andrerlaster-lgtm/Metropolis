@@ -328,7 +328,7 @@ test('Treasury: more tax, cheaper building and upkeep, bonds, the mint and the s
   const cost0 = env.sim.economy.costOf('house');
   learn(env, 'taxOffice', 'marketDays', 'thrifty', 'crews', 'tradeFair', 'bonds');
   const e1 = env.city.derived.economy;
-  assert.ok(e1.income.homes > e0.income.homes * 1.05, 'home taxes up');
+  assert.ok(e1.income.wages > e0.income.wages * 1.05, 'income tax up');
   assert.ok(env.sim.economy.costOf('house') < cost0, 'building cheaper');
   assert.ok((e1.expenses.road || 0) < (e0.expenses.road || 0) || !e0.expenses.road, 'upkeep down');
   const bonds = 25 + 0.25 * env.city.stats.population;

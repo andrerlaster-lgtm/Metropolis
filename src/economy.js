@@ -1,9 +1,19 @@
-// Town budget: taxes come in from residents, workers and businesses; upkeep goes out on roads,
-// schools, clinics and parks; building things costs money up front (except in Sandbox).
+// Town budget: people earn wages at their jobs and pay income tax on them at the rate the player sets;
+// businesses pay a smaller tax per job filled; upkeep goes out on roads, schools, clinics and parks;
+// building things costs money up front (except in Sandbox).
 // The balance and a daily ledger are saved in city.systems.economy. Per-building earnings are
 // derived each market refresh into tile.earning and city.derived.economy.
 
-import { STRUCTURES, COSTS, UPKEEP, TAX, BUSINESS_TAX, START_MONEY, WORKER_SHARE, SUPPLY_BONUS } from './config.js';
+import { STRUCTURES, COSTS, UPKEEP, BUSINESS_TAX, START_MONEY, SUPPLY_BONUS, WAGE_SCALE, DEFAULT_PAY, TAX_RATE, BUSINESS_TAX_SHARE } from './config.js';
+import { CAREERS } from './lifeData.js';
+
+// A worker's daily wage at a building of this type (the same pay as the Life Story career there).
+export function wageOf(type) {
+  return (CAREERS[type]?.pay[0] ?? DEFAULT_PAY) / WAGE_SCALE;
+}
+
+// The income tax rate, in percent, kept inside its limits.
+export const clampTaxRate = (r) => Math.max(TAX_RATE.min, Math.min(TAX_RATE.max, Math.round(Number.isFinite(r) ? r : TAX_RATE.default)));
 
 // Shops and the like earn a little more tax when goods are in supply (resources.js).
 const RETAIL = new Set(['shop', 'cafe', 'bakery', 'mall', 'restaurant', 'market']);
@@ -14,14 +24,13 @@ const KEEP_DAYS = 7;
 export function categoryOf(type) {
   const def = STRUCTURES[type];
   if (!def) return null;
-  if (def.capacity) return 'homes';
   if (BUSINESS_TAX[type]) return type;
   if (UPKEEP[type]) return type;
   return null;
 }
 
 export const CATEGORY_LABELS = {
-  homes: 'Home taxes',
+  wages: 'Income tax',
   shop: 'Shops',
   cafe: 'Cafés',
   bakery: 'Bakeries',
@@ -63,7 +72,7 @@ export const CATEGORY_LABELS = {
 export class Economy {
   constructor(city) {
     this.city = city;
-    this.modifiers = { businessTax: 1, buildCost: 1, upkeep: 1, residentTax: 1 }; // notable people and town decisions change these
+    this.modifiers = { businessTax: 1, buildCost: 1, upkeep: 1, residentTax: 1 }; // notable people and upgrades change these (residentTax: income tax)
   }
 
   get sandbox() {
@@ -79,6 +88,17 @@ export class Economy {
 
   get money() {
     return this.state.money;
+  }
+
+  // The income tax rate the player sets, in percent (older saves start at the default).
+  get taxRate() {
+    return clampTaxRate(this.state.taxRate ?? TAX_RATE.default);
+  }
+
+  setTaxRate(r) {
+    this.state.taxRate = clampTaxRate(r);
+    this.city.dirty = true; // happiness and the budget follow at once
+    return this.state.taxRate;
   }
 
   reset(start) {
@@ -123,25 +143,30 @@ export class Economy {
     const income = {};
     const expenses = {};
     const earners = [];
+    const rate = this.taxRate / 100;
+    let wageBill = 0;
     for (const t of city.tiles) {
       t.earning = 0;
       const s = t.structure;
       if (!s) continue;
       const def = STRUCTURES[s.type];
       let e = 0;
-      if (def.capacity) {
-        const workers = Math.round(s.residents * WORKER_SHARE) * (t.employment || 0);
-        e = (s.residents * TAX.resident + workers * TAX.worker) * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
-      } else if (BUSINESS_TAX[s.type]) {
-        e = (def.mills ? city.derived.resources?.chain?.byMill.get(t) || 0 : 0) + (t.workersFilled || 0) * BUSINESS_TAX[s.type] * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1) * (RETAIL.has(s.type) ? 1 + SUPPLY_BONUS.retailTax * (city.derived.resources?.goods.need > 0 ? city.derived.resources.goods.ratio : 0) : 1);
-      } else if (UPKEEP[s.type]) {
-        e = -UPKEEP[s.type] * this.modifiers.upkeep;
+      // Income tax on the wages of everyone working here (public jobs too), collected where they work.
+      const filled = t.workersFilled || 0;
+      const wages = filled * wageOf(s.type);
+      const incomeTax = wages * rate * (this.modifiers.residentTax ?? 1) * (city.derived.skills?.residentTax ?? 1);
+      let biz = 0;
+      if (BUSINESS_TAX[s.type]) {
+        biz = (def.mills ? city.derived.resources?.chain?.byMill.get(t) || 0 : 0) + filled * BUSINESS_TAX[s.type] * BUSINESS_TAX_SHARE * this.modifiers.businessTax * (city.derived.skills?.typeTax?.[s.type] ?? 1) * (RETAIL.has(s.type) ? 1 + SUPPLY_BONUS.retailTax * (city.derived.resources?.goods.need > 0 ? city.derived.resources.goods.ratio : 0) : 1);
       }
+      const upkeep = UPKEEP[s.type] ? UPKEEP[s.type] * this.modifiers.upkeep : 0;
+      wageBill += wages;
+      if (incomeTax > 0) income.wages = (income.wages || 0) + incomeTax;
+      if (biz > 0) income[s.type] = (income[s.type] || 0) + biz;
+      if (upkeep > 0) expenses[categoryOf(s.type)] = (expenses[categoryOf(s.type)] || 0) + upkeep;
+      e = incomeTax + biz - upkeep;
       if (!e) continue;
       t.earning = e;
-      const cat = categoryOf(s.type);
-      if (e > 0) income[cat] = (income[cat] || 0) + e;
-      else expenses[cat] = (expenses[cat] || 0) - e;
       if (s.type !== 'road') earners.push(t);
     }
     // Town bonds (an upgrade, skills.js): a steady income that grows with the town; the Town mint adds to it.
@@ -162,6 +187,8 @@ export class Economy {
       totalIn,
       totalOut,
       net: totalIn - totalOut,
+      wages: wageBill, // what everyone working earns in a day
+      taxRate: this.taxRate,
       top: earners.filter((t) => t.earning > 0).slice(0, 5),
       costly: earners.filter((t) => t.earning < 0).reverse().slice(0, 3).reverse(),
     };

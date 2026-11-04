@@ -201,7 +201,14 @@ export const COSTS = {
 export const UPKEEP = { road: 0.5, school: 30, clinic: 35, library: 12, firestation: 25, university: 60, park: 2, playground: 5, field: 12, kindergarten: 12, museum: 20, pharmacy: 8, hospital: 120, firehut: 8, fountain: 3, garden: 2, pool: 15, stadium: 45 };
 // Taxes per in-game day: every resident pays a little, every worker a little more, and each business
 // pays per filled job.
-export const TAX = { resident: 0.8, worker: 1.2 };
+// Wages and taxes. Everyone with a job earns a daily wage: the yearly pay of that job's first rung in
+// Life Story (lifeData.js CAREERS; one town day is one Life Story year) divided by WAGE_SCALE. The town
+// takes an income tax on those wages at the rate the player sets (percent), plus a smaller business
+// tax per job filled. Homes pay no flat tax any more: people pay through their jobs.
+export const WAGE_SCALE = 600;
+export const DEFAULT_PAY = 20000; // a job with no Life Story career
+export const TAX_RATE = { default: 10, min: 0, max: 25 };
+export const BUSINESS_TAX_SHARE = 0.25; // businesses pay this share of BUSINESS_TAX now that wages are taxed
 export const BUSINESS_TAX = { shop: 1.5, cafe: 1.5, bakery: 1.5, office: 2, mall: 1.5, factory: 2.2, restaurant: 1.8, market: 1.2, bank: 3, hotel: 2.4, warehouse: 1.2, workshop: 1.8, powerplant: 2.5, cinema: 1.8, farm: 1.4, mill: 1.6 };
 export const START_MONEY = { land: 10000, town: 25000 };
 

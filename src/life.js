@@ -2,7 +2,7 @@
 // city.systems.life; their home and job are real tiles in the city, so building choices shape the
 // events, schooling and careers they get.
 
-import { STRUCTURES, DAY_LENGTH_SECONDS } from './config.js';
+import { STRUCTURES, DAY_LENGTH_SECONDS, TAX_RATE } from './config.js';
 import { hasEntrance } from './labor.js';
 import { FIRST_NAMES, LAST_NAMES, PRONOUNS, CAREERS, stageFor } from './lifeData.js';
 import { pickEvent, isEligible, fill, choicesFor, rollOutcome, applyEffects, chooseByPolicy, STAT_KEYS } from './lifeEngine.js';
@@ -233,11 +233,12 @@ export class LifeSystem {
     for (const k of ['happiness', 'health', 'smarts', 'looks']) c.stats[k] = Math.max(0, Math.min(100, Math.round(c.stats[k])));
     for (const fr of c.friends) fr.closeness = Math.max(0, fr.closeness - 2);
 
-    // Money: savings from work, minus rent once living alone.
+    // Money: savings from work after the town's income tax (economy.js), minus rent once living alone.
     if (c.job) {
       const career = CAREERS[c.job.type];
       const pay = career.pay[c.job.level] || career.pay[0];
-      c.money += Math.round(pay * (has('thrifty') ? 0.25 : 0.15));
+      const tax = (this.city.systems.economy?.taxRate ?? TAX_RATE.default) / 100;
+      c.money += Math.round(pay * (1 - tax) * (has('thrifty') ? 0.25 : 0.15));
       c.job.years += 1;
     } else if (c.flags.partTime && c.age < 18) c.money += 1500;
     if (!c.livesWithParents && !c.job) c.money = Math.max(0, c.money - 3000);

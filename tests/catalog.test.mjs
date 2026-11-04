@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { CityState } from '../src/state.js';
 import { Simulation } from '../src/simulation.js';
 import { generateTown } from '../src/generator.js';
-import { STRUCTURES, COSTS, TOOL_GROUPS, TOOLS, MILESTONES, COVERAGE_IDS, TAX, BUSINESS_TAX } from '../src/config.js';
+import { STRUCTURES, COSTS, TOOL_GROUPS, TOOLS, MILESTONES, COVERAGE_IDS, TAX_RATE, BUSINESS_TAX } from '../src/config.js';
 import { ERAS, buildsFor } from '../src/eras.js';
 import { CAREERS } from '../src/lifeData.js';
 import { Milestones, unlockTier } from '../src/milestones.js';
@@ -74,7 +74,7 @@ test('what each kind does matches its numbers', () => {
   assert.ok(STRUCTURES.hospital.serves > STRUCTURES.clinic.serves * 2);
   assert.ok(STRUCTURES.powerplant.pollution && !STRUCTURES.workshop.pollution);
   assert.ok(STRUCTURES.garden.greenery >= 2 && STRUCTURES.fountain.walkable && STRUCTURES.garden.walkable);
-  assert.ok(TAX.resident > 0);
+  assert.ok(TAX_RATE.min <= TAX_RATE.default && TAX_RATE.default <= TAX_RATE.max);
 });
 
 test('every new kind has 2D art and a 3D model', async () => {

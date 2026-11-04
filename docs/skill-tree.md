@@ -51,14 +51,14 @@ More money in, less going out.
 
 | Tier | Upgrade | Cost | Needs | Effect |
 | --- | --- | --- | --- | --- |
-| 1 | Tax office | 1 | — | Home taxes bring in 10% more. |
+| 1 | Tax office | 1 | — | Income tax brings in 10% more. |
 | 2 | Market days | 1 | Tax office | Businesses pay 15% more tax. |
 | 2 | Thrifty builders | 1 | Tax office | Building costs 10% less. |
 | 3 | Trade fair | 1 | Market days | Businesses pay another 15% more tax. |
 | 3 | Maintenance crews | 1 | Thrifty builders | Upkeep of roads, schools, parks and services costs 20% less. |
 | 4 | Town bonds | 2 | Trade fair or Maintenance crews | A steady income of $25 a day, plus 25¢ for every resident. |
-| 5 | Merchants’ charter *(fork)* | 3 | Town bonds | Businesses pay 12% more tax, but home taxes bring in 6% less. |
-| 5 | Homestead relief *(fork)* | 3 | Town bonds | Home taxes bring in 8% less, and every home is 2% happier. |
+| 5 | Merchants’ charter *(fork)* | 3 | Town bonds | Businesses pay 12% more tax, but income tax brings in 6% less. |
+| 5 | Homestead relief *(fork)* | 3 | Town bonds | Income tax brings in 8% less, and every home is 2% happier. |
 | 6 | Savings bank | 3 | Merchants’ charter or Homestead relief | The treasury earns 0.5% a day on the money it holds, up to $150 a day. |
 | Milestone | Town mint | 4 | Savings bank | Town bonds pay 50% more, and the mayor’s fundraisers raise 25% more. |
 

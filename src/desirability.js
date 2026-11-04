@@ -6,7 +6,7 @@
 // whose layout changed, which is checked on every recompute, so a change is never missed whatever made
 // it. The results are exactly what computing every factor afresh would give.
 
-import { STRUCTURES, SERVICES, REPUTATION, SUPPLY_BONUS } from './config.js';
+import { STRUCTURES, SERVICES, REPUTATION, SUPPLY_BONUS, TAX_RATE } from './config.js';
 import { WALK_COMFORT, WALK_MAX } from './labor.js';
 import { clamp } from './utils.js';
 
@@ -176,6 +176,17 @@ export const FACTORS = [
     enabled: true,
     // Festivals and Civic pride (skills.js) lift every home a little.
     compute: (city) => city.derived.skills?.happy || 0,
+  },
+  {
+    id: 'taxes',
+    label: 'Taxes',
+    enabled: true,
+    // The income tax rate the player sets (economy.js): low taxes draw people, high ones put them off.
+    // At the default rate nothing; each point off it moves every home by 0.006 (0%: +0.06, 25%: −0.09).
+    compute: (city) => {
+      const r = city.systems.economy?.taxRate ?? TAX_RATE.default;
+      return (TAX_RATE.default - Math.max(TAX_RATE.min, Math.min(TAX_RATE.max, r))) * 0.006;
+    },
   },
   {
     id: 'entertainment',
