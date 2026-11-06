@@ -78,16 +78,11 @@ test('your town keeps growing: several times its people by day 40, and into the 
   assert.ok(on(40).home.era >= 2, `era ${on(40).home.era} on day 40`);
 });
 
-test('your money neither stays stuck at zero nor runs away', () => {
-  // The town's own growth spends on roads and services down to its last dollar (it keeps no reserve),
-  // so a low day happens; what matters is that it recovers. Seeds 1, 2 and 4 never ended a day under
-  // $100; seed 3 did on days 28, 29 and 31 and had $6,700 on day 40. Highest about $10,000 (the start).
-  assert.ok(low.home >= 0, `went down to ${Math.round(low.home)}`);
-  let run = 0;
-  let longest = 0;
-  for (const s of days) longest = Math.max(longest, (run = s.home.money < 100 ? run + 1 : 0));
-  assert.ok(longest <= 3, `under $100 for ${longest} days in a row`);
-  assert.ok(on(DAYS).home.money >= 1000, `ended with ${Math.round(on(DAYS).home.money)}`);
+test('your money neither runs out nor runs away', () => {
+  // The town's own growth keeps two days of upkeep (at least $250) back. Seeds 1–4: lowest $509–$1,033,
+  // never a day under $250; highest about $10,000 (the start). (Without the reserve, seed 3 hit $0.)
+  assert.ok(low.home >= 100, `went down to ${Math.round(low.home)}`);
+  assert.ok(days.every((s) => s.home.money >= 250), 'a day ended under the $250 reserve');
   assert.ok(low.homeHigh <= 5 * START_MONEY.land, `piled up ${Math.round(low.homeHigh)}`);
 });
 

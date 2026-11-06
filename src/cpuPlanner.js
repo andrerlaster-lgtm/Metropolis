@@ -19,9 +19,9 @@
 // goal: { kind, type, cost, since } | null }.
 
 import { decisionById } from './decisions.js';
+import { upkeepReserve } from './growth.js';
 
 const LOG_KEEP = 12;
-const RESERVE_MIN = 250;
 const LOOK_EVERY = 20; // game seconds between looks at what the town needs most
 const SAVE_DAYS = 30; // never save for longer than this (at today's income); give up after 1.5× the plan
 // Essentials worth saving up for: growth demand → building.
@@ -51,8 +51,7 @@ export class CpuPlanner {
 
   // Money kept back: a couple of days of upkeep, and never less than a small float.
   reserve() {
-    const out = this.city.derived.economy?.totalOut || 0;
-    return Math.max(RESERVE_MIN, Math.round(out * 2));
+    return upkeepReserve(this.city);
   }
 
   // Called after the town's simulation has run for `step` game seconds.
