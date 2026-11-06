@@ -205,6 +205,8 @@ How the computer plays (`cpuPlanner.js`): it uses the same growth rules as a tow
 
 The world is saved inside your town's save (`city.systems.world`), so your save slots, exports and imports carry the neighbour too, and the save format version didn't change. A save from before the world existed gets a neighbour the first time it's opened; your town itself is left exactly as it was. More computer towns fit the same structure (`World.addNeighbour()` places them around yours); only one is created for now.
 
+**Settlements (rules only, not on screen yet).** `world.js` can found settlements of your own: once your town has 150 people, it pays a $3,000 charter (free in Sandbox) to found a small town on one of three free sites nearby (`World.sites()`, `canFound()`, `foundSettlement()`). The charter becomes the settlement's starting money. A settlement grows by itself, can build whatever your town has unlocked, shares the calendar and era, keeps its own budget, and is saved inside your town's save like the neighbour (`owner: 'colony'`). Money moves between your own towns with `World.transfer()`. You can have two settlements for now. They stay when rival towns are turned off, put none of their income into an army, and can't be attacked or reached by diplomacy. A version of the game from before settlements leaves their saved entries untouched. Building in a settlement and the World sheet's Found and Send money buttons come next.
+
 ## 3D view
 
 The 3D button opens the same town in 3D. It only reads the game: the simulation, autosave, Life Story and everything else keep running, and going back to the builder puts its camera where you were looking. You can't build in 3D; it's for looking around.

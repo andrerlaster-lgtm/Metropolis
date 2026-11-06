@@ -25522,18 +25522,24 @@ return { CpuPlanner, scoreChoice };
 const __mod_world = (() => {
 // The world: your town and its neighbours. Each town is a whole town of its own (its own map, people,
 // budget, era and simulation), placed side by side in one world with countryside between them.
-// Your town is run by you; neighbours are run by the computer (cpuPlanner.js). They share the calendar
-// and the clock, so day, night and the seasons are the same everywhere, and they never touch each
-// other's tiles, people or money.
+// Your town is run by you; neighbours are run by the computer (cpuPlanner.js). Once your town is big
+// enough you can found settlements of your own (owner 'colony'): small towns on free sites nearby, with
+// their own map, people and money, that grow by themselves and share your town's era and unlocked
+// buildings. Every town shares the calendar and the clock, so day, night and the seasons are the same
+// everywhere, and no town touches another's tiles or people; money moves between your own towns only
+// when you send it.
 //
 // Saved inside your town, in city.systems.world:
 //   { version, home: { name, at: { x, y } },
-//     cities: [{ id, name, owner: 'cpu', at: { x, y }, seed, data: <the town, as CityState.toJSON> }] }
+//     cities: [{ id, name, owner: 'cpu' | 'colony', at: { x, y }, seed, data: <the town, as CityState.toJSON> }],
+//     sites: [{ id, name, at: { x, y }, seed }] }   (free places a settlement can be founded)
 // `at` is where a town's top-left corner sits in world tiles. A save from before the world existed
 // gets a neighbour the first time it's opened; older versions of the game keep the data untouched.
 // More neighbours can be added with addNeighbour(). `rivals: false` in the saved world turns the computer's
 // towns off for this town: they aren't run or shown (their saved data is kept, so switching back on
 // restores them), no raids come and there is no diplomacy. Missing means on, so older saves are unchanged.
+// Settlements are yours, so they stay whether rivals are on or off. A version of the game from before
+// settlements keeps their entries in the save untouched (it only runs 'cpu' entries).
 
 const { CityState } = __mod_state;
 const { Simulation } = __mod_simulation;
@@ -25542,6 +25548,10 @@ const { CpuPlanner } = __mod_cpuPlanner;
 const WORLD_VERSION = 1;
 const NEIGHBOUR_SIZE = 32;
 const GAP = 8; // countryside between towns, in tiles
+// Founding a settlement: your town needs this many people, pays the charter (which becomes the new
+// town's starting money), and can have this many settlements at once. Sites on offer at a time: SITES.
+const SETTLE = { population: 150, charter: 3000, max: 2 };
+const SITES = 3;
 const MIN_SIZE = 8;
 const MAX_SIZE = 128;
 
@@ -25588,8 +25598,19 @@ class World {
     this.load();
   }
 
+  // The computer's towns.
   get neighbours() {
-    return this.cities.filter((c) => c.owner !== 'player');
+    return this.cities.filter((c) => c.owner === 'cpu');
+  }
+
+  // Your settlements (not counting your first town).
+  get settlements() {
+    return this.cities.filter((c) => c.owner === 'colony');
+  }
+
+  // Is this one of your towns (your first town or a settlement)?
+  isYours(c) {
+    return !!c && (c.owner === 'player' || c.owner === 'colony');
   }
 
   byId(id) {
@@ -25604,16 +25625,19 @@ class World {
     const st = home.systems.world;
     st.version = WORLD_VERSION;
     this.cities = [{ id: 'home', owner: 'player', entry: st.home, city: home, sim: this.homeSim, planner: null }];
-    for (const e of st.rivals === false ? [] : st.cities) {
-      if (!e || typeof e !== 'object' || e.owner !== 'cpu') continue; // kinds a later version may add are kept, not run
-      this.cities.push(this.open(e));
+    for (const e of st.cities) {
+      if (!e || typeof e !== 'object') continue;
+      // Kinds a later version may add are kept in the save, not run.
+      if (e.owner === 'cpu' && st.rivals !== false) this.cities.push(this.open(e));
+      else if (e.owner === 'colony') this.cities.push(this.open(e, 'colony'));
     }
     if (st.rivals !== false && !this.neighbours.length) this.addNeighbour();
   }
 
-  // A computer-run town from its saved entry, or founded fresh if it has none (or it's unreadable).
-  open(e) {
-    if (typeof e.id !== 'string') e.id = `cpu-${this.cities.length}`;
+  // A town from its saved entry, or founded fresh if it has none (or it's unreadable): run by the
+  // computer ('cpu'), or one of your settlements ('colony').
+  open(e, owner = 'cpu') {
+    if (typeof e.id !== 'string') e.id = `${owner}-${this.cities.length}`;
     if (typeof e.name !== 'string' || !e.name) e.name = townName(this.rand, this.cities.map((c) => c.entry.name));
     if (!validAt(e.at)) e.at = this.freeSpot(NEIGHBOUR_SIZE);
     if (!finite(e.seed)) e.seed = Math.floor(this.rand() * 2 ** 31);
@@ -25628,12 +25652,13 @@ class World {
     }
     const sim = new Simulation(city || new CityState(NEIGHBOUR_SIZE, NEIGHBOUR_SIZE));
     if (!city) this.found(sim, e);
+    if (!city && owner === 'colony') this.settle(sim);
     sim.city.day = this.home.day;
     sim.city.clock = this.home.clock;
     sim.agentsActive = false; // walkers and cars only while someone is looking
     sim.refreshEvery = 2.5; // jobs, traffic and appeal are refreshed every 2.5 game seconds, not every one
     sim.refresh();
-    const planner = new CpuPlanner(sim);
+    const planner = owner === 'cpu' ? new CpuPlanner(sim) : null;
     // The saved entry always holds the town as it is now (read when the save is written).
     Object.defineProperty(e, 'data', {
       get: () => sim.city.toJSON(),
@@ -25641,7 +25666,17 @@ class World {
       enumerable: true,
       configurable: true,
     });
-    return { id: e.id, owner: 'cpu', entry: e, city: sim.city, sim, planner };
+    return { id: e.id, owner, entry: e, city: sim.city, sim, planner };
+  }
+
+  // A new settlement of yours: it builds in your town's mode (Sandbox or Milestones), grows by itself,
+  // starts with the charter as its money, and knows what your town knows.
+  settle(sim) {
+    const city = sim.city;
+    city.systems.mode = this.home.systems.mode === 'sandbox' ? 'sandbox' : 'milestones';
+    sim.economy.state.money = SETTLE.charter;
+    sim.growth.on = true;
+    sim.milestones.settle(this.homeSim.milestones.reached);
   }
 
   // A small settlement: a crossroads with a few homes, the land's starting budget, and the same
@@ -25684,9 +25719,15 @@ class World {
 
   // Beside your town: east, south, west, north, then further out.
   freeSpot(size) {
+    return this.freeSpots(size, 1)[0] || { x: this.home.width + GAP, y: 0 };
+  }
+
+  // Up to `n` places a town of `size` fits without overlapping another town (or `besides`, more places).
+  freeSpots(size, n, besides = []) {
     const h = this.home;
-    const taken = this.cities.filter((c) => c.owner !== 'player').map((c) => c.entry.at);
-    for (let ring = 1; ring < 8; ring++) {
+    const taken = [...this.cities.filter((c) => c.owner !== 'player').map((c) => c.entry.at), ...besides];
+    const out = [];
+    for (let ring = 1; ring < 8 && out.length < n; ring++) {
       const d = ring * GAP + (ring - 1) * size;
       const spots = [
         { x: h.width + d, y: Math.round((h.height - size) / 2) },
@@ -25694,21 +25735,86 @@ class World {
         { x: -size - d, y: Math.round((h.height - size) / 2) },
         { x: Math.round((h.width - size) / 2), y: -size - d },
       ];
-      const free = spots.find((p) => !taken.some((t) => t && Math.abs(t.x - p.x) < size && Math.abs(t.y - p.y) < size));
-      if (free) return free;
+      for (const p of spots) {
+        if (out.length >= n) break;
+        if (![...taken, ...out].some((t) => t && Math.abs(t.x - p.x) < size && Math.abs(t.y - p.y) < size)) out.push(p);
+      }
     }
-    return { x: h.width + GAP, y: 0 };
+    return out;
   }
 
-  // Run every neighbour for the same time as your town, then keep the shared clock in step.
+  // ---- Settlements ----------------------------------------------------------------------------
+
+  // The free sites on offer, kept in the save so they stay the same until one is used or built over.
+  sites() {
+    const st = this.state;
+    const towns = this.cities.filter((c) => c.owner !== 'player').map((c) => c.entry.at);
+    const overlaps = (a) => towns.some((t) => Math.abs(t.x - a.x) < NEIGHBOUR_SIZE && Math.abs(t.y - a.y) < NEIGHBOUR_SIZE);
+    st.sites = (Array.isArray(st.sites) ? st.sites : []).filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && validAt(x.at) && finite(x.seed) && !overlaps(x.at));
+    const names = () => [...this.cities.map((c) => c.entry.name), ...st.sites.map((x) => x.name)];
+    for (const at of this.freeSpots(NEIGHBOUR_SIZE, SITES - st.sites.length, st.sites.map((x) => x.at))) {
+      let id = `site-${(st.siteCount = (st.siteCount || 0) + 1)}`;
+      while (st.sites.some((x) => x.id === id)) id += '+';
+      st.sites.push({ id, name: townName(this.rand, names()), at, seed: Math.floor(this.rand() * 2 ** 31) });
+    }
+    return st.sites.map((x) => ({ ...x, at: { ...x.at } }));
+  }
+
+  // Can your town found a settlement now? { ok, reason } (reason says what's missing, in plain words).
+  canFound() {
+    const pop = this.home.stats.population || 0;
+    const sandbox = this.home.systems.mode === 'sandbox';
+    if (this.settlements.length >= SETTLE.max) return { ok: false, reason: `You have ${SETTLE.max} settlements already, the most for now` };
+    if (pop < SETTLE.population) return { ok: false, reason: `Your town needs ${SETTLE.population} people to found a settlement (it has ${pop})` };
+    if (!sandbox && this.homeSim.economy.money < SETTLE.charter) return { ok: false, reason: `A settlement's charter costs $${SETTLE.charter.toLocaleString('en-US')}; your town has $${Math.floor(this.homeSim.economy.money).toLocaleString('en-US')}` };
+    return { ok: true, reason: '' };
+  }
+
+  // Found a settlement on one of the sites(): your town pays the charter and the new town starts with it.
+  // Returns the new town, or null if it can't be done (see canFound()) or the site isn't on offer.
+  foundSettlement(siteId, { name } = {}) {
+    if (!this.canFound().ok) return null;
+    const st = this.state;
+    const site = this.sites().find((x) => x.id === siteId);
+    if (!site) return null;
+    const n = (st.colonyCount = (st.colonyCount || 0) + 1);
+    let id = `colony-${n}`;
+    while (this.byId(id) || st.cities.some((e) => e?.id === id)) id += '+';
+    const e = { id, name: (typeof name === 'string' && name.trim().slice(0, 40)) || site.name, owner: 'colony', at: site.at, seed: site.seed, founded: this.home.day };
+    e.data = null;
+    if (this.home.systems.mode !== 'sandbox') this.homeSim.economy.state.money -= SETTLE.charter;
+    st.sites = st.sites.filter((x) => x.id !== siteId);
+    st.cities.push(e);
+    const c = this.open(e, 'colony');
+    this.cities.push(c);
+    this.home.dirty = true;
+    return c;
+  }
+
+  // Send money from one of your towns to another. Returns the amount sent (0 if it can't be).
+  transfer(fromId, toId, amount) {
+    const from = this.byId(fromId);
+    const to = this.byId(toId);
+    if (!this.isYours(from) || !this.isYours(to) || from === to || from.sim.economy.sandbox) return 0;
+    const sum = Math.floor(Math.min(Number(amount) || 0, from.sim.economy.money));
+    if (!(sum > 0)) return 0;
+    from.sim.economy.state.money -= sum;
+    to.sim.economy.state.money += sum;
+    this.home.dirty = true;
+    return sum;
+  }
+
+  // Run every other town for the same time as yours, then keep the shared clock in step.
   update(dt, speed) {
     for (const c of this.cities) {
-      if (!c.planner) continue;
+      if (c.owner === 'player') continue;
       c.sim.speed = speed;
       c.sim.update(dt);
       c.city.day = this.home.day;
       c.city.clock = this.home.clock;
-      c.planner.update(Math.min(dt, 0.25) * speed);
+      if (c.planner) c.planner.update(Math.min(dt, 0.25) * speed);
+      // A settlement can build whatever your town has unlocked.
+      else c.sim.milestones.settle(this.homeSim.milestones.reached);
     }
   }
 
@@ -25723,7 +25829,7 @@ class World {
   }
 }
 
-return { WORLD_VERSION, NEIGHBOUR_SIZE, townName, World };
+return { WORLD_VERSION, NEIGHBOUR_SIZE, SETTLE, townName, World };
 })();
 
 // ---- startMenu.js ----
@@ -26602,7 +26708,7 @@ class WorldPanel {
         <div class="wt-actions">
           <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : 'Watch'}</button>
           <button type="button" class="pill" data-view3d="${esc(c.id)}">See in 3D</button>
-          ${c.owner !== 'player' && this.h.onDiplomacy ? `<button type="button" class="pill" data-diplo="${esc(c.id)}">Diplomacy</button>` : ''}
+          ${c.owner === 'cpu' && this.h.onDiplomacy ? `<button type="button" class="pill" data-diplo="${esc(c.id)}">Diplomacy</button>` : ''}
         </div>
       </article>`
       )
@@ -28395,10 +28501,12 @@ class WarRoom {
       const fresh = !c.city.systems.military;
       c.military = new Military(c.city, { economy: c.sim.economy, rand: this.rand, starter: 3 });
       const st = c.military.state;
-      if (fresh && c.owner !== 'player') {
+      if (fresh && c.owner === 'cpu') {
         st.share = CPU_SHARE;
         st.funds = CPU_FUNDS;
       }
+      // Settlements aren't at war (yet): none of their income goes to an army.
+      if (fresh && c.owner === 'colony') st.share = 0;
     }
     // A treaty may cap a town's army for a while.
     for (const c of this.world.cities) c.military.limit = () => this.diplomacy.armyLimit(c.owner === 'player' ? 'home' : c.id);
@@ -28594,7 +28702,7 @@ class WarRoom {
 
   attackError(c, opts = {}) {
     if (this.busy) return 'Finish the battle at hand first';
-    if (!c || c.owner === 'player') return 'Pick a town to attack';
+    if (!c || c.owner !== 'cpu') return 'Pick a town to attack';
     if (!this.diplomacy.atWar(c.id)) return `You are not at war with ${c.entry.name}. Declare war in Diplomacy first`;
     const t = nowOf(this.home.city);
     const st = this.military.state;

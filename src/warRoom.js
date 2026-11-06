@@ -74,10 +74,12 @@ export class WarRoom {
       const fresh = !c.city.systems.military;
       c.military = new Military(c.city, { economy: c.sim.economy, rand: this.rand, starter: 3 });
       const st = c.military.state;
-      if (fresh && c.owner !== 'player') {
+      if (fresh && c.owner === 'cpu') {
         st.share = CPU_SHARE;
         st.funds = CPU_FUNDS;
       }
+      // Settlements aren't at war (yet): none of their income goes to an army.
+      if (fresh && c.owner === 'colony') st.share = 0;
     }
     // A treaty may cap a town's army for a while.
     for (const c of this.world.cities) c.military.limit = () => this.diplomacy.armyLimit(c.owner === 'player' ? 'home' : c.id);
@@ -273,7 +275,7 @@ export class WarRoom {
 
   attackError(c, opts = {}) {
     if (this.busy) return 'Finish the battle at hand first';
-    if (!c || c.owner === 'player') return 'Pick a town to attack';
+    if (!c || c.owner !== 'cpu') return 'Pick a town to attack';
     if (!this.diplomacy.atWar(c.id)) return `You are not at war with ${c.entry.name}. Declare war in Diplomacy first`;
     const t = nowOf(this.home.city);
     const st = this.military.state;
