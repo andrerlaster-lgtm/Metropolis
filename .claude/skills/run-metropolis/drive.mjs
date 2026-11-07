@@ -117,6 +117,52 @@ async function run(device, options) {
     await step(tag('close 3D town'), () => page.evaluate(() => window.pocketMetropolis.close3D()));
   }
 
+  // A settlement (after the 3D town is measured, so the budgets above are for one town as before):
+  // found one, go there from the World sheet, build a road with a click and check the settlement paid.
+  if (device === 'desktop') {
+    await step(tag('found and build in a settlement'), async () => {
+      const id = await page.evaluate(() => {
+        const pm = window.pocketMetropolis;
+        pm.sim.economy.state.money = Math.max(pm.sim.economy.money, 20000);
+        pm.city.stats.population = Math.max(pm.city.stats.population || 0, 150);
+        return pm.world.foundSettlement(pm.world.sites()[0].id)?.id;
+      });
+      if (!id) throw new Error('no settlement was founded');
+      await page.click('#btn-world');
+      await page.locator(`[data-view="${id}"]`).click();
+      await page.waitForFunction((id) => window.pocketMetropolis.viewing.id === id, id);
+      await page.waitForTimeout(1200);
+      await shot('4b-settlement');
+      const t = await page.evaluate(() => {
+        const pm = window.pocketMetropolis;
+        const c = pm.viewing.city;
+        pm.ui.setTool('road');
+        for (const r of c.tiles.filter((x) => x.structure?.type === 'road')) {
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const g = c.getTile(r.x + dx, r.y + dy);
+            if (!g || g.terrain !== 'grass' || g.structure || !c.canApply('road', g.x, g.y)) continue;
+            const cam = pm.camera;
+            const wx = (g.x - g.y) * 32; // tile centre in world pixels (iso.js: 64 × 32 tiles)
+            const wy = (g.x + g.y + 1) * 16;
+            return { x: g.x, y: g.y, sx: (wx - cam.x) * cam.zoom + cam.viewW / 2, sy: (wy - cam.y) * cam.zoom + cam.viewH / 2, money: pm.viewing.sim.economy.money };
+          }
+        }
+        return null;
+      });
+      if (!t) throw new Error('no free tile beside the settlement’s roads');
+      await page.mouse.click(t.sx, t.sy);
+      await page.waitForTimeout(600);
+      const after = await page.evaluate(([x, y]) => ({ road: window.pocketMetropolis.viewing.city.getTile(x, y).structure?.type, money: window.pocketMetropolis.viewing.sim.economy.money }), [t.x, t.y]);
+      if (after.road !== 'road') throw new Error('a click didn’t build a road in the settlement');
+      if (!(after.money < t.money)) throw new Error('the settlement didn’t pay for its road');
+      await page.evaluate(() => {
+        const pm = window.pocketMetropolis;
+        pm.ui.setTool('inspect');
+        pm.showTown(pm.world.cities[0], { immediate: true });
+      });
+    });
+  }
+
   // The military base, with one of each defence so every model is drawn.
   if (await step(tag('open military base'), async () => {
     await page.evaluate(async () => {
