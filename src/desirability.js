@@ -9,6 +9,7 @@
 import { STRUCTURES, SERVICES, REPUTATION, SUPPLY_BONUS } from './config.js';
 import { WALK_COMFORT, WALK_MAX } from './labor.js';
 import { clamp } from './utils.js';
+import { landEffects } from './land.js';
 
 const BASE = 0.28;
 
@@ -43,7 +44,11 @@ export const FACTORS = [
     enabled: true,
     layout: true,
     reach: 2,
-    compute: (city, tile) => Math.min(0.08, sumAround(city, tile, 2, (n) => (n.terrain === 'water' ? 0.04 : 0))),
+    // A river valley's riverside is worth more (land.js).
+    compute: (city, tile) => {
+      const k = landEffects(city).waterView;
+      return Math.min(0.08 * k, sumAround(city, tile, 2, (n) => (n.terrain === 'water' ? 0.04 * k : 0)));
+    },
   },
   {
     id: 'access',

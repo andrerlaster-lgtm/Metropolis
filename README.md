@@ -205,7 +205,19 @@ How the computer plays (`cpuPlanner.js`): it uses the same growth rules as a tow
 
 The world is saved inside your town's save (`city.systems.world`), so your save slots, exports and imports carry the neighbour too, and the save format version didn't change. A save from before the world existed gets a neighbour the first time it's opened; your town itself is left exactly as it was. More computer towns fit the same structure (`World.addNeighbour()` places them around yours); only one is created for now.
 
-**Settlements (rules only, not on screen yet).** `world.js` can found settlements of your own: once your town has 150 people, it pays a $3,000 charter (free in Sandbox) to found a small town on one of three free sites nearby (`World.sites()`, `canFound()`, `foundSettlement()`). The charter becomes the settlement's starting money. A settlement grows by itself, can build whatever your town has unlocked, shares the calendar and era, keeps its own budget, and is saved inside your town's save like the neighbour (`owner: 'colony'`). Money moves between your own towns with `World.transfer()`. You can have two settlements for now. They stay when rival towns are turned off, put none of their income into an army, and can't be attacked or reached by diplomacy. A version of the game from before settlements leaves their saved entries untouched. Building in a settlement and the World sheet's Found and Send money buttons come next.
+**Settlements (rules only, not on screen yet).** `world.js` can found settlements of your own: once your town has 150 people, it pays a $3,000 charter (free in Sandbox) to found a small town on one of three free sites nearby (`World.sites()`, `canFound()`, `foundSettlement()`). The charter becomes the settlement's starting money. A settlement grows by itself, can build whatever your town has unlocked, shares the calendar and era, keeps its own budget, and is saved inside your town's save like the neighbour (`owner: 'colony'`). Money moves between your own towns with `World.transfer()`. You can have two settlements for now. They stay when rival towns are turned off, put none of their income into an army, and can't be attacked or reached by diplomacy. A version of the game from before settlements leaves their saved entries untouched. **Land (rules only, not on screen yet).** The country around your town is laid out once from a saved seed (`src/land.js`, `World.landSeed`), so it never changes. Every free site stands on one of five kinds of land, and a settlement's ground is shaped to it after the usual crossroads start:
+
+| Land | Plus | Minus |
+|---|---|---|
+| River valley | Farms make 25% more food; riverside land is worth half as much again | Floods come twice as often |
+| Coast (sea along one edge) | Businesses pay 15% more tax | Storms and hurricanes half as likely again, and 20% harder |
+| Forest (thick woods) | Building costs 15% less | The town grows 15% slower |
+| Plains (no river or pond) | The town grows 20% faster | No water views |
+| Rocky uplands (no river or pond) | No floods; buildings take 30% less damage | Building costs 15% more; the town grows 15% slower |
+
+The three sites on offer show as many kinds of land as the country nearby has, nearest first. The charter is $3,000 beside your town and $25 more for each tile further out. A town's land is saved in `city.systems.land`. Only settlements have one: your first town, the computer's towns and every older save have no land effects and play exactly as before (`landOf()` still names their land from their map, for labels).
+
+Building in a settlement and the World sheet's Found and Send money buttons come next.
 
 ## 3D view
 

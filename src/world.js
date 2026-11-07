@@ -10,7 +10,10 @@
 // Saved inside your town, in city.systems.world:
 //   { version, home: { name, at: { x, y } },
 //     cities: [{ id, name, owner: 'cpu' | 'colony', at: { x, y }, seed, data: <the town, as CityState.toJSON> }],
-//     sites: [{ id, name, at: { x, y }, seed }] }   (free places a settlement can be founded)
+//     sites: [{ id, name, at: { x, y }, seed, land }],   (free places a settlement can be founded)
+//     landSeed }   (lays out the land of the whole world, land.js: chosen once, so the map never changes)
+// Each site stands on a land type (river valley, coast, forest, plains, rocky uplands) with its own pluses
+// and minuses, and a settlement's ground is shaped to it. A site further from your town costs more to found.
 // `at` is where a town's top-left corner sits in world tiles. A save from before the world existed
 // gets a neighbour the first time it's opened; older versions of the game keep the data untouched.
 // More neighbours can be added with addNeighbour(). `rivals: false` in the saved world turns the computer's
@@ -23,13 +26,16 @@ import { CityState } from './state.js';
 import { Simulation } from './simulation.js';
 import { generateSeed } from './generator.js';
 import { CpuPlanner } from './cpuPlanner.js';
+import { mulberry32 } from './utils.js';
+import { landAt, landOf, shapeLand, LANDS } from './land.js';
 
 export const WORLD_VERSION = 1;
 export const NEIGHBOUR_SIZE = 32;
 const GAP = 8; // countryside between towns, in tiles
 // Founding a settlement: your town needs this many people, pays the charter (which becomes the new
 // town's starting money), and can have this many settlements at once. Sites on offer at a time: SITES.
-export const SETTLE = { population: 150, charter: 3000, max: 2 };
+export const SETTLE = { population: 150, charter: 3000, max: 2, perTile: 25 };
+const NEAREST = NEIGHBOUR_SIZE / 2 + GAP + NEIGHBOUR_SIZE / 2; // centre to centre, the closest a site can be
 const SITES = 3;
 const MIN_SIZE = 8;
 const MAX_SIZE = 128;
@@ -131,7 +137,7 @@ export class World {
     }
     const sim = new Simulation(city || new CityState(NEIGHBOUR_SIZE, NEIGHBOUR_SIZE));
     if (!city) this.found(sim, e);
-    if (!city && owner === 'colony') this.settle(sim);
+    if (!city && owner === 'colony') this.settle(sim, e);
     sim.city.day = this.home.day;
     sim.city.clock = this.home.clock;
     sim.agentsActive = false; // walkers and cars only while someone is looking
@@ -150,10 +156,13 @@ export class World {
 
   // A new settlement of yours: it builds in your town's mode (Sandbox or Milestones), grows by itself,
   // starts with the charter as its money, and knows what your town knows.
-  settle(sim) {
+  settle(sim, e) {
     const city = sim.city;
+    const land = LANDS[e.land] ? e.land : this.landAtSpot(e.at);
+    e.land = land;
+    shapeLand(city, land, e.seed >>> 0);
     city.systems.mode = this.home.systems.mode === 'sandbox' ? 'sandbox' : 'milestones';
-    sim.economy.state.money = SETTLE.charter;
+    sim.economy.state.money = finite(e.charter) ? e.charter : SETTLE.charter;
     sim.growth.on = true;
     sim.milestones.settle(this.homeSim.milestones.reached);
   }
@@ -224,48 +233,101 @@ export class World {
 
   // ---- Settlements ----------------------------------------------------------------------------
 
+  // The seed that lays out the world's land (land.js), chosen the first time it's needed and saved.
+  get landSeed() {
+    const st = this.state;
+    if (!finite(st.landSeed)) st.landSeed = Math.floor(this.rand() * 2 ** 31);
+    return st.landSeed;
+  }
+
+  // The land type under a town-sized spot (its middle), and the land of a town that stands somewhere.
+  landAtSpot(at, size = NEIGHBOUR_SIZE) {
+    return landAt(this.landSeed, at.x + size / 2, at.y + size / 2);
+  }
+
+  landOf(c) {
+    return landOf(c.city);
+  }
+
+  // The charter for a site: $3,000 beside your town, $25 more for every tile further out.
+  charterFor(at, size = NEIGHBOUR_SIZE) {
+    const h = this.home;
+    const d = Math.hypot(at.x + size / 2 - h.width / 2, at.y + size / 2 - h.height / 2);
+    return Math.round((SETTLE.charter + SETTLE.perTile * Math.max(0, d - NEAREST)) / 100) * 100;
+  }
+
   // The free sites on offer, kept in the save so they stay the same until one is used or built over.
+  // As many different kinds of land as the country nearby has, nearest first. Each comes with its
+  // land type and charter.
   sites() {
     const st = this.state;
     const towns = this.cities.filter((c) => c.owner !== 'player').map((c) => c.entry.at);
-    const overlaps = (a) => towns.some((t) => Math.abs(t.x - a.x) < NEIGHBOUR_SIZE && Math.abs(t.y - a.y) < NEIGHBOUR_SIZE);
-    st.sites = (Array.isArray(st.sites) ? st.sites : []).filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && validAt(x.at) && finite(x.seed) && !overlaps(x.at));
+    const clash = (a, b) => Math.abs(a.x - b.x) < NEIGHBOUR_SIZE && Math.abs(a.y - b.y) < NEIGHBOUR_SIZE;
+    st.sites = (Array.isArray(st.sites) ? st.sites : []).filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && validAt(x.at) && finite(x.seed) && !towns.some((t) => clash(t, x.at)));
+    for (const x of st.sites) if (!LANDS[x.land]) x.land = this.landAtSpot(x.at);
     const names = () => [...this.cities.map((c) => c.entry.name), ...st.sites.map((x) => x.name)];
-    for (const at of this.freeSpots(NEIGHBOUR_SIZE, SITES - st.sites.length, st.sites.map((x) => x.at))) {
-      let id = `site-${(st.siteCount = (st.siteCount || 0) + 1)}`;
-      while (st.sites.some((x) => x.id === id)) id += '+';
-      st.sites.push({ id, name: townName(this.rand, names()), at, seed: Math.floor(this.rand() * 2 ** 31) });
+    const want = SITES - st.sites.length;
+    if (want > 0) {
+      const spots = this.freeSpots(NEIGHBOUR_SIZE, 16, st.sites.map((x) => x.at)).map((at) => ({ at, land: this.landAtSpot(at) }));
+      const picked = [];
+      const free = (p) => ![...st.sites.map((x) => x.at), ...picked.map((k) => k.at)].some((t) => clash(t, p.at));
+      // First the nearest spot of each kind of land not on offer yet, then the nearest of the rest.
+      const seen = new Set(st.sites.map((x) => x.land));
+      for (const p of spots) {
+        if (picked.length < want && !seen.has(p.land) && free(p)) {
+          seen.add(p.land);
+          picked.push(p);
+        }
+      }
+      for (const p of spots) if (picked.length < want && !picked.includes(p) && free(p)) picked.push(p);
+      // Each new site's name and seed follow from the world's land seed and its number, so the same
+      // world always offers the same sites, saved or not.
+      for (const p of picked) {
+        const n = (st.siteCount = (st.siteCount || 0) + 1);
+        let id = `site-${n}`;
+        while (st.sites.some((x) => x.id === id)) id += '+';
+        const rand = mulberry32((this.landSeed + Math.imul(n, 0x9e3779b1)) >>> 0);
+        st.sites.push({ id, name: townName(rand, names()), at: p.at, seed: Math.floor(rand() * 2 ** 31), land: p.land });
+      }
     }
-    return st.sites.map((x) => ({ ...x, at: { ...x.at } }));
+    return st.sites
+      .map((x) => ({ ...x, at: { ...x.at }, charter: this.charterFor(x.at) }))
+      .sort((a, b) => a.charter - b.charter || a.id.localeCompare(b.id));
   }
 
-  // Can your town found a settlement now? { ok, reason } (reason says what's missing, in plain words).
-  canFound() {
+  // Can your town found a settlement now (on this site, or on the cheapest one on offer)?
+  // { ok, reason } (reason says what's missing, in plain words).
+  canFound(siteId = null) {
     const pop = this.home.stats.population || 0;
     const sandbox = this.home.systems.mode === 'sandbox';
     if (this.settlements.length >= SETTLE.max) return { ok: false, reason: `You have ${SETTLE.max} settlements already, the most for now` };
     if (pop < SETTLE.population) return { ok: false, reason: `Your town needs ${SETTLE.population} people to found a settlement (it has ${pop})` };
-    if (!sandbox && this.homeSim.economy.money < SETTLE.charter) return { ok: false, reason: `A settlement's charter costs $${SETTLE.charter.toLocaleString('en-US')}; your town has $${Math.floor(this.homeSim.economy.money).toLocaleString('en-US')}` };
+    const sites = this.sites();
+    const site = siteId ? sites.find((x) => x.id === siteId) : sites[0];
+    if (!site) return { ok: false, reason: siteId ? 'That site is no longer free' : 'There is no free land nearby' };
+    const money = this.homeSim.economy.money;
+    if (!sandbox && money < site.charter) return { ok: false, reason: `A settlement's charter ${siteId ? 'here ' : ''}costs $${site.charter.toLocaleString('en-US')}; your town has $${Math.floor(money).toLocaleString('en-US')}` };
     return { ok: true, reason: '' };
   }
 
   // Found a settlement on one of the sites(): your town pays the charter and the new town starts with it.
   // Returns the new town, or null if it can't be done (see canFound()) or the site isn't on offer.
   foundSettlement(siteId, { name } = {}) {
-    if (!this.canFound().ok) return null;
+    if (!this.canFound(siteId).ok) return null;
     const st = this.state;
     const site = this.sites().find((x) => x.id === siteId);
     if (!site) return null;
     const n = (st.colonyCount = (st.colonyCount || 0) + 1);
     let id = `colony-${n}`;
     while (this.byId(id) || st.cities.some((e) => e?.id === id)) id += '+';
-    const e = { id, name: (typeof name === 'string' && name.trim().slice(0, 40)) || site.name, owner: 'colony', at: site.at, seed: site.seed, founded: this.home.day };
+    const e = { id, name: (typeof name === 'string' && name.trim().slice(0, 40)) || site.name, owner: 'colony', at: site.at, seed: site.seed, land: site.land, charter: site.charter, founded: this.home.day };
     e.data = null;
-    if (this.home.systems.mode !== 'sandbox') this.homeSim.economy.state.money -= SETTLE.charter;
+    if (this.home.systems.mode !== 'sandbox') this.homeSim.economy.state.money -= site.charter;
     st.sites = st.sites.filter((x) => x.id !== siteId);
     st.cities.push(e);
     const c = this.open(e, 'colony');
     this.cities.push(c);
+    this.sites(); // another site takes this one's place straight away
     this.home.dirty = true;
     return c;
   }

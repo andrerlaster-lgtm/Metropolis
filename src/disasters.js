@@ -21,6 +21,7 @@ import { seasonFor } from './weather.js';
 import { addChronicle } from './chronicle.js';
 import { yearOf } from './eras.js';
 import { clamp, pickWeighted } from './utils.js';
+import { disasterOdds, landEffects } from './land.js';
 
 export const LEVELS = { off: 0, gentle: 1, wild: 2.6 };
 
@@ -141,7 +142,7 @@ export class Disasters {
     for (const [kind, p] of Object.entries(odds)) {
       if (KINDS[kind].severity === 'extreme' && !canExtreme) continue;
       if ((kind === 'flood' || kind === 'hurricane') && !hasWater) continue;
-      if (this.rng() < p * mult) return kind;
+      if (this.rng() < p * mult * disasterOdds(this.city, kind)) return kind; // the land makes some likelier (land.js)
     }
     return null;
   }
@@ -350,6 +351,7 @@ export class Disasters {
     const flood = cause === 'flood' || cause === 'washed';
     const burn = cause === 'fire' || cause === 'lightning';
     amount *= flood ? sk.flood ?? 1 : burn ? sk.fire ?? 1 : sk.damage ?? 1;
+    amount *= landEffects(city).damage; // a coast's storms hit harder; stone upland buildings stand firmer (land.js)
     if (s.type === 'road') {
       s.damage = clamp((s.damage || 0) + amount, 0, 1);
       if (s.damage >= 0.5 && !s.broken) {
