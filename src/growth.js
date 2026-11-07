@@ -25,6 +25,7 @@ import { DIRS } from './state.js';
 import { buildsFor } from './eras.js';
 import { clamp, pickWeighted } from './utils.js';
 import { addChronicle } from './chronicle.js';
+import { landEffects } from './land.js';
 
 export const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
@@ -102,7 +103,8 @@ export class Growth {
     // A well-thought-of town draws newcomers too: up to 15% faster or slower (see reputation.js).
     const name = 1 + ((this.city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.growth;
     const plan = this.city.derived.skills?.growth ?? 1; // Land office, Boom town (skills.js)
-    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout * name * plan;
+    const land = landEffects(this.city).growth; // open plains grow faster, rocky uplands slower (land.js)
+    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout * name * plan * land;
   }
 
   boost(mult, days, label) {

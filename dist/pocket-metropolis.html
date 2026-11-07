@@ -6191,6 +6191,176 @@ function addChronicle(city, text, at = null, kind = 'note') {
 return { addChronicle };
 })();
 
+// ---- land.js ----
+const __mod_land = (() => {
+// Land: the kind of country a town stands on, Civ-style. The world around your town is laid out once
+// from a seed (landAt), so every free site sits on a land type you can see before you settle there,
+// and each type has pluses and minuses that change how the town plays:
+//
+//   River valley   farms make more food, riverside land is worth more   |  floods come more often
+//   Coast          trade: businesses pay more tax                        |  storms and hurricanes are likelier and hit harder
+//   Forest         timber: building costs less                           |  thick woods: the town grows slower
+//   Plains         lots of open land: the town grows fastest             |  no river or pond, so no water views
+//   Rocky uplands  no floods, and stone makes buildings sturdier         |  building costs more, the town grows slower
+//
+// A town's land is saved in city.systems.land = { type } when a settlement is founded. Towns without it
+// (your first town, the computer's towns, every save from before this) play exactly as before:
+// landEffects() gives them no effects at all. landOf() still names their land from what's on their map,
+// for the world map's labels.
+//
+// Effects (all multipliers, 1 = unchanged), read straight from the town's saved land wherever they apply:
+//   buildCost (economy costOf), businessTax (economy, via Simulation.applyNotables), growth (Growth.rate),
+//   food (resources: food made), waterView (desirability: water views), disaster[kind] (chance of each
+//   disaster), damage (how hard disasters hit buildings).
+
+const { mulberry32 } = __mod_utils;
+const LANDS = {
+  river: {
+    label: 'River valley',
+    plus: 'Farms make 25% more food, and riverside land is worth more',
+    minus: 'Floods come twice as often',
+    fx: { food: 1.25, waterView: 1.5, disaster: { flood: 2 } },
+  },
+  coast: {
+    label: 'Coast',
+    plus: 'Trade by sea: businesses pay 15% more tax',
+    minus: 'Storms and hurricanes come half as often again, and hit 20% harder',
+    fx: { businessTax: 1.15, disaster: { storm: 1.5, hurricane: 1.5 }, damage: 1.2 },
+  },
+  forest: {
+    label: 'Forest',
+    plus: 'Timber close at hand: building costs 15% less',
+    minus: 'Thick woods slow new building: the town grows 15% slower',
+    fx: { buildCost: 0.85, growth: 0.85 },
+  },
+  plains: {
+    label: 'Plains',
+    plus: 'Wide open land: the town grows 20% faster',
+    minus: 'No river or pond, so no water views',
+    fx: { growth: 1.2 },
+  },
+  uplands: {
+    label: 'Rocky uplands',
+    plus: 'No floods, and stone buildings take 30% less damage',
+    minus: 'Building costs 15% more, and the town grows 15% slower',
+    fx: { buildCost: 1.15, growth: 0.85, damage: 0.7, disaster: { flood: 0, hurricane: 0 } },
+  },
+};
+const LAND_TYPES = Object.keys(LANDS);
+
+const NONE = Object.freeze({ buildCost: 1, businessTax: 1, growth: 1, food: 1, waterView: 1, damage: 1, disaster: Object.freeze({}) });
+
+// The effects a town's land has on it (none for a town without saved land).
+function landEffects(city) {
+  const def = LANDS[city?.systems?.land?.type];
+  if (!def) return NONE;
+  return { ...NONE, ...def.fx, disaster: { ...(def.fx.disaster || {}) } };
+}
+
+// A disaster's chance multiplier for this town (1 when its land says nothing about that kind).
+function disasterOdds(city, kind) {
+  return landEffects(city).disaster[kind] ?? 1;
+}
+
+// What land a town stands on: its saved land, or (for a town without one) read from its map.
+function landOf(city) {
+  const saved = city?.systems?.land?.type;
+  if (LANDS[saved]) return saved;
+  const tiles = city?.tiles || [];
+  const water = tiles.filter((t) => t.terrain === 'water').length;
+  const trees = tiles.filter((t) => t.structure?.type === 'tree').length;
+  if (water > tiles.length * 0.12) return 'coast';
+  if (water > 0) return 'river';
+  if (trees > tiles.length * 0.25) return 'forest';
+  return 'plains';
+}
+
+// ---- The world's land ------------------------------------------------------------------------
+// Smooth value noise over the world, in cells of CELL tiles: neighbouring places tend to share a land
+// type, as real country does, and the same seed always gives the same map.
+const CELL = 24;
+const hash = (seed, x, y) => {
+  let h = (seed ^ Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+  h = Math.imul(h ^ (h >>> 12), 0x297a2d39) >>> 0;
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+};
+const smooth = (t) => t * t * (3 - 2 * t);
+function noise(seed, x, y) {
+  const gx = Math.floor(x / CELL);
+  const gy = Math.floor(y / CELL);
+  const fx = smooth(x / CELL - gx);
+  const fy = smooth(y / CELL - gy);
+  const a = hash(seed, gx, gy);
+  const b = hash(seed, gx + 1, gy);
+  const c = hash(seed, gx, gy + 1);
+  const d = hash(seed, gx + 1, gy + 1);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
+
+// The land type at a world position (in world tiles, as the world's `at` positions are).
+function landAt(seed, x, y) {
+  const wet = noise(seed ^ 0x9e3779b9, x, y); // low: dry country, high: water
+  const wild = noise(seed ^ 0x85ebca6b, x + 1000, y - 1000); // low: open, high: wooded or rocky
+  if (wet > 0.66) return wet > 0.8 ? 'coast' : 'river';
+  if (wild > 0.62) return wet < 0.38 ? 'uplands' : 'forest';
+  if (wild < 0.3 && wet < 0.45) return 'plains';
+  return wet > 0.5 ? 'river' : wild > 0.5 ? 'forest' : 'plains';
+}
+
+// ---- Shaping a new town's ground to its land -------------------------------------------------
+// After the usual crossroads start (generateSeed), so the start itself never changes: a coast gets the
+// sea along its far edge, plains and uplands have no river or pond, a forest is thickly wooded.
+function shapeLand(city, type, seed = 1) {
+  const rand = mulberry32((seed ^ 0x1a4d) >>> 0);
+  const W = city.width;
+  const H = city.height;
+  const roads = city.tiles.filter((t) => t.structure?.type === 'road');
+  const cx = roads.length ? roads.reduce((s, t) => s + t.x, 0) / roads.length : W / 2;
+  const cy = roads.length ? roads.reduce((s, t) => s + t.y, 0) / roads.length : H / 2;
+  const nearStart = (t) => Math.hypot(t.x - cx, t.y - cy) < 6;
+  if (type === 'plains' || type === 'uplands') {
+    for (const t of city.tiles) if (t.terrain === 'water') t.terrain = 'grass';
+  }
+  if (type === 'coast') {
+    // The sea along the edge farthest from the town's start, with a ragged shore.
+    const edges = [
+      { d: cx, at: (t) => t.x },
+      { d: W - 1 - cx, at: (t) => W - 1 - t.x },
+      { d: cy, at: (t) => t.y },
+      { d: H - 1 - cy, at: (t) => H - 1 - t.y },
+    ];
+    const edge = edges.reduce((a, b) => (b.d > a.d ? b : a));
+    const depth = Math.max(3, Math.min(6, Math.floor(edge.d) - 7));
+    for (const t of city.tiles) {
+      if (nearStart(t)) continue;
+      if (edge.at(t) < depth + (rand() < 0.35 ? 1 : 0)) {
+        t.terrain = 'water';
+        t.structure = null;
+      }
+    }
+  }
+  if (type === 'forest') {
+    for (const t of city.tiles) {
+      if (t.terrain !== 'grass' || t.structure || nearStart(t)) continue;
+      if (rand() < 0.55) t.structure = city.createStructure('tree', rand);
+    }
+  }
+  if (type === 'uplands') {
+    // Scattered stands of hardy trees on the open ground.
+    for (const t of city.tiles) {
+      if (t.terrain !== 'grass' || t.structure || nearStart(t)) continue;
+      if (rand() < 0.08) t.structure = city.createStructure('tree', rand);
+    }
+  }
+  city.systems.land = { type };
+  city.refreshAllRoadMasks();
+  city.dirty = true;
+}
+
+return { LANDS, LAND_TYPES, landEffects, disasterOdds, landOf, landAt, shapeLand };
+})();
+
 // ---- disasters.js ----
 const __mod_disasters = (() => {
 // Extreme weather: from a passing thunderstorm to a tornado that flattens a street.
@@ -6216,6 +6386,7 @@ const { seasonFor } = __mod_weather;
 const { addChronicle } = __mod_chronicle;
 const { yearOf } = __mod_eras;
 const { clamp, pickWeighted } = __mod_utils;
+const { disasterOdds, landEffects } = __mod_land;
 const LEVELS = { off: 0, gentle: 1, wild: 2.6 };
 
 const KINDS = {
@@ -6335,7 +6506,7 @@ class Disasters {
     for (const [kind, p] of Object.entries(odds)) {
       if (KINDS[kind].severity === 'extreme' && !canExtreme) continue;
       if ((kind === 'flood' || kind === 'hurricane') && !hasWater) continue;
-      if (this.rng() < p * mult) return kind;
+      if (this.rng() < p * mult * disasterOdds(this.city, kind)) return kind; // the land makes some likelier (land.js)
     }
     return null;
   }
@@ -6544,6 +6715,7 @@ class Disasters {
     const flood = cause === 'flood' || cause === 'washed';
     const burn = cause === 'fire' || cause === 'lightning';
     amount *= flood ? sk.flood ?? 1 : burn ? sk.fire ?? 1 : sk.damage ?? 1;
+    amount *= landEffects(city).damage; // a coast's storms hit harder; stone upland buildings stand firmer (land.js)
     if (s.type === 'road') {
       s.damage = clamp((s.damage || 0) + amount, 0, 1);
       if (s.damage >= 0.5 && !s.broken) {
@@ -7106,6 +7278,7 @@ const __mod_desirability = (() => {
 const { STRUCTURES, SERVICES, REPUTATION, SUPPLY_BONUS } = __mod_config;
 const { WALK_COMFORT, WALK_MAX } = __mod_labor;
 const { clamp } = __mod_utils;
+const { landEffects } = __mod_land;
 const BASE = 0.28;
 
 function sumAround(city, tile, radius, valueOf) {
@@ -7139,7 +7312,11 @@ const FACTORS = [
     enabled: true,
     layout: true,
     reach: 2,
-    compute: (city, tile) => Math.min(0.08, sumAround(city, tile, 2, (n) => (n.terrain === 'water' ? 0.04 : 0))),
+    // A river valley's riverside is worth more (land.js).
+    compute: (city, tile) => {
+      const k = landEffects(city).waterView;
+      return Math.min(0.08 * k, sumAround(city, tile, 2, (n) => (n.terrain === 'water' ? 0.04 * k : 0)));
+    },
   },
   {
     id: 'access',
@@ -7366,9 +7543,11 @@ const __mod_resources = (() => {
 // `produces` numbers in config.js (per day, scaled by how many of the jobs are filled).
 
 const { STRUCTURES, RESOURCES, RESOURCE_NEED, MILL } = __mod_config;
+const { landEffects } = __mod_land;
 // → { food: { made, need, ratio }, goods: {…}, power: {…, active} } with ratio 0..1 (1 when nothing is needed).
 function computeResources(city, eraIndex = 0) {
   const made = { food: 0, goods: 0, power: 0 };
+  const food = landEffects(city).food; // a river valley's farms make more (land.js)
   let residents = 0;
   let workers = 0;
   for (const t of city.tiles) {
@@ -7380,7 +7559,7 @@ function computeResources(city, eraIndex = 0) {
     workers += t.workersFilled || 0;
     if (def.produces) {
       const staffed = def.jobs ? Math.min(1, (t.workersFilled || 0) / def.jobs) : 1;
-      for (const [k, v] of Object.entries(def.produces)) made[k] += v * (0.4 + 0.6 * staffed); // a idle building still makes a little
+      for (const [k, v] of Object.entries(def.produces)) made[k] += v * (0.4 + 0.6 * staffed) * (k === 'food' ? food : 1); // a idle building still makes a little
     }
   }
   // Open-ground producers (a farm has jobs but needs no road, so it's counted above like any workplace).
@@ -13502,6 +13681,7 @@ const { DIRS } = __mod_state;
 const { buildsFor } = __mod_eras;
 const { clamp, pickWeighted } = __mod_utils;
 const { addChronicle } = __mod_chronicle;
+const { landEffects } = __mod_land;
 const GROWTH_INTERVAL = 45; // seconds of game time between changes at normal pace (about 6 a day)
 // One more of each per this many residents (homes, roads and trees have no cap).
 const CAPS = { shop: 35, cafe: 60, bakery: 70, mall: 450, factory: 220, office: 120, school: 260, clinic: 360, library: 300, firestation: 280, university: 900, park: 70, playground: 110, field: 320, bungalow: 90, rowhouse: 120, villa: 160, restaurant: 90, market: 120, bank: 260, hotel: 300, warehouse: 200, workshop: 150, powerplant: 500, kindergarten: 200, museum: 500, pharmacy: 160, hospital: 700, firehut: 200, fountain: 140, garden: 130, pool: 260, cinema: 340, stadium: 800, farm: 140, mill: 300 };
@@ -13578,7 +13758,8 @@ class Growth {
     // A well-thought-of town draws newcomers too: up to 15% faster or slower (see reputation.js).
     const name = 1 + ((this.city.derived.reputation?.value ?? 0.5) - 0.5) * REPUTATION.growth;
     const plan = this.city.derived.skills?.growth ?? 1; // Land office, Boom town (skills.js)
-    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout * name * plan;
+    const land = landEffects(this.city).growth; // open plains grow faster, rocky uplands slower (land.js)
+    return st.boosts.reduce((r, b) => r * b.mult, 1) * clamp(0.5 + (happy - 0.4) * 2.5, 0.5, 1.5) * sprout * name * plan * land;
   }
 
   boost(mult, days, label) {
@@ -15349,6 +15530,7 @@ const { Disasters, soundness } = __mod_disasters;
 const { Skills } = __mod_skills;
 const { computeThoughts } = __mod_advisor;
 const { daylightAt } = __mod_time;
+const { landEffects } = __mod_land;
 const { clamp, pickWeighted } = __mod_utils;
 const TREND_SAMPLES_PER_DAY = 8;
 const TREND_KEEP = 48;
@@ -15472,7 +15654,8 @@ class Simulation {
     const sk = this.skills.effects();
     this.city.derived.notableEffects = fx;
     this.city.derived.skills = sk;
-    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax * sk.businessTax, buildCost: fx.buildCost * sk.buildCost, upkeep: fx.upkeep * sk.upkeep });
+    const land = landEffects(this.city); // the land the town stands on (land.js): none for most towns
+    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax * sk.businessTax * land.businessTax, buildCost: fx.buildCost * sk.buildCost * land.buildCost, upkeep: fx.upkeep * sk.upkeep });
   }
 
   // Trends for the City panel: a sample every three in-game hours, the last six days kept.
@@ -25532,7 +25715,10 @@ const __mod_world = (() => {
 // Saved inside your town, in city.systems.world:
 //   { version, home: { name, at: { x, y } },
 //     cities: [{ id, name, owner: 'cpu' | 'colony', at: { x, y }, seed, data: <the town, as CityState.toJSON> }],
-//     sites: [{ id, name, at: { x, y }, seed }] }   (free places a settlement can be founded)
+//     sites: [{ id, name, at: { x, y }, seed, land }],   (free places a settlement can be founded)
+//     landSeed }   (lays out the land of the whole world, land.js: chosen once, so the map never changes)
+// Each site stands on a land type (river valley, coast, forest, plains, rocky uplands) with its own pluses
+// and minuses, and a settlement's ground is shaped to it. A site further from your town costs more to found.
 // `at` is where a town's top-left corner sits in world tiles. A save from before the world existed
 // gets a neighbour the first time it's opened; older versions of the game keep the data untouched.
 // More neighbours can be added with addNeighbour(). `rivals: false` in the saved world turns the computer's
@@ -25545,12 +25731,15 @@ const { CityState } = __mod_state;
 const { Simulation } = __mod_simulation;
 const { generateSeed } = __mod_generator;
 const { CpuPlanner } = __mod_cpuPlanner;
+const { mulberry32 } = __mod_utils;
+const { landAt, landOf, shapeLand, LANDS } = __mod_land;
 const WORLD_VERSION = 1;
 const NEIGHBOUR_SIZE = 32;
 const GAP = 8; // countryside between towns, in tiles
 // Founding a settlement: your town needs this many people, pays the charter (which becomes the new
 // town's starting money), and can have this many settlements at once. Sites on offer at a time: SITES.
-const SETTLE = { population: 150, charter: 3000, max: 2 };
+const SETTLE = { population: 150, charter: 3000, max: 2, perTile: 25 };
+const NEAREST = NEIGHBOUR_SIZE / 2 + GAP + NEIGHBOUR_SIZE / 2; // centre to centre, the closest a site can be
 const SITES = 3;
 const MIN_SIZE = 8;
 const MAX_SIZE = 128;
@@ -25652,7 +25841,7 @@ class World {
     }
     const sim = new Simulation(city || new CityState(NEIGHBOUR_SIZE, NEIGHBOUR_SIZE));
     if (!city) this.found(sim, e);
-    if (!city && owner === 'colony') this.settle(sim);
+    if (!city && owner === 'colony') this.settle(sim, e);
     sim.city.day = this.home.day;
     sim.city.clock = this.home.clock;
     sim.agentsActive = false; // walkers and cars only while someone is looking
@@ -25671,10 +25860,13 @@ class World {
 
   // A new settlement of yours: it builds in your town's mode (Sandbox or Milestones), grows by itself,
   // starts with the charter as its money, and knows what your town knows.
-  settle(sim) {
+  settle(sim, e) {
     const city = sim.city;
+    const land = LANDS[e.land] ? e.land : this.landAtSpot(e.at);
+    e.land = land;
+    shapeLand(city, land, e.seed >>> 0);
     city.systems.mode = this.home.systems.mode === 'sandbox' ? 'sandbox' : 'milestones';
-    sim.economy.state.money = SETTLE.charter;
+    sim.economy.state.money = finite(e.charter) ? e.charter : SETTLE.charter;
     sim.growth.on = true;
     sim.milestones.settle(this.homeSim.milestones.reached);
   }
@@ -25745,48 +25937,101 @@ class World {
 
   // ---- Settlements ----------------------------------------------------------------------------
 
+  // The seed that lays out the world's land (land.js), chosen the first time it's needed and saved.
+  get landSeed() {
+    const st = this.state;
+    if (!finite(st.landSeed)) st.landSeed = Math.floor(this.rand() * 2 ** 31);
+    return st.landSeed;
+  }
+
+  // The land type under a town-sized spot (its middle), and the land of a town that stands somewhere.
+  landAtSpot(at, size = NEIGHBOUR_SIZE) {
+    return landAt(this.landSeed, at.x + size / 2, at.y + size / 2);
+  }
+
+  landOf(c) {
+    return landOf(c.city);
+  }
+
+  // The charter for a site: $3,000 beside your town, $25 more for every tile further out.
+  charterFor(at, size = NEIGHBOUR_SIZE) {
+    const h = this.home;
+    const d = Math.hypot(at.x + size / 2 - h.width / 2, at.y + size / 2 - h.height / 2);
+    return Math.round((SETTLE.charter + SETTLE.perTile * Math.max(0, d - NEAREST)) / 100) * 100;
+  }
+
   // The free sites on offer, kept in the save so they stay the same until one is used or built over.
+  // As many different kinds of land as the country nearby has, nearest first. Each comes with its
+  // land type and charter.
   sites() {
     const st = this.state;
     const towns = this.cities.filter((c) => c.owner !== 'player').map((c) => c.entry.at);
-    const overlaps = (a) => towns.some((t) => Math.abs(t.x - a.x) < NEIGHBOUR_SIZE && Math.abs(t.y - a.y) < NEIGHBOUR_SIZE);
-    st.sites = (Array.isArray(st.sites) ? st.sites : []).filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && validAt(x.at) && finite(x.seed) && !overlaps(x.at));
+    const clash = (a, b) => Math.abs(a.x - b.x) < NEIGHBOUR_SIZE && Math.abs(a.y - b.y) < NEIGHBOUR_SIZE;
+    st.sites = (Array.isArray(st.sites) ? st.sites : []).filter((x) => x && typeof x.id === 'string' && typeof x.name === 'string' && validAt(x.at) && finite(x.seed) && !towns.some((t) => clash(t, x.at)));
+    for (const x of st.sites) if (!LANDS[x.land]) x.land = this.landAtSpot(x.at);
     const names = () => [...this.cities.map((c) => c.entry.name), ...st.sites.map((x) => x.name)];
-    for (const at of this.freeSpots(NEIGHBOUR_SIZE, SITES - st.sites.length, st.sites.map((x) => x.at))) {
-      let id = `site-${(st.siteCount = (st.siteCount || 0) + 1)}`;
-      while (st.sites.some((x) => x.id === id)) id += '+';
-      st.sites.push({ id, name: townName(this.rand, names()), at, seed: Math.floor(this.rand() * 2 ** 31) });
+    const want = SITES - st.sites.length;
+    if (want > 0) {
+      const spots = this.freeSpots(NEIGHBOUR_SIZE, 16, st.sites.map((x) => x.at)).map((at) => ({ at, land: this.landAtSpot(at) }));
+      const picked = [];
+      const free = (p) => ![...st.sites.map((x) => x.at), ...picked.map((k) => k.at)].some((t) => clash(t, p.at));
+      // First the nearest spot of each kind of land not on offer yet, then the nearest of the rest.
+      const seen = new Set(st.sites.map((x) => x.land));
+      for (const p of spots) {
+        if (picked.length < want && !seen.has(p.land) && free(p)) {
+          seen.add(p.land);
+          picked.push(p);
+        }
+      }
+      for (const p of spots) if (picked.length < want && !picked.includes(p) && free(p)) picked.push(p);
+      // Each new site's name and seed follow from the world's land seed and its number, so the same
+      // world always offers the same sites, saved or not.
+      for (const p of picked) {
+        const n = (st.siteCount = (st.siteCount || 0) + 1);
+        let id = `site-${n}`;
+        while (st.sites.some((x) => x.id === id)) id += '+';
+        const rand = mulberry32((this.landSeed + Math.imul(n, 0x9e3779b1)) >>> 0);
+        st.sites.push({ id, name: townName(rand, names()), at: p.at, seed: Math.floor(rand() * 2 ** 31), land: p.land });
+      }
     }
-    return st.sites.map((x) => ({ ...x, at: { ...x.at } }));
+    return st.sites
+      .map((x) => ({ ...x, at: { ...x.at }, charter: this.charterFor(x.at) }))
+      .sort((a, b) => a.charter - b.charter || a.id.localeCompare(b.id));
   }
 
-  // Can your town found a settlement now? { ok, reason } (reason says what's missing, in plain words).
-  canFound() {
+  // Can your town found a settlement now (on this site, or on the cheapest one on offer)?
+  // { ok, reason } (reason says what's missing, in plain words).
+  canFound(siteId = null) {
     const pop = this.home.stats.population || 0;
     const sandbox = this.home.systems.mode === 'sandbox';
     if (this.settlements.length >= SETTLE.max) return { ok: false, reason: `You have ${SETTLE.max} settlements already, the most for now` };
     if (pop < SETTLE.population) return { ok: false, reason: `Your town needs ${SETTLE.population} people to found a settlement (it has ${pop})` };
-    if (!sandbox && this.homeSim.economy.money < SETTLE.charter) return { ok: false, reason: `A settlement's charter costs $${SETTLE.charter.toLocaleString('en-US')}; your town has $${Math.floor(this.homeSim.economy.money).toLocaleString('en-US')}` };
+    const sites = this.sites();
+    const site = siteId ? sites.find((x) => x.id === siteId) : sites[0];
+    if (!site) return { ok: false, reason: siteId ? 'That site is no longer free' : 'There is no free land nearby' };
+    const money = this.homeSim.economy.money;
+    if (!sandbox && money < site.charter) return { ok: false, reason: `A settlement's charter ${siteId ? 'here ' : ''}costs $${site.charter.toLocaleString('en-US')}; your town has $${Math.floor(money).toLocaleString('en-US')}` };
     return { ok: true, reason: '' };
   }
 
   // Found a settlement on one of the sites(): your town pays the charter and the new town starts with it.
   // Returns the new town, or null if it can't be done (see canFound()) or the site isn't on offer.
   foundSettlement(siteId, { name } = {}) {
-    if (!this.canFound().ok) return null;
+    if (!this.canFound(siteId).ok) return null;
     const st = this.state;
     const site = this.sites().find((x) => x.id === siteId);
     if (!site) return null;
     const n = (st.colonyCount = (st.colonyCount || 0) + 1);
     let id = `colony-${n}`;
     while (this.byId(id) || st.cities.some((e) => e?.id === id)) id += '+';
-    const e = { id, name: (typeof name === 'string' && name.trim().slice(0, 40)) || site.name, owner: 'colony', at: site.at, seed: site.seed, founded: this.home.day };
+    const e = { id, name: (typeof name === 'string' && name.trim().slice(0, 40)) || site.name, owner: 'colony', at: site.at, seed: site.seed, land: site.land, charter: site.charter, founded: this.home.day };
     e.data = null;
-    if (this.home.systems.mode !== 'sandbox') this.homeSim.economy.state.money -= SETTLE.charter;
+    if (this.home.systems.mode !== 'sandbox') this.homeSim.economy.state.money -= site.charter;
     st.sites = st.sites.filter((x) => x.id !== siteId);
     st.cities.push(e);
     const c = this.open(e, 'colony');
     this.cities.push(c);
+    this.sites(); // another site takes this one's place straight away
     this.home.dirty = true;
     return c;
   }

@@ -8,10 +8,12 @@
 // `produces` numbers in config.js (per day, scaled by how many of the jobs are filled).
 
 import { STRUCTURES, RESOURCES, RESOURCE_NEED, MILL } from './config.js';
+import { landEffects } from './land.js';
 
 // → { food: { made, need, ratio }, goods: {…}, power: {…, active} } with ratio 0..1 (1 when nothing is needed).
 export function computeResources(city, eraIndex = 0) {
   const made = { food: 0, goods: 0, power: 0 };
+  const food = landEffects(city).food; // a river valley's farms make more (land.js)
   let residents = 0;
   let workers = 0;
   for (const t of city.tiles) {
@@ -23,7 +25,7 @@ export function computeResources(city, eraIndex = 0) {
     workers += t.workersFilled || 0;
     if (def.produces) {
       const staffed = def.jobs ? Math.min(1, (t.workersFilled || 0) / def.jobs) : 1;
-      for (const [k, v] of Object.entries(def.produces)) made[k] += v * (0.4 + 0.6 * staffed); // a idle building still makes a little
+      for (const [k, v] of Object.entries(def.produces)) made[k] += v * (0.4 + 0.6 * staffed) * (k === 'food' ? food : 1); // a idle building still makes a little
     }
   }
   // Open-ground producers (a farm has jobs but needs no road, so it's counted above like any workplace).

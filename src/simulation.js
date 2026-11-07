@@ -21,6 +21,7 @@ import { Disasters, soundness } from './disasters.js';
 import { Skills } from './skills.js';
 import { computeThoughts } from './advisor.js';
 import { daylightAt } from './time.js';
+import { landEffects } from './land.js';
 import { clamp, pickWeighted } from './utils.js';
 
 export const TREND_SAMPLES_PER_DAY = 8;
@@ -145,7 +146,8 @@ export class Simulation {
     const sk = this.skills.effects();
     this.city.derived.notableEffects = fx;
     this.city.derived.skills = sk;
-    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax * sk.businessTax, buildCost: fx.buildCost * sk.buildCost, upkeep: fx.upkeep * sk.upkeep });
+    const land = landEffects(this.city); // the land the town stands on (land.js): none for most towns
+    Object.assign(this.economy.modifiers, { businessTax: fx.businessTax * sk.businessTax * land.businessTax, buildCost: fx.buildCost * sk.buildCost * land.buildCost, upkeep: fx.upkeep * sk.upkeep });
   }
 
   // Trends for the City panel: a sample every three in-game hours, the last six days kept.
