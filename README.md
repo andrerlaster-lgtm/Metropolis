@@ -217,7 +217,9 @@ The world is saved inside your town's save (`city.systems.world`), so your save 
 
 The three sites on offer show as many kinds of land as the country nearby has, nearest first. The charter is $3,000 beside your town and $25 more for each tile further out. A town's land is saved in `city.systems.land`. Only settlements have one: your first town, the computer's towns and every older save have no land effects and play exactly as before (`landOf()` still names their land from their map, for labels).
 
-Building in a settlement and the World sheet's Found and Send money buttons come next.
+**Building in a settlement.** A settlement is yours, so on screen you build in it as in your first town: taps, drags, bulldozing, the touch Build button, undo and redo all act on the town on screen. It spends its own money (the build menu's prices are its own: a forest settlement builds for less), keeps its own undo history, and is saved with your town. Go there with Go there on its card in the World sheet; the banner says which settlement you're in and has Back to your town. The City panel, Life, the mayor, upgrades, war and diplomacy are still about your first town: showing a place from the City panel takes you back there. The computer's towns stay look-only.
+
+Founding one from the World sheet (with each site's land and charter) and Send money come next.
 
 ## 3D view
 
