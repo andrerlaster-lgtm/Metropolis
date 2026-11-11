@@ -122,6 +122,17 @@ From [isometric-city](https://github.com/uxcaleb/isometric-city) (originally ami
 - [ ] Trade (caravans with activity graphs and keyframed movement, distance-based profit, shared prices)
 - [ ] Diplomacy (treaties, tribute) and calm, abstract warfare (army supply, sieges as scheduled events)
 
+## 3d. Reference for life sim, auto play and balance: Tempora
+
+[Mofferato/tempora](https://github.com/Mofferato/tempora) (MIT): a browser life simulator built like Metropolis (vanilla JS bundled into one file). The notes, the ideas ranked and a ready-to-paste Studio Dev Toolbox entry are in [docs/references/tempora.md](docs/references/tempora.md).
+
+- [ ] Install as an app on iPad and play offline (manifest, icons, service worker; test behind Vercel login)
+- [ ] Effect previews on buttons (Life activities, decisions, Town hall)
+- [ ] Auto mode answers life events by a policy (safe, bold, in character, toward a goal)
+- [ ] Skip ahead until something needs a decision
+- [ ] A headless balance simulator for many towns (to tune town upgrades and the mayor)
+- [ ] Goals with a deadline for the mayor; elections and succession; dynasty traits
+
 ## 3c. Reference for a 3D battle mode
 
 A battle mode in the spirit of GUNS UP!: defend your town from a computer town, or attack one, with battles fought over the real towns (their owners, budgets, troops and lasting damage). Notes on four open-source games (djpav/threejs-tower-defense and atxgreene/Ugh-Guys- first, then cola-runner/frostmarch and Casmo/tower-defense), their licences and asset rights, the ideas ranked, and questions to settle first are in [docs/references/battle-mode.md](docs/references/battle-mode.md). Patterns only, rewritten in our own code; no art or content from them or from GUNS UP!.
