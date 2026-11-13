@@ -104,13 +104,16 @@ export class CityState {
     return null;
   }
 
-  // Why a building can't go here, or null when it can. Homes (anything that holds residents) need a
+  // Why a building can't go here, or null when it can. Nothing is built on water. Homes (anything that holds residents) need a
   // road beside them; everything else (shops, offices, services, parks…) can stand anywhere and is
   // reached on foot. A home that is already there can be replaced or rebuilt without a road, so towns
   // saved before this rule keep their roadless homes (advisor.js flags them).
   placeError(tool, x, y) {
     const t = this.getTile(x, y);
     if (!t) return 'Off the map';
+    // Water stops ordinary building: roads and buildings need dry land. (The Water tool and the
+    // bulldozer still reshape the shore, as they always have.)
+    if (STRUCTURES[tool] && t.terrain === 'water') return "Can't build on water";
     if (!STRUCTURES[tool]?.capacity) return null;
     const s = t.structure;
     const holdsPeople = (type) => !!STRUCTURES[type]?.capacity;

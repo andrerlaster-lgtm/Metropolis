@@ -13,8 +13,9 @@
   --sky: #dcf0f2;
   --panel: rgba(255, 252, 250, 0.8);
   --panel-edge: rgba(255, 255, 255, 0.95);
-  --ink: #4b4468;
-  --ink-soft: #8b84a6;
+  --ink: #453e62;
+  --ink-soft: #716a92;
+  --select: #7c5cd6;
   --press: #ffffff;
   --meter-track: rgba(75, 68, 104, 0.1);
   --meter: #8fd0a5;
@@ -46,7 +47,11 @@
     --avatar-bg: #3e3a6b;
     --bubble: rgba(255, 255, 255, 0.1);
     --ink: #f4effc;
-    --ink-soft: #b9b1d8;
+    --ink-soft: #c4bde0;
+    --sev-bad-ink: #ff9d97;
+    --sev-caution-ink: #ffd27a;
+    --sev-good-ink: #8fe0b0;
+    --select: #cdb8ff;
     --press: rgba(255, 255, 255, 0.16);
     --meter-track: rgba(255, 255, 255, 0.14);
     --focus: #d7c6ff;
@@ -60,7 +65,11 @@
   --trend: #9a7bdc;
   --panel-edge: rgba(255, 255, 255, 0.14);
   --ink: #f4effc;
-  --ink-soft: #b9b1d8;
+  --ink-soft: #c4bde0;
+  --sev-bad-ink: #ff9d97;
+  --sev-caution-ink: #ffd27a;
+  --sev-good-ink: #8fe0b0;
+  --select: #cdb8ff;
   --press: rgba(255, 255, 255, 0.16);
   --meter-track: rgba(255, 255, 255, 0.14);
   --focus: #d7c6ff;
@@ -82,6 +91,8 @@ body {
   font-family: var(--font-body);
   overflow: hidden;
   overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -138,27 +149,38 @@ body {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-left: 2px;
+  gap: 8px;
+  padding: 7px 0 1px 2px;
+  border-top: 1px solid var(--meter-track);
   font-variant-numeric: tabular-nums;
 }
 .money-coin {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: #ffd98f;
-  color: #7a5a14;
-  font: 800 11px/1 var(--font-body);
+  color: #6b4d0c;
+  font: 800 12.5px/1 var(--font-body);
+  box-shadow: inset 0 -2px 0 rgba(122, 90, 20, 0.22);
 }
 #stat-money {
-  font: 600 15px/1 var(--font-display);
+  font: 600 18px/1 var(--font-display);
+  letter-spacing: 0.01em;
 }
 .net {
+  padding: 3px 7px;
+  border-radius: 9px;
   font-size: 11.5px;
   font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
   color: var(--sev-good-ink);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.net:empty {
+  display: none;
 }
 .net.down {
   color: var(--sev-bad-ink);
@@ -245,6 +267,7 @@ body {
   margin-left: 1px;
 }
 .stat-label {
+  margin-top: 2px;
   font-size: 10.5px;
   font-weight: 800;
   text-transform: uppercase;
@@ -253,8 +276,8 @@ body {
 }
 .meter {
   width: 100%;
-  height: 4px;
-  margin-top: 3px;
+  height: 5px;
+  margin-top: 4px;
   border-radius: 4px;
   background: var(--meter-track);
   overflow: hidden;
@@ -269,8 +292,9 @@ body {
 }
 .clock {
   grid-column: 1 / -1;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1.25;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
   padding-left: 2px;
@@ -378,13 +402,30 @@ body {
 .tool[aria-pressed='true'] {
   background: var(--press);
   transform: translateY(-4px);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), 0 0 0 2px var(--select);
 }
 .tool[aria-pressed='true'] .tool-icon {
   transform: scale(1.06);
+  box-shadow: inset 0 -3px 0 rgba(70, 50, 90, 0.12), 0 0 0 2px var(--press);
 }
 .tool[aria-pressed='true'] .tool-label {
   color: var(--ink);
+}
+.tool[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 14px;
+  height: 3px;
+  margin-left: -7px;
+  border-radius: 2px;
+  background: var(--select);
+}
+.tool:focus-visible,
+.tray-item:focus-visible {
+  outline: 2.5px solid var(--focus);
+  outline-offset: 2px;
 }
 .tint-inspect { --tint: #e8e4f4; }
 .tint-house { --tint: var(--tint-house); }
@@ -474,7 +515,7 @@ body {
 }
 .tray-item[aria-pressed='true'] {
   background: var(--press);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), 0 0 0 2px var(--select);
 }
 .tray-item kbd {
   font: 700 9.5px/1 var(--font-body);
@@ -4049,6 +4090,19 @@ button.mil-sq {
 }
 
 /* Town upgrades (skills.js, skillsUI.js) */
+.skill-chip svg,
+.mayor-chip svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.skill-chip,
+.mayor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
 .skill-chip {
   flex: none;
   padding: 3px 8px;

@@ -4,14 +4,19 @@
 import { STRUCTURES } from './config.js';
 import { DIRS } from './state.js';
 import { mulberry32 } from './utils.js';
+import { shapeIsland, beachAt } from './island.js';
 
 // Empty land for building from scratch: a river, a pond and some woods, with open ground in the
 // middle and nothing built.
-export function generateLand(city, seed = (Math.random() * 2 ** 32) >>> 0) {
-  return generateTown(city, seed, { town: false });
+//
+// `island: true` (what a new game asks for) sets the same start on one large island instead: the sea on
+// every side, a coast with bays and beaches (island.js), a lagoon inland, and no river cutting the land
+// in two. Without it the map is laid out exactly as it always was.
+export function generateLand(city, seed = (Math.random() * 2 ** 32) >>> 0, { island = false } = {}) {
+  return generateTown(city, seed, { town: false, island });
 }
 
-export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { town = true } = {}) {
+export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { town = true, island = false } = {}) {
   const rand = mulberry32(seed);
   const W = city.width;
   const H = city.height;
@@ -21,7 +26,7 @@ export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { tow
   const tile = (x, y) => city.getTile(x, y);
   const place = (x, y, type) => {
     const t = tile(x, y);
-    if (!t) return;
+    if (!t || (island && t.terrain === 'water')) return; // on an island nothing is built out to sea
     t.terrain = 'grass';
     t.structure = city.createStructure(type, rand);
   };
@@ -36,7 +41,30 @@ export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { tow
   const half = Math.max(5, Math.floor(Math.min(W, H) * 0.23));
   const inTown = (x, y) => Math.abs(x - cx) <= half && Math.abs(y - cy) <= half;
 
-  // A river winds across one side of the map.
+  if (island) {
+    delete city.systems.land;
+    shapeIsland(city, seed, { cx, cy, core: town ? half + 1 : Math.max(5, half - 1) });
+    // A small lagoon inland, well away from the start, for a water view that isn't the sea.
+    if (W >= 24) {
+      const dry = (x, y, r) => {
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (tile(x + dx, y + dy)?.terrain !== 'grass') return false;
+        return true;
+      };
+      for (let tries = 0; tries < 80; tries++) {
+        const px = ri(4, W - 5);
+        const py = ri(4, H - 5);
+        if (Math.max(Math.abs(px - cx), Math.abs(py - cy)) < half + 3 || !dry(px, py, W >= 40 ? 3 : 2)) continue;
+        const r = 1.2 + rand() * 0.7;
+        for (const t of city.tiles) if (Math.hypot(t.x - px, t.y - py) + (rand() - 0.5) * 0.6 < r) t.terrain = 'water';
+        break;
+      }
+    }
+  } else {
+    delete city.systems.island;
+    layRiver();
+  }
+  // A river winds across one side of the map, and a pond lies on the far side.
+  function layRiver() {
   const vertical = rand() < 0.5;
   const span = vertical ? W : H;
   let pos = rand() < 0.5 ? ri(2, Math.max(3, Math.floor(span * 0.18))) : span - 1 - ri(2, Math.max(3, Math.floor(span * 0.18)));
@@ -55,6 +83,9 @@ export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { tow
     const r = 1.5 + rand();
     for (const t of city.tiles) if (Math.hypot(t.x - px, t.y - py) + (rand() - 0.5) * 0.8 < r && !inTown(t.x, t.y)) t.terrain = 'water';
   }
+  }
+  // Beaches stay open sand: no woods on them.
+  const sandy = (x, y) => island && beachAt(city, x, y);
 
   if (!town) {
     // Woods round the edges, a few lone trees, and clear ground in the middle to start on.
@@ -65,6 +96,7 @@ export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { tow
       let p = fromMiddle < 1 ? 0.02 : 0.07;
       if (DIRS.some((d) => tile(t.x + d.dx, t.y + d.dy)?.terrain === 'water')) p += 0.2;
       for (const f of woods) if (fromMiddle >= 0.8 && Math.hypot(t.x - f.x, t.y - f.y) < f.r) p += 0.5;
+      if (sandy(t.x, t.y)) p = 0;
       if (rand() < p) place(t.x, t.y, 'tree');
     }
     city.refreshAllRoadMasks();
@@ -163,6 +195,7 @@ export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { tow
     let p = inTown(t.x, t.y) ? 0.28 : 0.1;
     if (byWater) p += 0.25;
     for (const f of forests) if (Math.hypot(t.x - f.x, t.y - f.y) < f.r) p += 0.55;
+    if (sandy(t.x, t.y)) p = 0;
     if (rand() < p) place(t.x, t.y, 'tree');
   }
 
@@ -178,8 +211,8 @@ export function generateTown(city, seed = (Math.random() * 2 ** 32) >>> 0, { tow
 
 // A seed to grow from: open land with a little crossroads and a few cottages near the middle, so a
 // town can grow by itself from almost nothing.
-export function generateSeed(city, seed = (Math.random() * 2 ** 32) >>> 0) {
-  generateLand(city, seed);
+export function generateSeed(city, seed = (Math.random() * 2 ** 32) >>> 0, { island = false } = {}) {
+  generateLand(city, seed, { island });
   const rand = mulberry32(seed ^ 0x5eed);
   const W = city.width;
   const H = city.height;

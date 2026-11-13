@@ -657,9 +657,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     if (visiting) leaveVisit();
     if (slot !== previousSlot) setActiveSlot(slot);
     const fresh = new CityState(size, size);
-    if (start === 'town') generateTown(fresh);
-    else if (start === 'seed') generateSeed(fresh);
-    else generateLand(fresh);
+    // Every new town stands on its own island (generator.js, island.js).
+    if (start === 'town') generateTown(fresh, undefined, { island: true });
+    else if (start === 'seed') generateSeed(fresh, undefined, { island: true });
+    else generateLand(fresh, undefined, { island: true });
     fresh.systems.mode = mode;
     const keep = person === 'keep' && city.systems.life;
     if (keep) fresh.systems.life = city.systems.life;
@@ -1210,7 +1211,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   if (fresh) {
     // A first visit starts from a seed that grows by itself, with a main person to follow.
-    generateSeed(city);
+    generateSeed(city, undefined, { island: true });
     city.systems.mode = 'milestones';
     sim.economy.reset('land');
     sim.refresh();
@@ -1471,7 +1472,9 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       valid && STRUCTURES[tool] && !t.structure && t.terrain === 'grass'
         ? { x: hover.x, y: hover.y, structure: { type: tool, variant: 'blush', floors: tool === 'office' ? 4 : 5, shape: 0, residents: 0 } }
         : null;
-    return { hover: { ...hover, tool, valid }, ghost, overlay, selected, plan, issues, reach, needs };
+    // Why a building can't go on the tile under the pointer (shown as a label over it).
+    const why = !valid && STRUCTURES[tool] ? city.placeError(tool, hover.x, hover.y) : null;
+    return { hover: { ...hover, tool, valid, why }, ghost, overlay, selected, plan, issues, reach, needs };
   }
 
   // ---- 3D view ----------------------------------------------------------------------
