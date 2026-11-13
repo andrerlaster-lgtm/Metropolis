@@ -16,6 +16,9 @@ export function mayorLineHTML(m) {
 }
 export const mayorLineKey = (m) => JSON.stringify([m.state.name, m.state.who, m.state.actions, m.relation()]);
 
+// The town hall, drawn in the same line style as the toolbar icons.
+const HALL_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5 12 4l8.5 5.5"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8"/><path d="M3.5 20h17"/></svg>';
+
 export class TownHall {
   // deps: { mayor: () → Mayor, autopilot: () → Autopilot, toast(msg, ms), sound(name), onOpen(), onChange() }
   constructor(deps) {
@@ -67,7 +70,10 @@ export class TownHall {
     const m = this.m;
     m.update();
     const n = m.state.actions;
-    this.chip.textContent = `🏛 ${n}`;
+    if (this._chipN !== n) {
+      this._chipN = n;
+      this.chip.innerHTML = `${HALL_ICON}<span>${n | 0}</span>`;
+    }
     this.chip.classList.toggle('is-spent', !n);
     this.chip.setAttribute('aria-label', `${m.title()} ${m.state.name}: ${actionsText(n)}. Open the town hall`);
     if (this.open) this.render(false);

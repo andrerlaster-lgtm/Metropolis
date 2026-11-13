@@ -10,6 +10,7 @@ import { rampStops, settings } from './settings.js';
 import { notableType } from './notables.js';
 import { crosswalkMask } from './sidewalks.js';
 import { ART2D, GROUND2D, FOOTPRINT2D } from './art2d.js';
+import { beachAt, valueNoise } from './island.js';
 
 const SLAB_DEPTH = 18;
 // Unlit lighting for the cached ground layer; the frame's real light is multiplied on afterwards.
@@ -87,6 +88,21 @@ const AUTUMN_LEAVES = [
   ['#c98a5a', '#dca06e', '#ecbc8e'],
 ];
 const SNOW = '#f3f6f9';
+
+// The sea: pale over the shallows by the shore, the palette's blue a little way out, deeper beyond.
+const WATER_SHALLOW = '#a9e0ea';
+const WATER_DEEP = '#62b1dc';
+const SHORE_SAND = 0.09; // width of the sandy bank along a shore, in tiles
+const SHORE_FOAM = 0.13;
+const LAND_ROUND = 0.3; // how far a headland's corner is rounded off
+const BAY_ROUND = 0.36; // and how far the sand fills the inside corner of a bay
+// Tile corners (NW, NE, SE, SW) with the direction that points into the tile from each.
+const CORNERS = [
+  { c: [0, 0], s: [1, 1] },
+  { c: [1, 0], s: [-1, 1] },
+  { c: [1, 1], s: [-1, -1] },
+  { c: [0, 1], s: [1, -1] },
+];
 
 // Visible growth: houses gain a stage as they fill; towers and offices add floors as people arrive.
 // Pure function of the tile, so shadows, pins and drawing all agree.
@@ -350,7 +366,7 @@ export class Renderer {
       for (const t of tiles) if (t.terrain === 'water') this.drawWaterMotion(ctx, t, L);
     } else {
       this.drawSlab(ctx, L);
-      for (const t of tiles) this.drawGround(ctx, t, L);
+      this.drawGroundTiles(ctx, tiles, L);
     }
     this.drawFlood(ctx, tiles, L);
     if (view.overlay && view.overlay !== 'none') for (const t of tiles) this.drawOverlay(ctx, t, view.overlay);
@@ -405,6 +421,7 @@ export class Renderer {
     this.drawVignette(ctx, L);
     this.drawThoughts(ctx);
     if (view.reach) this.drawReachLabel(ctx, view.reach);
+    if (view.hover) this.drawHoverLabel(ctx, view.hover);
     this.drawConfetti(ctx, dt);
   }
 
@@ -775,7 +792,7 @@ export class Renderer {
     c.clearRect(g.left, g.top, worldW, worldH);
     this._caching = true;
     this.drawSlab(c, NEUTRAL_LIGHT, false);
-    for (const t of city.tiles) this.drawGround(c, t, NEUTRAL_LIGHT);
+    this.drawGroundTiles(c, city.tiles, NEUTRAL_LIGHT);
     this._caching = false;
     g.key = key;
     return true;
@@ -884,23 +901,33 @@ export class Renderer {
       [W, H, -D],
     ]);
     ctx.fill();
-    // Turf lip along the top edge of the slab.
-    ctx.fillStyle = lit(PALETTE.grass, 0.78, L);
-    poly(ctx, [
-      [0, H, 0],
-      [W, H, 0],
-      [W, H, -4],
-      [0, H, -4],
-    ]);
-    ctx.fill();
-    ctx.fillStyle = lit(PALETTE.grass, 0.66, L);
-    poly(ctx, [
-      [W, H, 0],
-      [W, 0, 0],
-      [W, 0, -4],
-      [W, H, -4],
-    ]);
-    ctx.fill();
+    // Along the two near sides, land shows a turf lip over the earth; where the sea reaches the edge
+    // the side is clear blue water over a sandy bed, like the wall of a little aquarium.
+    const sh = this.shore();
+    const sides = [
+      { n: W, shade: 1, wet: (i) => this.city.getTile(i, H - 1).terrain === 'water', at: (i, z) => [i, H, z], soft: (i) => sh.soft[(H - 1) * W + i] },
+      { n: H, shade: 0.86, wet: (i) => this.city.getTile(W - 1, i).terrain === 'water', at: (i, z) => [W, i, z], soft: (i) => sh.soft[i * W + W - 1] },
+    ];
+    for (const side of sides) {
+      const band = (a, b, z0, z1, color) => {
+        ctx.fillStyle = color;
+        poly(ctx, [side.at(a, z0), side.at(b, z0), side.at(b, z1), side.at(a, z1)]);
+        ctx.fill();
+      };
+      for (let a = 0; a < side.n; ) {
+        const wet = side.wet(a);
+        let b = a + 1;
+        while (b < side.n && side.wet(b) === wet) b++;
+        if (wet) {
+          const top = this.waterColor(Math.max(2.2, side.soft(a)));
+          band(a, b, 0, -D + 3, lit(mixHex(top, WATER_DEEP, 0.35), 0.9 * side.shade, L));
+          band(a, b, 0, -6, lit(top, 0.95 * side.shade, L));
+          band(a, b, -D + 3, -D, lit(PALETTE.sand, 0.82 * side.shade, L));
+          band(a, b, 0, -1.1, litA('#ffffff', side.shade, L, 0.5));
+        } else band(a, b, 0, -4, lit(PALETTE.grass, 0.78 * side.shade * (side.shade < 1 ? 0.98 : 1), L));
+        a = b;
+      }
+    }
     // Fill the top under the tiles so antialiased seams show grass, not the sky.
     ctx.fillStyle = lit(this.grassColor(), 0.97, L);
     poly(ctx, [
@@ -923,19 +950,169 @@ export class Renderer {
 
   // ---- Ground layer -------------------------------------------------------------
 
+  // Water first, a hair wider than its tiles so no seam shows between them, then the land over it.
+  drawGroundTiles(ctx, tiles, L) {
+    for (const t of tiles) if (t.terrain === 'water') this.drawGround(ctx, t, L);
+    for (const t of tiles) if (t.terrain !== 'water') this.drawGround(ctx, t, L);
+  }
+
+  // What the coast needs to be drawn, rebuilt only when the map changes: how far each water tile is
+  // from land (for the shallows), the same softened so depth shades gently, and which land is beach.
+  shore() {
+    const city = this.city;
+    const W = city.width;
+    const H = city.height;
+    const seed = city.systems.island?.seed ?? null;
+    const last = this._shore;
+    if (last && last.rev === city.revision && last.W === W && last.H === H && last.seed === seed) return last;
+    const depth = new Float32Array(W * H);
+    const queue = [];
+    city.tiles.forEach((t, i) => {
+      if (t.terrain === 'water') depth[i] = 99;
+      else queue.push(i);
+    });
+    for (let head = 0; head < queue.length; head++) {
+      const i = queue[head];
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const j = ny * W + nx;
+          if (depth[j] <= depth[i] + 1) continue;
+          depth[j] = depth[i] + 1;
+          queue.push(j);
+        }
+      }
+    }
+    const soft = new Float32Array(W * H);
+    const beach = new Uint8Array(W * H);
+    const island = !!city.systems.island;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (!depth[i]) {
+          if (island && beachAt(city, x, y)) beach[i] = 1;
+          continue;
+        }
+        const d = Math.min(depth[i], 7);
+        const at = (ax, ay) => (ax < 0 || ay < 0 || ax >= W || ay >= H ? d + 1 : Math.min(depth[ay * W + ax], 7));
+        soft[i] = (d * 2 + at(x + 1, y) + at(x - 1, y) + at(x, y + 1) + at(x, y - 1)) / 6;
+      }
+    }
+    this._shore = { rev: city.revision, seed, depth, soft, beach, W, H };
+    return this._shore;
+  }
+
+  // Is the tile water? Past the edge of the map the answer is whatever the nearest tile is, so a
+  // shore runs cleanly off the board.
+  wetAt(x, y) {
+    const c = this.city;
+    return c.tiles[clamp(y, 0, c.height - 1) * c.width + clamp(x, 0, c.width - 1)].terrain === 'water';
+  }
+
+  // Land rounds its corner off where the sea wraps round it (roads keep their square ends).
+  roundsAt(x, y) {
+    const t = this.city.getTile(x, y);
+    return !!t && t.terrain !== 'water' && t.structure?.type !== 'road';
+  }
+
+  waterColor(softDepth) {
+    const k = Math.round(clamp((softDepth - 1) / 3.2, 0, 1) * 8) / 8;
+    const c = k < 0.5 ? mixHex(WATER_SHALLOW, PALETTE.water, k * 2) : mixHex(PALETTE.water, WATER_DEEP, (k - 0.5) * 2);
+    return this.snowCover ? mixHex(c, '#cfe9f4', this.snowCover * 0.6) : c;
+  }
+
+  sandColor() {
+    return this.snowCover ? mixHex(PALETTE.sand, SNOW, this.snowCover * 0.8) : PALETTE.sand;
+  }
+
+  // Grass drifts a little warmer or cooler across the map, so open country isn't one flat green.
+  meadowColor(x, y) {
+    const n = Math.round(valueNoise(977, x, y, 6) * 6) / 6;
+    const base = this.grassColor();
+    return n < 0.5 ? mixHex(base, '#9ccb9c', (0.5 - n) * 0.5) : mixHex(base, '#b9dfa6', (n - 0.5) * 0.5);
+  }
+
   drawGround(ctx, t, L) {
     const { x, y } = t;
     if (t.terrain === 'water') return this.drawWater(ctx, t, L);
     const s = t.structure;
     if (s?.type === 'road') return this.drawRoad(ctx, t, L);
-    ctx.fillStyle = lit(this.grassColor(), 0.97 + hash2(x, y, 1) * 0.06, L);
+    const beach = this.shore().beach[y * this.city.width + x] === 1;
+    ctx.fillStyle = beach ? lit(this.sandColor(), 0.98 + hash2(x, y, 1) * 0.04, L) : lit(this.meadowColor(x, y), 0.97 + hash2(x, y, 1) * 0.06, L);
     tilePoly(ctx, x, y);
     ctx.fill();
+    if (beach) this.drawBeach(ctx, t, L);
+    this.drawHeadland(ctx, t, L);
     if (s?.type === 'park') this.drawParkGround(ctx, t, L);
     else if (s?.type === 'playground') this.drawPlaygroundGround(ctx, t, L);
     else if (s?.type === 'field') this.drawFieldGround(ctx, t, L);
     else if (s && GROUND2D[s.type]) GROUND2D[s.type].call(this, ctx, t, L);
-    else if (!s) this.drawMeadow(ctx, t, L);
+    else if (!s && !beach) this.drawMeadow(ctx, t, L);
+  }
+
+  // A beach tile: sand that fades into the grass behind it, with a few shells and pebbles.
+  drawBeach(ctx, t, L) {
+    const { x, y } = t;
+    const sh = this.shore();
+    const grass = this.meadowColor(x, y);
+    EDGES.forEach((e, i) => {
+      const nx = x + [0, 1, 0, -1][i];
+      const ny = y + [-1, 0, 1, 0][i];
+      const n = this.city.getTile(nx, ny);
+      if (!n || n.terrain === 'water' || sh.beach[ny * sh.W + nx]) return;
+      ctx.fillStyle = litA(grass, 0.98, L, 0.5);
+      poly(ctx, edgeStrip(x, y, e, 0, 0.2));
+      ctx.fill();
+      ctx.fillStyle = lit(grass, 0.98, L);
+      poly(ctx, edgeStrip(x, y, e, 0, 0.09));
+      ctx.fill();
+    });
+    if (this.snowCover >= 0.6) return;
+    for (let i = 0; i < 5; i++) {
+      if (hash2(x, y, 200 + i) > 0.6) continue;
+      const p = gridToWorld(x + 0.2 + hash2(x, y, 210 + i) * 0.6, y + 0.2 + hash2(x, y, 220 + i) * 0.6);
+      ctx.fillStyle = lit(i % 2 ? '#fff8ea' : PALETTE.earth, 1, L);
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, 1.3, 0.7, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Where the sea wraps round a corner of the land, the corner is rounded off: water in the nook,
+  // then the same sandy bank and line of foam the straight shores have.
+  drawHeadland(ctx, t, L) {
+    const { x, y } = t;
+    const sh = this.shore();
+    for (const { c, s } of CORNERS) {
+      if (!this.wetAt(x - s[0], y) || !this.wetAt(x, y - s[1])) continue;
+      const px = x + c[0];
+      const py = y + c[1];
+      const cx = px + s[0] * LAND_ROUND;
+      const cy = py + s[1] * LAND_ROUND;
+      const lim = (v, edge, dir) => (dir > 0 ? Math.max(v, edge) : Math.min(v, edge));
+      const arc = (r, back) => {
+        const pts = [];
+        for (let k = 0; k <= 6; k++) {
+          const a = ((back ? 6 - k : k) / 6) * (Math.PI / 2);
+          pts.push([lim(cx - s[0] * r * Math.cos(a), px, s[0]), lim(cy - s[1] * r * Math.sin(a), py, s[1])]);
+        }
+        return pts;
+      };
+      const wx = clamp(x - s[0], 0, sh.W - 1);
+      ctx.fillStyle = lit(this.waterColor(sh.soft[y * sh.W + wx] || 1), 1, L);
+      poly(ctx, [[px, py], ...arc(LAND_ROUND)]);
+      ctx.fill();
+      ctx.fillStyle = litA('#ffffff', 1, L, 0.55);
+      poly(ctx, [...arc(LAND_ROUND + SHORE_SAND), ...arc(LAND_ROUND + SHORE_FOAM, true)]);
+      ctx.fill();
+      ctx.fillStyle = lit(this.sandColor(), 1, L);
+      poly(ctx, [...arc(LAND_ROUND), ...arc(LAND_ROUND + SHORE_SAND, true)]);
+      ctx.fill();
+    }
   }
 
   drawMeadow(ctx, t, L) {
@@ -970,33 +1147,75 @@ export class Renderer {
 
   drawWater(ctx, t, L) {
     const { x, y } = t;
-    const city = this.city;
-    const water = this.snowCover ? mixHex(PALETTE.water, '#cfe9f4', this.snowCover * 0.6) : PALETTE.water;
+    const sh = this.shore();
+    const soft = sh.soft[y * sh.W + x];
+    const water = this.waterColor(soft);
     ctx.fillStyle = lit(water, 1, L);
-    tilePoly(ctx, x, y);
+    tilePoly(ctx, x, y, -0.03);
     ctx.fill();
-    // Slightly deeper centre where the tile is surrounded by water.
-    let wet = 0;
+    // Open water: a painted ripple here and there.
+    if (soft >= 2.4 && hash2(x, y, 61) < 0.3) {
+      const p = gridToWorld(x + 0.3 + hash2(x, y, 62) * 0.4, y + 0.3 + hash2(x, y, 63) * 0.4);
+      ctx.strokeStyle = litA('#ffffff', 1, L, 0.3);
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x - 6, p.y);
+      ctx.quadraticCurveTo(p.x - 3, p.y - 2, p.x, p.y);
+      ctx.quadraticCurveTo(p.x + 3, p.y + 2, p.x + 6, p.y);
+      ctx.stroke();
+    }
+    // Sandy bank and foam on edges that meet land. At a headland the bank stops short where the land
+    // is rounded off; inside a bay the sand fills the corner and the foam follows its curve.
+    const sand = lit(this.sandColor(), 1, L);
+    const foam = litA('#ffffff', 1, L, 0.55);
+    const foamW = this._caching ? SHORE_FOAM : SHORE_FOAM + Math.sin(this.time * 1.6 + x + y) * 0.02;
     EDGES.forEach((e, i) => {
-      const n = city.getTile(x + [0, 1, 0, -1][i], y + [-1, 0, 1, 0][i]);
-      if (!n || n.terrain === 'water') wet++;
+      const ox = [0, 1, 0, -1][i];
+      const oy = [-1, 0, 1, 0][i];
+      if (this.wetAt(x + ox, y + oy)) return;
+      const dx = e.b[0] - e.a[0];
+      const dy = e.b[1] - e.a[1];
+      const rounds = this.roundsAt(x + ox, y + oy);
+      // How far each end of the bank is cut back: [sand, foam] at the a end, then at the b end.
+      const cut = (k) => {
+        if (!this.wetAt(x + dx * k, y + dy * k)) return [0, BAY_ROUND];
+        return rounds && this.wetAt(x + ox + dx * k, y + oy + dy * k) ? [LAND_ROUND, LAND_ROUND] : [0, 0];
+      };
+      const [sa, fa] = cut(-1);
+      const [sb, fb] = cut(1);
+      const strip = (u0, u1, w0, w1) => {
+        const at = (u, w) => [x + e.a[0] + dx * u + e.n[0] * w, y + e.a[1] + dy * u + e.n[1] * w];
+        poly(ctx, [at(u0, w0), at(u1, w0), at(u1, w1), at(u0, w1)]);
+        ctx.fill();
+      };
+      ctx.fillStyle = sand;
+      strip(sa, 1 - sb, 0, SHORE_SAND);
+      ctx.fillStyle = foam;
+      strip(fa, 1 - fb, SHORE_SAND, foamW);
     });
-    if (wet >= 3) {
-      ctx.fillStyle = lit(water, 0.93, L);
-      gridEllipse(ctx, x + 0.5, y + 0.5, 0, 0.28);
+    // The inside corner of a bay, where two shores meet.
+    for (const { c, s } of CORNERS) {
+      if (this.wetAt(x - s[0], y) || this.wetAt(x, y - s[1])) continue;
+      const px = x + c[0];
+      const py = y + c[1];
+      const q = BAY_ROUND;
+      const arc = (r, back) => {
+        const pts = [];
+        for (let k = 0; k <= 6; k++) {
+          const a = ((back ? 6 - k : k) / 6) * (Math.PI / 2);
+          pts.push([px + s[0] * (q - r * Math.sin(a)), py + s[1] * (q - r * Math.cos(a))]);
+        }
+        return pts;
+      };
+      const r = q - SHORE_SAND;
+      ctx.fillStyle = sand;
+      poly(ctx, [[px, py], [px + s[0] * q, py], ...arc(r), [px, py + s[1] * q]]);
+      ctx.fill();
+      ctx.fillStyle = foam;
+      poly(ctx, [...arc(r), ...arc(r - (foamW - SHORE_SAND), true)]);
       ctx.fill();
     }
-    // Sandy bank and foam on edges that meet land.
-    EDGES.forEach((e, i) => {
-      const n = city.getTile(x + [0, 1, 0, -1][i], y + [-1, 0, 1, 0][i]);
-      if (!n || n.terrain === 'water') return;
-      ctx.fillStyle = lit(PALETTE.sand, 1, L);
-      poly(ctx, edgeStrip(x, y, e, 0, 0.09));
-      ctx.fill();
-      ctx.fillStyle = litA('#ffffff', 1, L, 0.55);
-      poly(ctx, edgeStrip(x, y, e, 0.09, this._caching ? 0.13 : 0.13 + Math.sin(this.time * 1.6 + x + y) * 0.02));
-      ctx.fill();
-    });
     // Shimmer.
     if (this._caching || this.camera.zoom < 0.5) return;
     ctx.lineCap = 'round';
@@ -1036,6 +1255,10 @@ export class Renderer {
       ctx.fill();
       ctx.fillStyle = lit(PALETTE.road, 0.86, L);
       poly(ctx, edgeStrip(x, y, e, 0.15, 0.18));
+      ctx.fill();
+      // The kerb catches the light along its top edge.
+      ctx.fillStyle = litA('#ffffff', 1, L, 0.5);
+      poly(ctx, edgeStrip(x, y, e, 0.135, 0.15));
       ctx.fill();
     });
     // Lane markings follow the connections.
@@ -1116,6 +1339,10 @@ export class Renderer {
       if (m & (1 << i)) return;
       ctx.fillStyle = lit(dirt ? this.grassColor() : PALETTE.sidewalk, dirt ? 0.96 : 1.0, L);
       poly(ctx, edgeStrip(x, y, e, 0, dirt ? 0.13 : 0.12));
+      ctx.fill();
+      // A soft edge where the lane meets its verge or kerb.
+      ctx.fillStyle = lit(base, 0.88, L);
+      poly(ctx, edgeStrip(x, y, e, dirt ? 0.13 : 0.12, dirt ? 0.155 : 0.145));
       ctx.fill();
     });
     this.drawKerbCorners(ctx, x, y, m, dirt ? this.grassColor() : PALETTE.sidewalk, dirt ? 0.13 : 0.12, L);
@@ -1409,10 +1636,35 @@ export class Renderer {
         ctx.fill();
         ctx.stroke();
       } else {
-        ctx.strokeStyle = 'rgba(255,128,112,0.45)';
+        // Can't go here: a coral tile with a cross, so it reads without relying on colour.
+        ctx.fillStyle = 'rgba(239,100,97,0.26)';
+        ctx.strokeStyle = 'rgba(214,72,70,0.9)';
+        ctx.fill();
         ctx.stroke();
+        this.tileCross(ctx, c.x, c.y, 'rgba(214,72,70,0.9)');
       }
     }
+  }
+
+  // A cross over a tile, corner to corner, for "not here".
+  tileCross(ctx, x, y, color) {
+    const z = this.camera.zoom;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.2 / z;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const [a, b] of [
+      [[x + 0.3, y + 0.3], [x + 0.7, y + 0.7]],
+      [[x + 0.7, y + 0.3], [x + 0.3, y + 0.7]],
+    ]) {
+      const p = gridToWorld(a[0], a[1]);
+      const q = gridToWorld(b[0], b[1]);
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(q.x, q.y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   drawSelected(ctx, sel) {
@@ -1485,15 +1737,51 @@ export class Renderer {
     }
   }
 
+  // The tile under the pointer. With a building tool: mint and bright where it can be built, coral
+  // with a cross where it can't. The bulldozer is always coral; inspect is a plain white frame.
   drawHover(ctx, hover) {
     const z = this.camera.zoom;
-    ctx.lineWidth = 1.6 / z;
+    const building = hover.tool !== 'inspect' && hover.tool !== 'bulldoze';
+    const bad = building && !hover.valid;
+    const warn = bad || hover.tool === 'bulldoze';
     tilePoly(ctx, hover.x, hover.y, 0.02);
-    const warn = hover.tool === 'bulldoze' || (!hover.valid && hover.tool !== 'inspect');
-    ctx.fillStyle = warn ? 'rgba(255,143,128,0.22)' : 'rgba(255,255,255,0.28)';
-    ctx.strokeStyle = warn ? 'rgba(255,128,112,0.95)' : 'rgba(255,255,255,0.95)';
+    ctx.fillStyle = bad ? 'rgba(239,100,97,0.34)' : warn ? 'rgba(255,143,128,0.22)' : building ? 'rgba(214,255,226,0.38)' : 'rgba(255,255,255,0.28)';
     ctx.fill();
+    // A dark hairline under the bright one keeps the frame readable on sand, snow and water alike.
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3.6 / z;
+    ctx.strokeStyle = 'rgba(60,48,90,0.28)';
     ctx.stroke();
+    ctx.lineWidth = 2 / z;
+    ctx.strokeStyle = bad ? 'rgba(214,72,70,1)' : warn ? 'rgba(255,128,112,0.95)' : building ? 'rgba(92,191,136,1)' : 'rgba(255,255,255,0.95)';
+    ctx.stroke();
+    if (bad) this.tileCross(ctx, hover.x, hover.y, 'rgba(214,72,70,1)');
+  }
+
+  // Why the tile under the pointer can't be built on, as a small label above it (screen space).
+  drawHoverLabel(ctx, hover) {
+    if (!hover.why) return;
+    const k = this.textScale || 1;
+    const p = this.worldToScreen(gridToWorld(hover.x + 0.5, hover.y + 0.5, 14));
+    ctx.save();
+    ctx.font = `800 ${12 * k}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(hover.why).width + 20 * k;
+    const h = 24 * k;
+    const x = clamp(p.x, w / 2 + 6, this.w - w / 2 - 6);
+    const y = clamp(p.y - h, h / 2 + 6, this.h - h / 2 - 6);
+    ctx.fillStyle = 'rgba(60,40,70,0.25)';
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h / 2 + 2, w, h, 12 * k);
+    ctx.fill();
+    ctx.fillStyle = '#c94a47';
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h / 2, w, h, 12 * k);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(hover.why, x, y + 0.5);
+    ctx.restore();
   }
 
   // ---- Shadows and ambient occlusion ------------------------------------------
@@ -1534,7 +1822,12 @@ export class Renderer {
     const sh = L.shadow;
     if (sh.alpha < 0.01) return;
     const h = f.h * b.sy;
-    ctx.fillStyle = `rgba(64,58,120,${sh.alpha.toFixed(3)})`;
+    // Cast shadow: deepest at the foot of the building, thinning toward its tip.
+    const tip = gridToWorld(x + 0.5 + sh.dx * h, y + 0.5 + sh.dy * h);
+    const fade = ctx.createLinearGradient(g.x, g.y, tip.x, tip.y);
+    fade.addColorStop(0, `rgba(58,50,112,${Math.min(0.5, sh.alpha * 1.45).toFixed(3)})`);
+    fade.addColorStop(1, `rgba(64,58,120,${(sh.alpha * 0.6).toFixed(3)})`);
+    ctx.fillStyle = fade;
     if (f.round) {
       gridEllipse(ctx, x + 0.5 + sh.dx * h * 0.75, y + 0.5 + sh.dy * h * 0.75, 0, 0.22);
       ctx.fill();
@@ -1874,6 +2167,19 @@ export class Renderer {
       0.78,
       gridToWorld(x1, (y0 + y1) / 2, z).y
     );
+    // A thin shadow under the roofline on walls tall enough to carry one.
+    if (h >= 12 && x1 - x0 >= 0.3 && y1 - y0 >= 0.3) {
+      ctx.fillStyle = 'rgba(60,44,96,0.1)';
+      poly(ctx, [
+        [x0, y1, z + h],
+        [x1, y1, z + h],
+        [x1, y0, z + h],
+        [x1, y0, z + h - 2],
+        [x1, y1, z + h - 2],
+        [x0, y1, z + h - 2],
+      ]);
+      ctx.fill();
+    }
     if (top) {
       ctx.fillStyle = lit(color, 1.05, L);
       poly(ctx, [

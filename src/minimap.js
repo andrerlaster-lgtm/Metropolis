@@ -3,6 +3,7 @@
 
 import { PALETTE } from './config.js';
 import { HALF_W, HALF_H } from './iso.js';
+import { beachAt } from './island.js';
 
 const COLORS = {
   water: PALETTE.water,
@@ -109,7 +110,7 @@ export class Minimap {
     const hh = HALF_H * k;
     for (const t of c.tiles) {
       const s = t.structure;
-      g.fillStyle = t.terrain === 'water' ? COLORS.water : s ? COLORS[s.type] || COLORS.grass : COLORS.grass;
+      g.fillStyle = t.terrain === 'water' ? COLORS.water : s ? COLORS[s.type] || COLORS.grass : beachAt(c, t.x, t.y) ? PALETTE.sand : COLORS.grass;
       const p = this.toMini((t.x - t.y) * HALF_W, (t.x + t.y) * HALF_H);
       g.beginPath();
       g.moveTo(p.x, p.y);

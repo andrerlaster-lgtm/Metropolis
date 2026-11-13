@@ -15,6 +15,8 @@ function street(size = 16) {
   generateLand(city, 1);
   const sim = new Simulation(city);
   sim.economy.reset('land');
+  // Water blocks building, so the strip these tests build on is dry ground (seed 1 runs a river through it).
+  for (const t of city.tiles) if (t.y >= 6 && t.y <= 10) t.terrain = 'grass';
   for (let x = 2; x < 14; x++) city.apply('road', x, 8);
   return { city, sim };
 }

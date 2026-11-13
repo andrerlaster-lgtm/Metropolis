@@ -29,6 +29,8 @@ function readBranch() {
   }
 }
 
+const STAR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.6l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/></svg>';
+
 export class SkillsSheet {
   // deps: { skills: () → Skills, onChange(), toast(msg, ms), sound(name), onOpen() }
   constructor(deps) {
@@ -87,7 +89,10 @@ export class SkillsSheet {
     const n = this.sk.available();
     this.chip.hidden = !n;
     if (n) {
-      this.chip.textContent = `★ ${n}`;
+      if (this._chipN !== n) {
+        this._chipN = n;
+        this.chip.innerHTML = `${STAR_ICON}<span>${n | 0}</span>`;
+      }
       this.chip.setAttribute('aria-label', `${plural(n, 'upgrade point')} to spend. Open town upgrades`);
     }
     if (this.open) this.render(false);

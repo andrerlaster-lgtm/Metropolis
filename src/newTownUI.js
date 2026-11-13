@@ -12,9 +12,9 @@ const MODES = [
   { id: 'milestones', label: 'Milestones', hint: 'Unlock buildings as your town grows.' },
 ];
 const STARTS = [
-  { id: 'seed', label: 'A seed', hint: 'A crossroads and a few cottages in 1850. Watch it grow into a city.' },
-  { id: 'land', label: 'Empty land', hint: 'Grass, a river and woods. Start from scratch.' },
-  { id: 'town', label: 'Starter town', hint: 'A little town that is already up and running.' },
+  { id: 'seed', label: 'A seed', hint: 'A crossroads and a few cottages on an island in 1850. Watch it grow into a city.' },
+  { id: 'land', label: 'Empty land', hint: 'An island of grass, beaches and woods. Start from scratch.' },
+  { id: 'town', label: 'Starter town', hint: 'A little island town that is already up and running.' },
 ];
 
 const GROWTH = [
