@@ -55,6 +55,10 @@ Stop the server when done: `lsof -ti:8765 -sTCP:LISTEN | xargs -r kill`.
   Saves live in localStorage, so every new browser context starts clean.
 - The driver places a sandbag wall, a gun nest, a bunker and a mortar pit in the
   military base so every defence model is drawn and measured.
+- On desktop, after the 3D town is measured, it founds a settlement, goes there
+  from the World sheet, builds a road with a click and checks the settlement
+  paid for it (`desktop-4b-settlement.png`). The budgets are measured before it,
+  so they stay a one-town number.
 - Life events pause time until answered, so the town may grow less than
   you expect during the 3× wait.
 - Wait for the text "Start a life", not the "Be born" button. Playwright

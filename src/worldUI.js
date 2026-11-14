@@ -6,10 +6,12 @@ import { STRUCTURES, MILESTONES } from './config.js';
 import { ERAS } from './eras.js';
 import { money } from './economy.js';
 import { STANCE_LABEL } from './diplomacy.js';
+import { LANDS, landOf } from './land.js';
 
 export const OWNER = {
   player: { label: 'You', long: 'Run by you', color: '#8a6cc4' },
   cpu: { label: 'Computer', long: 'Run by the computer', color: '#e9846f' },
+  colony: { label: 'Yours', long: 'Your settlement', color: '#6f9fd8' },
 };
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -52,6 +54,7 @@ export function townSummary(c) {
     sandbox: c.sim.economy.sandbox,
     era: ERAS[city.systems.era?.index ?? 0]?.label || '',
     tier: MILESTONES[c.sim.milestones.reached]?.label || '',
+    land: LANDS[landOf(city)]?.label || '',
     buildings,
     log: city.systems.cpu?.log || [],
   };
@@ -140,10 +143,10 @@ export class WorldPanel {
         ({ c, s }) => `
       <article class="wt-card${c === viewing ? ' is-here' : ''}" style="--owner:${s.owner.color}">
         <header><span class="wt-owner">${esc(s.owner.label)}</span><h3>${esc(s.name)}</h3>${stance(c) ? `<span class="wt-stance wt-${stance(c)}">${esc(STANCE_LABEL[stance(c)])}</span>` : ''}${c === viewing ? '<span class="wt-here">On screen</span>' : ''}</header>
-        <p class="wt-stats">${s.population.toLocaleString()} people · ${s.buildings} buildings · ${s.happiness == null ? 'no one yet' : `${s.happiness}% happy`}<br>${esc(s.era)}${s.tier ? ` · ${esc(s.tier)}` : ''} · ${s.sandbox ? 'Sandbox' : money(s.money)}</p>
-        ${c.owner !== 'player' && s.log.length ? `<ul class="wt-log">${s.log.slice(0, 3).map((b) => `<li>${esc(describeBuild(c.city, b))} <small>(day ${b.day})</small></li>`).join('')}</ul>` : ''}
+        <p class="wt-stats">${s.population.toLocaleString()} people · ${s.buildings} buildings · ${s.happiness == null ? 'no one yet' : `${s.happiness}% happy`}<br>${esc(s.era)}${s.tier ? ` · ${esc(s.tier)}` : ''}${s.land ? ` · ${esc(s.land)}` : ''} · ${s.sandbox ? 'Sandbox' : money(s.money)}</p>
+        ${c.owner === 'cpu' && s.log.length ? `<ul class="wt-log">${s.log.slice(0, 3).map((b) => `<li>${esc(describeBuild(c.city, b))} <small>(day ${b.day})</small></li>`).join('')}</ul>` : ''}
         <div class="wt-actions">
-          <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : 'Watch'}</button>
+          <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : c.owner === 'colony' ? 'Go there' : 'Watch'}</button>
           <button type="button" class="pill" data-view3d="${esc(c.id)}">See in 3D</button>
           ${c.owner === 'cpu' && this.h.onDiplomacy ? `<button type="button" class="pill" data-diplo="${esc(c.id)}">Diplomacy</button>` : ''}
         </div>

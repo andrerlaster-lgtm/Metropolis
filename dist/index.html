@@ -27388,9 +27388,11 @@ const { STRUCTURES, MILESTONES } = __mod_config;
 const { ERAS } = __mod_eras;
 const { money } = __mod_economy;
 const { STANCE_LABEL } = __mod_diplomacy;
+const { LANDS, landOf } = __mod_land;
 const OWNER = {
   player: { label: 'You', long: 'Run by you', color: '#8a6cc4' },
   cpu: { label: 'Computer', long: 'Run by the computer', color: '#e9846f' },
+  colony: { label: 'Yours', long: 'Your settlement', color: '#6f9fd8' },
 };
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -27433,6 +27435,7 @@ function townSummary(c) {
     sandbox: c.sim.economy.sandbox,
     era: ERAS[city.systems.era?.index ?? 0]?.label || '',
     tier: MILESTONES[c.sim.milestones.reached]?.label || '',
+    land: LANDS[landOf(city)]?.label || '',
     buildings,
     log: city.systems.cpu?.log || [],
   };
@@ -27521,10 +27524,10 @@ class WorldPanel {
         ({ c, s }) => `
       <article class="wt-card${c === viewing ? ' is-here' : ''}" style="--owner:${s.owner.color}">
         <header><span class="wt-owner">${esc(s.owner.label)}</span><h3>${esc(s.name)}</h3>${stance(c) ? `<span class="wt-stance wt-${stance(c)}">${esc(STANCE_LABEL[stance(c)])}</span>` : ''}${c === viewing ? '<span class="wt-here">On screen</span>' : ''}</header>
-        <p class="wt-stats">${s.population.toLocaleString()} people · ${s.buildings} buildings · ${s.happiness == null ? 'no one yet' : `${s.happiness}% happy`}<br>${esc(s.era)}${s.tier ? ` · ${esc(s.tier)}` : ''} · ${s.sandbox ? 'Sandbox' : money(s.money)}</p>
-        ${c.owner !== 'player' && s.log.length ? `<ul class="wt-log">${s.log.slice(0, 3).map((b) => `<li>${esc(describeBuild(c.city, b))} <small>(day ${b.day})</small></li>`).join('')}</ul>` : ''}
+        <p class="wt-stats">${s.population.toLocaleString()} people · ${s.buildings} buildings · ${s.happiness == null ? 'no one yet' : `${s.happiness}% happy`}<br>${esc(s.era)}${s.tier ? ` · ${esc(s.tier)}` : ''}${s.land ? ` · ${esc(s.land)}` : ''} · ${s.sandbox ? 'Sandbox' : money(s.money)}</p>
+        ${c.owner === 'cpu' && s.log.length ? `<ul class="wt-log">${s.log.slice(0, 3).map((b) => `<li>${esc(describeBuild(c.city, b))} <small>(day ${b.day})</small></li>`).join('')}</ul>` : ''}
         <div class="wt-actions">
-          <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : 'Watch'}</button>
+          <button type="button" class="pill" data-view="${esc(c.id)}"${c === viewing ? ' disabled' : ''}>${c.owner === 'player' ? 'Go home' : c.owner === 'colony' ? 'Go there' : 'Watch'}</button>
           <button type="button" class="pill" data-view3d="${esc(c.id)}">See in 3D</button>
           ${c.owner === 'cpu' && this.h.onDiplomacy ? `<button type="button" class="pill" data-diplo="${esc(c.id)}">Diplomacy</button>` : ''}
         </div>
@@ -31555,7 +31558,30 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   const townViews = new Map(); // town id → its own Renderer (your town uses `renderer`)
   const shownCity = () => viewing?.city || city;
   const shownSim = () => viewing?.sim || sim;
-  const watching = () => !!viewing && viewing.owner !== 'player';
+  const watching = () => !!viewing && viewing.owner === 'cpu';
+  // The town you build in: one of your settlements when it's on screen, otherwise your first town.
+  // Building, bulldozing, undo, money and the map's previews all go through these.
+  const settlementHere = () => (viewing && viewing.owner === 'colony' ? viewing : null);
+  const bc = () => settlementHere()?.city || city;
+  const bs = () => settlementHere()?.sim || sim;
+  const br = () => (settlementHere() ? rendererFor(settlementHere()) : renderer);
+  const histories = new Map(); // settlement id → its own undo history
+  const bh = () => {
+    const c = settlementHere();
+    if (!c) return history;
+    let h = histories.get(c.id);
+    if (!h || h.city !== c.city) {
+      h = new History(c.city);
+      h.onMoney = (delta) => (delta > 0 ? c.sim.economy.refund(delta) : c.sim.economy.spend(-delta));
+      h.on(() => syncHistoryButtons());
+      histories.set(c.id, h);
+    }
+    return h;
+  };
+  // A settlement is saved inside your town's save: an edit there asks for a save soon, as one in your town does.
+  const savedSoon = () => {
+    if (settlementHere()) saver.pending = saver.delayMs;
+  };
   let carryTimer = null; // the family story moves on to the next generation shortly after a death
 
   const tileAt = (sx, sy) => {
@@ -31588,7 +31614,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       isUnlocked: (id) => sim.milestones.isUnlocked(id),
       unlockLabel: (id) => MILESTONES[unlockTier(id)]?.label || '',
     },
-    costOf: (tool) => sim.economy.costOf(tool),
+    costOf: (tool) => bs().economy.costOf(tool), // the town you build in: a forest settlement builds for less
     budget: () => ({ money: shownSim().economy.money, net: shownCity().derived.economy?.net || 0, sandbox: shownSim().economy.sandbox }),
     onShare: () => shareTown(),
     onBackHome: () => backHome(),
@@ -31644,15 +31670,15 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     const before = new Map();
     for (let y = y0 - FEEDBACK_RADIUS; y <= y1 + FEEDBACK_RADIUS; y++) {
       for (let x = x0 - FEEDBACK_RADIUS; x <= x1 + FEEDBACK_RADIUS; x++) {
-        const t = city.getTile(x, y);
+        const t = bc().getTile(x, y);
         if (isHome(t)) before.set(t, { id: t.structure.id, d: t.desirability });
       }
     }
     const changed = edit();
     if (!changed) return changed;
-    computeCoverage(city);
-    recomputeDesirability(city);
-    city.dirty = true; // let the simulation refresh jobs and traffic on its next tick
+    computeCoverage(bc());
+    recomputeDesirability(bc());
+    bc().dirty = true; // let the simulation refresh jobs and traffic on its next tick
     const ups = [];
     const downs = [];
     for (const [t, b] of before) {
@@ -31664,25 +31690,29 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     ups.sort((a, b) => b.delta - a.delta);
     downs.sort((a, b) => a.delta - b.delta);
     [...ups.slice(0, 6), ...downs.slice(0, 4)].forEach(({ t, delta }, i) =>
-      renderer.floatText(t.x, t.y, `${delta > 0 ? '+' : '−'}${Math.abs(delta)}%`, delta > 0 ? '#3f9a68' : '#d0605a', 0.25 + i * 0.06)
+      br().floatText(t.x, t.y, `${delta > 0 ? '+' : '−'}${Math.abs(delta)}%`, delta > 0 ? '#3f9a68' : '#d0605a', 0.25 + i * 0.06)
     );
     // A brand-new home shows how appealing its lot is.
-    const placed = coords.map((c) => city.getTile(c.x, c.y)).filter((t) => isHome(t) && !before.has(t));
-    placed.slice(0, 4).forEach((t, i) => renderer.floatText(t.x, t.y, `${Math.round(t.desirability * 100)}% appeal`, '#7a5fa8', 0.35 + i * 0.08, 40));
+    const placed = coords.map((c) => bc().getTile(c.x, c.y)).filter((t) => isHome(t) && !before.has(t));
+    placed.slice(0, 4).forEach((t, i) => br().floatText(t.x, t.y, `${Math.round(t.desirability * 100)}% appeal`, '#7a5fa8', 0.35 + i * 0.08, 40));
     return changed;
   }
-  const build = (label, coords, edit) => history.record(label, coords, () => withFeedback(coords, edit));
+  const build = (label, coords, edit) => {
+    const ok = bh().record(label, coords, () => withFeedback(coords, edit));
+    if (ok) savedSoon();
+    return ok;
+  };
 
   // Placing things costs money (Sandbox is free). A drag places as many as the budget allows.
   history.onMoney = (delta) => (delta > 0 ? sim.economy.refund(delta) : sim.economy.spend(-delta));
   function buyAndBuild(tool, coords, label) {
-    const each = sim.economy.costOf(tool);
+    const each = bs().economy.costOf(tool);
     let list = coords;
     if (each) {
-      const n = sim.economy.affordable(tool, coords.length);
+      const n = bs().economy.affordable(tool, coords.length);
       const name = STRUCTURES[tool]?.label || (tool === 'water' ? 'Water' : tool);
       if (!n) {
-        ui.toast(`Not enough money: ${name.toLowerCase()} costs ${money(each)} and the town has ${money(sim.economy.money)}`, 3200);
+        ui.toast(`Not enough money: ${name.toLowerCase()} costs ${money(each)} and the town has ${money(bs().economy.money)}`, 3200);
         return false;
       }
       if (n < coords.length) {
@@ -31691,17 +31721,18 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       }
     }
     const cost = each * list.length;
-    const ok = history.record(label(list.length), list, () => withFeedback(list, () => (list.length === 1 ? city.apply(tool, list[0].x, list[0].y) : city.applyMany(tool, list))), { cost });
+    const ok = bh().record(label(list.length), list, () => withFeedback(list, () => (list.length === 1 ? bc().apply(tool, list[0].x, list[0].y) : bc().applyMany(tool, list))), { cost });
     // Show the new building's reach for a moment, so a tap on a tablet shows what it covers too.
-    if (ok && influenceOf(tool, city).length) {
+    if (ok && influenceOf(tool, bc()).length) {
       const at = list[list.length - 1];
       reachFlash = { x: at.x, y: at.y, type: tool, until: performance.now() + 3500 };
     }
     if (ok && cost) {
-      sim.economy.spend(cost);
+      bs().economy.spend(cost);
       const end = list[list.length - 1];
-      renderer.floatText(end.x, end.y, `−${money(cost)}`, '#c0605a', 0.1, 46);
+      br().floatText(end.x, end.y, `−${money(cost)}`, '#c0605a', 0.1, 46);
     }
+    if (ok) savedSoon();
     return ok;
   }
 
@@ -31774,6 +31805,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     },
     // Build a suggested road in one go (one undo step), skipping anything built there since.
     onBuild: (th) => {
+      if (world && viewing !== world.cities[0]) showTown(world.cities[0], { immediate: true }); // the panel is about your first town
       const coords = th.plan.filter((c) => city.canApply('road', c.x, c.y) && city.getTile(c.x, c.y).terrain === 'grass' && (!city.getTile(c.x, c.y).structure || city.getTile(c.x, c.y).structure.type === 'tree'));
       if (!coords.length) return ui.toast('That spot has changed. A new suggestion will come along shortly', 3000);
       if (!buyAndBuild('road', coords, (n) => `${n} road${n > 1 ? 's' : ''}`)) return;
@@ -31783,7 +31815,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     },
   });
   function focusTile(x, y) {
-    if (watching()) showTown(world.cities[0], { immediate: true }); // it's a place in your own town
+    if (world && viewing !== world.cities[0]) showTown(world.cities[0], { immediate: true }); // it is a place in your first town
     const w = gridToWorld(x + 0.5, y + 0.5);
     camera.tx = w.x;
     camera.ty = w.y - 20;
@@ -31858,20 +31890,23 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   const undoBtn = document.getElementById('btn-undo');
   const redoBtn = document.getElementById('btn-redo');
   const syncHistoryButtons = () => {
-    undoBtn.hidden = !history.canUndo && !history.canRedo;
-    redoBtn.hidden = !history.canRedo;
-    undoBtn.disabled = !history.canUndo;
+    const h = bh();
+    undoBtn.hidden = !h.canUndo && !h.canRedo;
+    redoBtn.hidden = !h.canRedo;
+    undoBtn.disabled = !h.canUndo;
   };
   history.on(syncHistoryButtons);
   syncHistoryButtons();
   const doUndo = () => {
     if (watching()) return ui.toast('Go back to your town to undo', 2000);
-    const label = history.undo();
+    const label = bh().undo();
+    if (label) savedSoon();
     if (label) ui.toast(`Undid ${label}`, 1600);
   };
   const doRedo = () => {
     if (watching()) return ui.toast('Go back to your town to redo', 2000);
-    const label = history.redo();
+    const label = bh().redo();
+    if (label) savedSoon();
     if (label) ui.toast(`Redid ${label}`, 1600);
   };
   undoBtn.addEventListener('click', doUndo);
@@ -31892,7 +31927,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   };
   renderer.onGrow = () => audio.play('grow', { gap: 0.25 });
   const nope = (x, y, why = null) => {
-    renderer.nudge(x, y);
+    br().nudge(x, y);
     audio.play('nope');
     if (why) ui.toast(why, 2600);
   };
@@ -32087,6 +32122,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   function swapCity(other) {
     city.copyFrom(other);
     history.clear();
+    histories.clear();
     sim.refresh();
     selected = null;
     city.emit('loaded');
@@ -32471,7 +32507,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
         if (selected) audio.play('click');
         return;
       }
-      const th = renderer.thoughtAt(sx, sy);
+      const th = settlementHere() ? null : renderer.thoughtAt(sx, sy); // thought bubbles are your first town's
       if (th) {
         audio.play('click');
         cityPanel.focus(th.id);
@@ -32481,18 +32517,18 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       const t = tileAt(sx, sy);
       if (tool === 'inspect') {
         selected = t && !(selected && selected.x === t.x && selected.y === t.y) ? t : null;
-        ui.inspect(city, selected);
+        ui.inspect(bc(), selected);
         if (selected) audio.play('click');
         return;
       }
       if (!t) return;
       if (!sim.milestones.isUnlocked(tool)) return ui.setTool(tool);
-      if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y, city.placeError(tool, t.x, t.y));
+      if (!buyAndBuild(tool, [t], () => labelFor(tool))) nope(t.x, t.y, bc().placeError(tool, t.x, t.y));
     },
     onBulldoze: (sx, sy) => {
       if (watching()) return;
       const t = tileAt(sx, sy);
-      if (t && !build('bulldozing', [t], () => city.apply('bulldoze', t.x, t.y))) nope(t.x, t.y);
+      if (t && !build('bulldozing', [t], () => bc().apply('bulldoze', t.x, t.y))) nope(t.x, t.y);
     },
     onHover: (sx, sy) => {
       hover = sx == null || watching() ? null : tileAt(sx, sy);
@@ -32517,10 +32553,11 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
       if (stroke.tool === 'road') {
         stroke.tiles = lPath(stroke.start, t).slice(0, MAX_STROKE);
       } else {
-        const seen = new Set(stroke.tiles.map((c) => c.y * city.width + c.x));
+        const w = bc().width;
+        const seen = new Set(stroke.tiles.map((c) => c.y * w + c.x));
         for (const c of tileLine(stroke.last, t)) {
           if (stroke.tiles.length >= MAX_STROKE) break;
-          const k = c.y * city.width + c.x;
+          const k = c.y * w + c.x;
           if (!seen.has(k)) {
             seen.add(k);
             stroke.tiles.push(c);
@@ -32577,8 +32614,9 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
 
   function commitStroke(s) {
     if (!s || watching()) return;
-    const coords = s.tiles.filter((c) => city.canApply(s.tool, c.x, c.y));
-    const why = s.tiles.map((c) => city.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
+    const here = bc();
+    const coords = s.tiles.filter((c) => here.canApply(s.tool, c.x, c.y));
+    const why = s.tiles.map((c) => here.placeError(s.tool, c.x, c.y)).find(Boolean) || null;
     if (!coords.length) return nope(s.start.x, s.start.y, why);
     if (!buyAndBuild(s.tool, coords, (n) => labelFor(s.tool, n))) nope(s.start.x, s.start.y);
     else if (why) ui.toast(`${s.tiles.length - coords.length} skipped: ${why.toLowerCase()}`, 2600);
@@ -32625,7 +32663,7 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   function showTown(c, { immediate = false } = {}) {
     if (!c || c === viewing) return;
     watchSpots.set(viewing.id, { tx: camera.tx, ty: camera.ty, zoom: camera.tzoom });
-    if (viewing.owner !== 'player') viewing.sim.agentsActive = false;
+    if (viewing.owner !== 'player') viewing.sim.agentsActive = false; // walkers only in the town you look at
     viewing = c;
     c.sim.agentsActive = true;
     stopFollow();
@@ -32649,7 +32687,10 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
     } else fitView(immediate);
     if (in3D()) view3d.setWorld(worldFor3D());
     worldPanel.tick();
+    syncHistoryButtons();
+    ui.refreshLocks(); // prices in an open build menu follow the town (a forest settlement builds for less)
     if (watching()) ui.toast(`Watching ${c.entry.name}, run by the computer. You can look around, but only build in your own town`, 4200);
+    else if (c.owner === 'colony') ui.toast(`You're in ${c.entry.name}, your settlement. Building here spends its own money (${c.sim.economy.sandbox ? 'Sandbox' : money(c.sim.economy.money)})`, 4200);
   }
   // The towns as the 3D view needs them: the one on screen, and the others where they sit in the world.
   function worldFor3D() {
@@ -32816,33 +32857,35 @@ function start(hotData = {}, { readOnly = false, guard = null } = {}) {
   // place it; a building you just placed, or inspect, shows its reach on the map.
   function needsFor(t) {
     const now = performance.now();
-    if (needsCache.tool !== t || now - needsCache.at > 500) needsCache = { tool: t, at: now, list: homesNeeding(city, t) };
+    const here = bc();
+    if (needsCache.tool !== t || needsCache.city !== here || now - needsCache.at > 500) needsCache = { tool: t, city: here, at: now, list: homesNeeding(here, t) };
     return needsCache.list;
   }
   function reachAt(x, y, type, fade = 1) {
-    const effects = reachOf(city, x, y, type);
+    const effects = reachOf(bc(), x, y, type);
     return effects.length ? { x, y, effects, text: reachText(effects), fade } : null;
   }
   function reachView() {
-    if (hover && tool !== 'inspect' && influenceOf(tool, city).length) return reachAt(hover.x, hover.y, tool);
+    if (hover && tool !== 'inspect' && influenceOf(tool, bc()).length) return reachAt(hover.x, hover.y, tool);
     if (reachFlash) {
       const left = reachFlash.until - performance.now();
       if (left > 0) return reachAt(reachFlash.x, reachFlash.y, reachFlash.type, Math.min(1, left / 800));
       reachFlash = null;
     }
-    const st = selected && tool === 'inspect' ? city.getTile(selected.x, selected.y)?.structure : null;
+    const st = selected && tool === 'inspect' ? bc().getTile(selected.x, selected.y)?.structure : null;
     return st ? reachAt(selected.x, selected.y, st.type) : null;
   }
 
   function viewState() {
     if (watching()) return { overlay, selected, plan: null, issues: [] };
-    const plan = stroke ? { tool: stroke.tool, tiles: stroke.tiles.map((c) => ({ ...c, valid: city.canApply(stroke.tool, c.x, c.y) })) } : null;
-    const issues = cityPanel.issues();
+    const here = bc();
+    const plan = stroke ? { tool: stroke.tool, tiles: stroke.tiles.map((c) => ({ ...c, valid: here.canApply(stroke.tool, c.x, c.y) })) } : null;
+    const issues = settlementHere() ? [] : cityPanel.issues(); // the City panel's problems are your first town's
     const reach = reachView();
     const needs = tool !== 'inspect' ? needsFor(tool) : null;
     if (!hover) return { overlay, selected, plan, issues, reach, needs };
-    const t = city.getTile(hover.x, hover.y);
-    const valid = tool === 'inspect' || city.canApply(tool, hover.x, hover.y);
+    const t = here.getTile(hover.x, hover.y);
+    const valid = tool === 'inspect' || here.canApply(tool, hover.x, hover.y);
     const ghost =
       valid && STRUCTURES[tool] && !t.structure && t.terrain === 'grass'
         ? { x: hover.x, y: hover.y, structure: { type: tool, variant: 'blush', floors: tool === 'office' ? 4 : 5, shape: 0, residents: 0 } }
