@@ -1,7 +1,7 @@
 // Renderer: reads the city, agents and clock and draws the isometric diorama. It never changes city state.
 
 import { PALETTE, BUILDING_VARIANTS, STRUCTURES, SEVERITY_COLORS } from './config.js';
-import { HALF_W, HALF_H, gridToWorld, worldToGrid } from './iso.js';
+import { HALF_W, HALF_H, gridToWorld, worldToGrid, ISO } from './iso.js';
 import { lightingAt } from './lighting.js';
 import { lit, litA, rgba, mixHex } from './color.js';
 import { clamp, hash2 } from './utils.js';
@@ -32,7 +32,7 @@ function poly(ctx, pts) {
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
     const x = (p[0] - p[1]) * HALF_W;
-    const y = (p[0] + p[1]) * HALF_H - (p[2] || 0);
+    const y = (p[0] + p[1]) * HALF_H - (p[2] || 0) * ISO.z;
     if (i) ctx.lineTo(x, y);
     else ctx.moveTo(x, y);
   }
@@ -321,16 +321,16 @@ export class Renderer {
     }
     if (b.kind === 'wobble') {
       const s = Math.sin(t * 28) * 0.06 * (1 - t);
-      return { sx: 1 + s, sy: 1 - s, hidden: false };
+      return { sx: 1, sy: 1 - s, hidden: false };
     }
     if (b.kind === 'grow') {
       const s = Math.sin(t * Math.PI) * 0.12 * (1 - t * 0.5);
-      return { sx: 1 - s * 0.4, sy: 1 + s, hidden: false };
+      return { sx: 1, sy: 1 + s, hidden: false };
     }
-    // Squash and stretch: grow from flat, overshoot tall and thin, settle.
-    const sy = 1 - Math.exp(-5 * t) * Math.cos(9 * t);
-    const sx = clamp(1 + (1 - sy) * 0.5, 0.86, 1.3);
-    return { sx, sy: Math.max(0.02, sy), hidden: false };
+    // Rise from flat, a little taller than full height, then settle. Only height changes (drawItem):
+    // the footprint stays put on its tile from the first frame to the last.
+    const sy = 1 - Math.exp(-6 * t) * Math.cos(8 * t);
+    return { sx: 1, sy: Math.max(0.02, sy), hidden: false };
   }
 
   // ---- Frame ----------------------------------------------------------------
@@ -351,7 +351,10 @@ export class Renderer {
     this.drawSky(ctx, L);
 
     const z = cam.zoom;
-    ctx.setTransform(this.dpr * z, 0, 0, this.dpr * z, this.dpr * (this.w / 2 - cam.x * z), this.dpr * (this.h / 2 - cam.y * z));
+    // Once the camera has come to rest the view lands on whole screen pixels, so edges stay sharp.
+    const rest = cam.x === cam.tx && cam.y === cam.ty && cam.zoom === cam.tzoom;
+    const snap = (v) => (rest ? Math.round(v) : v);
+    ctx.setTransform(this.dpr * z, 0, 0, this.dpr * z, snap(this.dpr * (this.w / 2 - cam.x * z)), snap(this.dpr * (this.h / 2 - cam.y * z)));
     const rect = {
       left: cam.x - this.w / 2 / z - HALF_W,
       right: cam.x + this.w / 2 / z + HALF_W,
@@ -1122,7 +1125,7 @@ export class Renderer {
     ctx.lineWidth = 0.9;
     ctx.lineCap = 'round';
     for (let i = 0; i < 3; i++) {
-      if (hash2(x, y, 20 + i) > 0.55) continue;
+      if (hash2(x, y, 20 + i) > 0.4) continue;
       const p = gridToWorld(x + 0.15 + hash2(x, y, 30 + i) * 0.7, y + 0.15 + hash2(x, y, 40 + i) * 0.7);
       ctx.beginPath();
       ctx.moveTo(p.x - 2, p.y - 2.5);
@@ -1132,9 +1135,9 @@ export class Renderer {
       ctx.lineTo(p.x + 3, p.y - 2);
       ctx.stroke();
     }
-    const flowers = this.season === 'spring' ? 0.45 : this.season === 'summer' ? 0.3 : this.season === 'autumn' ? 0.4 : 0;
+    const flowers = this.season === 'spring' ? 0.3 : this.season === 'summer' ? 0.2 : this.season === 'autumn' ? 0.28 : 0;
     if (hash2(x, y, 3) < flowers) {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 3; i++) {
         const p = gridToWorld(x + 0.15 + hash2(x, y, 50 + i) * 0.7, y + 0.15 + hash2(x, y, 60 + i) * 0.7);
         const palette = this.season === 'autumn' ? AUTUMN_LEAVES[(i + x) % AUTUMN_LEAVES.length] : FLOWER_COLORS;
         ctx.fillStyle = lit(palette[(i + x + y) % palette.length], 1, L);
@@ -1815,9 +1818,21 @@ export class Renderer {
     if (b.hidden) return;
     const { x, y } = t;
     const g = gridToWorld(x + 0.5, y + 0.5);
-    // Contact shadow: always present, anchors the object to the ground.
-    const r = (1 - f.inset * 2) * HALF_W * 1.25 * b.sx;
-    ctx.drawImage(contactSprite(), g.x - r, g.y - r / 2, r * 2, r);
+    // Contact shadow: always present, anchors the object to the ground. Trees get a soft round one;
+    // buildings a crisp one in the shape of their footprint, a little wider than the walls.
+    if (f.round) {
+      const r = (1 - f.inset * 2) * HALF_W * 1.25;
+      ctx.drawImage(contactSprite(), g.x - r, g.y - r / 2, r * 2, r);
+    } else {
+      for (const [pad, a] of [
+        [0.075, 0.07],
+        [0.035, 0.1],
+      ]) {
+        ctx.fillStyle = `rgba(52,44,96,${a})`;
+        tilePoly(ctx, x, y, f.inset - pad);
+        ctx.fill();
+      }
+    }
 
     const sh = L.shadow;
     if (sh.alpha < 0.01) return;
@@ -1869,15 +1884,23 @@ export class Renderer {
     this.trackGrowth(t);
     const b = this.bounceFor(t.x, t.y);
     if (b.hidden) return;
-    const c = gridToWorld(t.x + 0.5, t.y + 0.5);
     ctx.save();
-    if (b.sx !== 1 || b.sy !== 1) {
-      ctx.translate(c.x, c.y);
-      ctx.scale(b.sx, b.sy);
-      ctx.translate(-c.x, -c.y);
+    // Placement and growth animate height only, so a building stays flush with its tile throughout.
+    // A tree is drawn about the foot of its trunk, so it simply scales up from there.
+    if (b.sy !== 1) {
+      if (t.structure.type === 'tree') {
+        const c = gridToWorld(t.x + 0.5, t.y + 0.5);
+        ctx.translate(c.x, c.y);
+        ctx.scale(1, b.sy);
+        ctx.translate(-c.x, -c.y);
+      } else ISO.z = b.sy;
     }
-    this.drawStructure(ctx, t.x, t.y, t.structure, L, false);
-    if ((t.structure.damage || 0) >= 0.15 && t.structure.type !== 'road') this.drawDamage(ctx, t, L);
+    try {
+      this.drawStructure(ctx, t.x, t.y, t.structure, L, false);
+      if ((t.structure.damage || 0) >= 0.15 && t.structure.type !== 'road') this.drawDamage(ctx, t, L);
+    } finally {
+      ISO.z = 1;
+    }
     ctx.restore();
   }
 
@@ -2239,6 +2262,49 @@ export class Renderer {
       ctx.fillStyle = lit(PALETTE.glass, shade, L);
       ctx.fill();
     }
+    // A fine dark frame, so the pane reads against pale walls at any zoom.
+    ctx.strokeStyle = 'rgba(74,58,104,0.34)';
+    ctx.lineWidth = 0.6;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+
+  // A front door on the left-hand face: a wooden leaf in a pale frame, with a stone step before it.
+  drawDoor(ctx, L, x0, y0, x1, y1, u0, u1, h, color, trim = '#fff7ee') {
+    const q = this.faceQuad('L', x0, y0, x1, y1, u0, u1, 0, h);
+    ctx.fillStyle = lit(color, 0.9, L);
+    poly(ctx, q);
+    ctx.fill();
+    const [a, b, c, d] = q.map((p) => gridToWorld(p[0], p[1], p[2]));
+    ctx.strokeStyle = lit(trim, 0.98, L);
+    ctx.lineWidth = 0.8;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(d.x, d.y);
+    ctx.lineTo(c.x, c.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    const gx = (u) => x0 + (x1 - x0) * u;
+    ctx.fillStyle = lit(PALETTE.stone, 0.96, L);
+    poly(ctx, [
+      [gx(u0) - 0.015, y1],
+      [gx(u1) + 0.015, y1],
+      [gx(u1) + 0.015, y1 + 0.055],
+      [gx(u0) - 0.015, y1 + 0.055],
+    ]);
+    ctx.fill();
+  }
+
+  // A low stone footing round the two walls you can see: the line where a house meets the ground.
+  drawPlinth(ctx, L, x0, y0, x1, y1, wall) {
+    const stone = mixHex(wall, '#8f8478', 0.4);
+    ctx.fillStyle = lit(stone, 0.9, L);
+    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0, 1, 0, 1.8));
+    ctx.fill();
+    ctx.fillStyle = lit(stone, 0.76, L);
+    poly(ctx, this.faceQuad('R', x0, y0, x1, y1, 0, 1, 0, 1.8));
+    ctx.fill();
   }
 
   isWindowLit(x, y, i, occupancy, L) {
@@ -2263,10 +2329,8 @@ export class Renderer {
     const occ = ghost ? 0 : s.residents / STRUCTURES.house.capacity;
     const roof = ['gableY', 'gableX', 'hip'][Math.floor(hash2(x, y, 41) * 3)];
     this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, v.wall, false);
-
-    ctx.fillStyle = lit(v.roof, 0.72, L);
-    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.6, 0.8, 0, Math.min(9, h - 3)));
-    ctx.fill();
+    this.drawPlinth(ctx, L, x0, y0, x1, y1, v.wall);
+    this.drawDoor(ctx, L, x0, y0, x1, y1, 0.58, 0.82, Math.min(9, h - 3), mixHex(v.roof, '#6b4630', 0.55), v.trim);
     this.drawWindow(ctx, L, this.faceQuad('L', x0, y0, x1, y1, 0.16, 0.4, 5, Math.min(11, h - 3)), 0.92, this.isWindowLit(x, y, 0, occ, L));
     this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, 0.16, 0.4, 5, Math.min(11, h - 3)), 0.8, this.isWindowLit(x, y, 1, occ, L));
     if (stage > 0) this.drawWindow(ctx, L, this.faceQuad('R', x0, y0, x1, y1, 0.6, 0.84, 5, 11), 0.8, this.isWindowLit(x, y, 2, occ, L));
@@ -2327,10 +2391,11 @@ export class Renderer {
 
     // A full house gains a little garage in front.
     if (stage === 2) {
-      const g0 = x + 0.56;
-      const g1 = x + 0.86;
-      const gy0 = y + 0.8;
-      const gy1 = y + 0.95;
+      // Built against the front wall, inside the house's own width, so it reads as part of the house.
+      const g0 = x0 + 0.02;
+      const g1 = x0 + 0.26;
+      const gy0 = y1;
+      const gy1 = y1 + 0.13;
       this.drawBox(ctx, L, g0, gy0, g1, gy1, 0, 8, v.wall);
       ctx.fillStyle = lit(v.trim, 0.95, L);
       poly(ctx, this.faceQuad('L', g0, gy0, g1, gy1, 0.15, 0.85, 0, 6));
@@ -2529,6 +2594,7 @@ export class Renderer {
     const top = h + 11;
     const occ = ghost ? 0 : s.residents / STRUCTURES.cottage.capacity;
     this.drawBox(ctx, L, x0, y0, x1, y1, 0, h, v.wall, false);
+    this.drawPlinth(ctx, L, x0, y0, x1, y1, v.wall);
     const xm = (x0 + x1) / 2;
     const o = 0.04;
     const roof = this.roofColor(v.roof);
@@ -2541,10 +2607,9 @@ export class Renderer {
     ctx.fillStyle = lit(roof, 0.82, L);
     poly(ctx, [[x1 + o, y0 - o, h], [x1 + o, y1 + o, h], [xm, y1 + o, top], [xm, y0 - o, top]]);
     ctx.fill();
+    this.roofLines(ctx, L, v, [[xm, y0 - o, top], [xm, y1 + o, top]], [[x0 - o, y1 + o, h], [xm, y1 + o, top], [x1 + o, y1 + o, h]]);
     // Door and a round attic window on the gable.
-    ctx.fillStyle = lit(v.roof, 0.7, L);
-    poly(ctx, this.faceQuad('L', x0, y0, x1, y1, 0.38, 0.62, 0, 6.5));
-    ctx.fill();
+    this.drawDoor(ctx, L, x0, y0, x1, y1, 0.36, 0.64, 6.5, mixHex(v.roof, '#6b4630', 0.55), v.trim);
     const w = gridToWorld(xm, y1, h + 4.5);
     const isLit = this.isWindowLit(x, y, 0, occ, L);
     ctx.fillStyle = isLit ? lit(PALETTE.windowLit, 1.1, NEUTRAL_LIGHT) : lit(PALETTE.glass, 0.95, L);
@@ -2930,6 +2995,7 @@ export class Renderer {
     ctx.fillStyle = lit(roof, 1.02, L);
     poly(ctx, [[x0 - e, y1 + e, h], [x1 + e, y1 + e, h], [x1 + e, ym, h + rise], [x0 - e, ym, h + rise]]);
     ctx.fill();
+    this.roofLines(ctx, L, { roof }, [[x0 - e, ym, h + rise], [x1 + e, ym, h + rise]], [[x1 + e, y1 + e, h], [x1 + e, ym, h + rise], [x1 + e, y0 - e, h]], [[x0 - e, y1 + e, h], [x1 + e, y1 + e, h]]);
   }
 
   // A bakery: a cream cottage with a big shop window, a bread sign and a warm oven chimney that

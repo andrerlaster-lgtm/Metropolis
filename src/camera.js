@@ -16,6 +16,7 @@ export class Camera {
     this.viewH = 1;
     this.bounds = null;
     this.smooth = true;
+    this.anchor = null; // while a zoom eases: the world point that stays under the pointer
   }
 
   setViewport(w, h) {
@@ -30,9 +31,28 @@ export class Camera {
 
   update(dt) {
     const k = this.smooth ? 1 - Math.exp(-dt * 12) : 1;
+    this.zoom = Math.exp(Math.log(this.zoom) + (Math.log(this.tzoom) - Math.log(this.zoom)) * k);
+    if (Math.abs(Math.log(this.tzoom / this.zoom)) < 0.0005) this.zoom = this.tzoom;
+    const a = this.anchor;
+    if (a && this.zoom !== this.tzoom) {
+      // Zooming: the spot under the pointer stays exactly under it all the way in or out, instead of
+      // the view sliding there on its own curve.
+      this.x = a.wx - a.ox / this.zoom;
+      this.y = a.wy - a.oy / this.zoom;
+      return;
+    }
+    if (a) {
+      // The zoom has arrived: land exactly where it was heading.
+      this.x = this.tx;
+      this.y = this.ty;
+    }
+    this.anchor = null;
     this.x += (this.tx - this.x) * k;
     this.y += (this.ty - this.y) * k;
-    this.zoom = Math.exp(Math.log(this.zoom) + (Math.log(this.tzoom) - Math.log(this.zoom)) * k);
+    // Settle exactly on the target rather than creeping toward it for ever.
+    const near = 0.05 / this.zoom;
+    if (Math.abs(this.tx - this.x) < near) this.x = this.tx;
+    if (Math.abs(this.ty - this.y) < near) this.y = this.ty;
   }
 
   screenToWorld(sx, sy) {
@@ -44,6 +64,7 @@ export class Camera {
 
   // Dragging moves the view exactly with the finger; the target follows so nothing snaps back.
   panBy(dx, dy) {
+    this.anchor = null;
     this.x -= dx / this.zoom;
     this.y -= dy / this.zoom;
     this.tx = this.x;
@@ -52,6 +73,7 @@ export class Camera {
   }
 
   fling(vx, vy) {
+    this.anchor = null;
     this.tx -= (vx * 0.22) / this.zoom;
     this.ty -= (vy * 0.22) / this.zoom;
     this.clampTarget();
@@ -66,7 +88,11 @@ export class Camera {
     this.tzoom = nz;
     this.tx = wx - ox / nz;
     this.ty = wy - oy / nz;
+    const freeX = this.tx;
+    const freeY = this.ty;
     this.clampTarget();
+    // Hold the pointer's spot while the zoom eases, unless the edge of the map pushed the view aside.
+    this.anchor = !immediate && this.tx === freeX && this.ty === freeY ? { ox, oy, wx, wy } : null;
     if (immediate) {
       this.x = this.tx;
       this.y = this.ty;
@@ -78,6 +104,7 @@ export class Camera {
   fit(insets = { top: 0, right: 0, bottom: 0, left: 0 }, immediate = false, rect = this.bounds) {
     const b = rect;
     if (!b) return;
+    this.anchor = null;
     const availW = Math.max(120, this.viewW - insets.left - insets.right);
     const availH = Math.max(120, this.viewH - insets.top - insets.bottom);
     const z = clamp(Math.min(availW / (b.right - b.left), availH / (b.bottom - b.top)) * 0.94, 0.15, 2.2);

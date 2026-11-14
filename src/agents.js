@@ -207,11 +207,26 @@ export class AgentSystem {
     const dx = c.nx - c.x;
     const dy = c.ny - c.y;
     const lane = 0.16;
+    // Coming out of a turn, ease from the lane and heading of the street just left into this one's
+    // over the first half of the tile, so a car rounds the corner instead of hopping sideways.
+    const pdx = c.x - c.px;
+    const pdy = c.y - c.py;
+    const turned = (pdx || pdy) && (pdx !== dx || pdy !== dy) && (dx || dy);
+    let fx = dx;
+    let fy = dy;
+    if (turned) {
+      const u = Math.min(1, c.t / 0.5);
+      const k = u * u * (3 - 2 * u);
+      fx = pdx + (dx - pdx) * k;
+      fy = pdy + (dy - pdy) * k;
+    }
+    // Turning right back at a dead end, the heading can't blend (it would pass through nothing).
+    const about = turned && pdx === -dx && pdy === -dy;
     return {
-      gx: c.x + dx * c.t + 0.5 - dy * lane,
-      gy: c.y + dy * c.t + 0.5 + dx * lane,
-      dx,
-      dy,
+      gx: c.x + dx * c.t + 0.5 - fy * lane,
+      gy: c.y + dy * c.t + 0.5 + fx * lane,
+      dx: about ? dx : fx,
+      dy: about ? dy : fy,
     };
   }
 

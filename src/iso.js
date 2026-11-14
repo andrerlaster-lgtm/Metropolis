@@ -5,8 +5,13 @@ import { TILE_W, TILE_H } from './config.js';
 export const HALF_W = TILE_W / 2;
 export const HALF_H = TILE_H / 2;
 
+// Height scale for whatever is being drawn right now (1 = full height). The renderer lowers it while a
+// building pops up or stretches, so the building grows straight up from its footprint: its base never
+// leaves the tile. Only ever changed around a single draw call, and always put back to 1.
+export const ISO = { z: 1 };
+
 export function gridToWorld(gx, gy, z = 0) {
-  return { x: (gx - gy) * HALF_W, y: (gx + gy) * HALF_H - z };
+  return { x: (gx - gy) * HALF_W, y: (gx + gy) * HALF_H - z * ISO.z };
 }
 
 export function worldToGrid(wx, wy) {

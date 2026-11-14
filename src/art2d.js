@@ -3,7 +3,7 @@
 // draw: the rules for what each building does live in config.js and the systems that read it.
 
 import { PALETTE, STRUCTURES } from './config.js';
-import { HALF_W, HALF_H, gridToWorld } from './iso.js';
+import { HALF_W, HALF_H, gridToWorld, ISO } from './iso.js';
 import { lit, litA } from './color.js';
 import { hash2 } from './utils.js';
 
@@ -12,7 +12,7 @@ function poly(ctx, pts) {
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
     const px = (p[0] - p[1]) * HALF_W;
-    const py = (p[0] + p[1]) * HALF_H - (p[2] || 0);
+    const py = (p[0] + p[1]) * HALF_H - (p[2] || 0) * ISO.z;
     if (i) ctx.lineTo(px, py);
     else ctx.moveTo(px, py);
   }
@@ -53,7 +53,7 @@ function windowRow(r, ctx, L, face, b, n, v0, v1, light, idx = 0, u0 = 0.1, u1 =
 
 // A door on the left (front) face.
 function doorL(r, ctx, L, b, u0, u1, h, color = '#8a5a3b') {
-  fillPoly(ctx, L, r.faceQuad('L', b.x0, b.y0, b.x1, b.y1, u0, u1, 0, h), color, 0.9);
+  r.drawDoor(ctx, L, b.x0, b.y0, b.x1, b.y1, u0, u1, h, color);
 }
 
 // Stripes of an awning sloping out from the front face at height v, over the box's front.
@@ -77,7 +77,8 @@ function smoke(r, ctx, L, x, y, z, seed, size = 1, tone = '#f2eee8') {
   const top = gridToWorld(x, y, z);
   for (let i = 0; i < 3; i++) {
     const t = (r.time * 0.3 + i / 3 + hash2(Math.floor(x * 10), Math.floor(y * 10), seed)) % 1;
-    ctx.fillStyle = litA(tone, 1, L, (0.5 * (1 - t)).toFixed(3));
+    // Each puff fades in as it leaves the stack and out as it rises, so the loop has no visible start.
+    ctx.fillStyle = litA(tone, 1, L, (0.5 * (1 - t) * Math.min(1, t * 8)).toFixed(3));
     ctx.beginPath();
     ctx.arc(top.x + t * 7 * size + Math.sin(t * 6) * 1.5, top.y - t * 16 * size, (1.8 + t * 3.5) * size, 0, Math.PI * 2);
     ctx.fill();
@@ -88,10 +89,12 @@ function smoke(r, ctx, L, x, y, z, seed, size = 1, tone = '#f2eee8') {
 
 function bungalow(ctx, x, y, s, L, ghost) {
   const v = this.variantOf(s, 'mint');
-  const b = { x0: x + 0.12, x1: x + 0.88, y0: y + 0.3, y1: y + 0.7 };
+  // Set back a touch so the house and its veranda together sit in the middle of the tile.
+  const b = { x0: x + 0.12, x1: x + 0.88, y0: y + 0.27, y1: y + 0.67 };
   const h = 9;
   const light = lightOf(this, x, y, s, ghost, L, 'home');
   this.drawBox(ctx, L, b.x0, b.y0, b.x1, b.y1, 0, h, v.wall, false);
+  this.drawPlinth(ctx, L, b.x0, b.y0, b.x1, b.y1, v.wall);
   windowRow(this, ctx, L, 'L', b, 3, 3, 7, light, 0, 0.08, 0.68);
   doorL(this, ctx, L, b, 0.76, 0.9, 7);
   windowRow(this, ctx, L, 'R', b, 2, 3, 7, light, 3, 0.15, 0.85);
@@ -110,10 +113,10 @@ function rowhouse(ctx, x, y, s, L, ghost) {
     const x0 = x + 0.1 + k * 0.265;
     const b = { x0, x1: x0 + 0.265, y0: y + 0.26, y1: y + 0.74 };
     this.drawBox(ctx, L, b.x0, b.y0, b.x1, b.y1, 0, hs[k], walls[k], false);
-    this.drawWindow(ctx, L, this.faceQuad('L', b.x0, b.y0, b.x1, b.y1, 0.2, 0.8, 3, 8), 0.92, light.lit(k));
+    this.drawPlinth(ctx, L, b.x0, b.y0, b.x1, b.y1, walls[k]);
     this.drawWindow(ctx, L, this.faceQuad('L', b.x0, b.y0, b.x1, b.y1, 0.12, 0.38, hs[k] - 9, hs[k] - 3), 0.92, light.lit(k + 3));
     this.drawWindow(ctx, L, this.faceQuad('L', b.x0, b.y0, b.x1, b.y1, 0.62, 0.88, hs[k] - 9, hs[k] - 3), 0.92, light.lit(k + 6));
-    fillPoly(ctx, L, this.faceQuad('L', b.x0, b.y0, b.x1, b.y1, 0.4, 0.6, 0, 7), '#7a4b2e', 0.9);
+    this.drawDoor(ctx, L, b.x0, b.y0, b.x1, b.y1, 0.36, 0.64, 7.5, '#7a4b2e');
     if (k === 2) this.drawWindow(ctx, L, this.faceQuad('R', b.x0, b.y0, b.x1, b.y1, 0.25, 0.75, 5, 12), 0.8, light.lit(9));
     this.gableRoof(ctx, L, b.x0, b.y0, b.x1, b.y1, hs[k], 6 + k % 2 * 2, roofs[k], walls[k]);
   }
@@ -125,6 +128,7 @@ function villa(ctx, x, y, s, L, ghost) {
   const b = { x0: x + 0.2, x1: x + 0.8, y0: y + 0.24, y1: y + 0.72 };
   const h = 16;
   this.drawBox(ctx, L, b.x0, b.y0, b.x1, b.y1, 0, h, '#fbf3e4', false);
+  this.drawPlinth(ctx, L, b.x0, b.y0, b.x1, b.y1, '#fbf3e4');
   windowRow(this, ctx, L, 'L', b, 3, 4, 11, light, 0, 0.18, 0.84);
   windowRow(this, ctx, L, 'R', b, 2, 4, 11, light, 3, 0.15, 0.85);
   doorL(this, ctx, L, b, 0.4, 0.55, 8, '#6b4630');
